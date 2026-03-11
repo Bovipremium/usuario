@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Despesas por Mês - Bovi Premium</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
+      min-height: 100vh;
+      color: #e5f3ee;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* HEADER */
+    .header {
+      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 20px 40px rgba(0,0,0,.45);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      color: #1fa37a;
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 12px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+      backdrop-filter: blur(8px);
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(31,163,122,.2);
+    }
+
+    .btn-gold {
+      background: linear-gradient(145deg, rgba(212,175,55,.3), rgba(212,175,55,.15));
+      color: #d4af37;
+      border-color: rgba(212,175,55,.3);
+    }
+
+    .btn-gold:hover {
+      background: linear-gradient(145deg, rgba(212,175,55,.4), rgba(212,175,55,.25));
+      box-shadow: 0 10px 20px rgba(212,175,55,.2);
+    }
+
+    .btn-add {
+      background: linear-gradient(145deg, rgba(76,175,80,.3), rgba(76,175,80,.15));
+      color: #81c784;
+      border-color: rgba(76,175,80,.3);
+    }
+
+    .btn-add:hover {
+      background: linear-gradient(145deg, rgba(76,175,80,.4), rgba(76,175,80,.25));
+      box-shadow: 0 10px 20px rgba(76,175,80,.2);
+    }
+
+    /* TABELA */
+    .tabela-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(14px);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      border-bottom: 2px solid rgba(31,163,122,.3);
+    }
+
+    th {
+      color: #7cf0c2;
+      padding: 15px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+
+    tbody tr:hover {
+      background: rgba(31,163,122,.15);
+      transform: scale(1.01);
+    }
+
+    td {
+      padding: 15px;
+      color: #b9d8ce;
+      font-size: 14px;
+    }
+
+    .valor {
+      color: #d4af37;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .mes-link {
+      color: #1fa37a;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #8fb9ac;
+    }
+
+    .loader-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.9);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      backdrop-filter: blur(4px);
+    }
+
+    .loader-container.hidden {
+      display: none;
+    }
+
+    .spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(31, 163, 122, 0.2);
+      border-top: 4px solid #1fa37a;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loader-text {
+      color: #7cf0c2;
+      font-size: 16px;
+      font-weight: 500;
+      margin-top: 20px;
+    }
+
+    /* MODAL */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 10000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.visible {
+      display: flex;
+    }
+
+    .modal {
+      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    }
+
+    .modal-header {
+      color: #1fa37a;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: #7cf0c2;
+      font-size: 28px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .modal-close:hover {
+      color: #1fa37a;
+      transform: scale(1.1);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      color: #7cf0c2;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .form-group input[type="file"],
+    .form-group input[type="text"],
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(31,163,122,.2);
+      border-radius: 8px;
+      color: #e5f3ee;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+    }
+
+    .form-group input[type="file"]::file-selector-button {
+      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+      color: #7cf0c2;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      margin-right: 10px;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: rgba(31,163,122,.5);
+      background: rgba(255,255,255,.08);
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 30px;
+    }
+
+    .form-actions button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-confirm {
+      background: linear-gradient(145deg, rgba(76,175,80,.3), rgba(76,175,80,.15));
+      color: #81c784;
+      border: 1px solid rgba(76,175,80,.3);
+    }
+
+    .btn-confirm:hover {
+      background: linear-gradient(145deg, rgba(76,175,80,.4), rgba(76,175,80,.25));
+      box-shadow: 0 10px 20px rgba(76,175,80,.2);
+    }
+
+    .btn-cancel {
+      background: linear-gradient(145deg, rgba(244,67,54,.3), rgba(244,67,54,.15));
+      color: #ef5350;
+      border: 1px solid rgba(244,67,54,.3);
+    }
+
+    .btn-cancel:hover {
+      background: linear-gradient(145deg, rgba(244,67,54,.4), rgba(244,67,54,.25));
+      box-shadow: 0 10px 20px rgba(244,67,54,.2);
+    }
+
+    .preview-table {
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid rgba(31,163,122,.2);
+      border-radius: 8px;
+    }
+
+    .preview-table table {
+      font-size: 12px;
+    }
+
+    .preview-table td {
+      padding: 8px;
+    }
+
+    .error-message {
+      background: rgba(244,67,54,.2);
+      border: 1px solid rgba(244,67,54,.3);
+      color: #ef5350;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 13px;
+    }
+
+    .success-message {
+      background: rgba(76,175,80,.2);
+      border: 1px solid rgba(76,175,80,.3);
+      color: #81c784;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 13px;
+    }
+
+    /* TABS */
+    .tabs-header {
+      display: flex;
+      gap: 10px;
+      border-bottom: 2px solid rgba(31,163,122,.2);
+      margin-bottom: 30px;
+      margin-top: -10px;
+      margin-left: -30px;
+      margin-right: -30px;
+      padding: 0 30px 15px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: #8fb9ac;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 15px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -15px;
+      padding-bottom: 13px;
+    }
+
+    .tab-btn:hover {
+      color: #7cf0c2;
+    }
+
+    .tab-btn.active {
+      color: #1fa37a;
+      border-bottom-color: #1fa37a;
+    }
+
+    .tab-content {
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .header h1 {
+        font-size: 24px;
+      }
+
+      .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        flex: 1;
+        min-width: 120px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loaderContainer" class="loader-container">
+  <div style="text-align: center;">
+    <div class="spinner"></div>
+    <div class="loader-text">⏳ Carregando despesas...</div>
+  </div>
+</div>
+
+<div class="container">
+  <!-- HEADER -->
+  <div class="header">
+    <h1>💰 Despesas por Mês</h1>
+    <div class="header-actions">
+      <button class="btn btn-add" onclick="abrirModalAdicionar()">➕ Adicionar Despesas</button>
+      <button class="btn btn-gold" onclick="window.location.href='analise-vendedor.html'">📈 Análise Vendedor</button>
+      <button class="btn" onclick="window.location.href='index.html'">← Dashboard</button>
+    </div>
+  </div>
+
+  <!-- TABELA -->
+  <div class="tabela-section">
+    <table>
+      <thead>
+        <tr>
+          <th>Mês</th>
+          <th>Ano</th>
+          <th style="text-align: right;">Total</th>
+          <th style="text-align: center; width: 100px;">Ação</th>
+        </tr>
+      </thead>
+      <tbody id="corpoDespesas">
+        <tr>
+          <td colspan="4" class="empty-state">
+            <div>Carregando dados...</div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL: ADICIONAR DESPESAS -->
+<div id="modalAdicionar" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span>➕ Adicionar Despesas</span>
+      <button class="modal-close" onclick="fecharModalAdicionar()">✕</button>
+    </div>
+
+    <!-- ABAS -->
+    <div class="tabs-header">
+      <button class="tab-btn active" id="btn-importar" onclick="selecionarAba('importar')">📁 Importar Arquivo</button>
+      <button class="tab-btn" id="btn-manual" onclick="selecionarAba('manual')">✏️ Entrada Manual</button>
+    </div>
+
+    <div id="modalContent">
+      <div id="alertMessage"></div>
+
+      <!-- ABA 1: IMPORTAR ARQUIVO -->
+      <div id="tab-importar" class="tab-content">
+        <div class="form-group">
+          <label>📁 Selecionar Arquivo (CSV ou Excel)</label>
+          <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="procesarArquivo()">
+          <small style="color: #8fb9ac; display: block; margin-top: 8px;">
+            Formato esperado: Data | Descrição | Valor | Categoria
+          </small>
+        </div>
+
+        <div id="previewSection" style="display: none;">
+          <label style="color: #7cf0c2; font-weight: 600; margin-bottom: 8px; display: block;">📋 Preview dos Dados:</label>
+          <div class="preview-table">
+            <table id="previewTable">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Valor</th>
+                  <th>Categoria</th>
+                </tr>
+              </thead>
+              <tbody id="previewBody"></tbody>
+            </table>
+          </div>
+
+          <div class="form-group" style="margin-top: 20px;">
+            <label>📂 Categoria Padrão (para valores vazios):</label>
+            <select id="categoriaPadrao">
+              <option value="">-- Selecionar --</option>
+              <option value="BANCO">BANCO</option>
+              <option value="POSTO">POSTO</option>
+              <option value="TRANSPORTADORA">TRANSPORTADORA</option>
+              <option value="ENERGIA">ENERGIA</option>
+              <option value="AGUA">AGUA</option>
+              <option value="IMPOSTO">IMPOSTO</option>
+              <option value="MERCADO">MERCADO</option>
+              <option value="PESSOA">PESSOA</option>
+              <option value="FACEBOOK">FACEBOOK</option>
+              <option value="OUTRO">OUTRO</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-confirm" onclick="salvarDespesas()" id="btnSalvar" style="display: none;">✅ Salvar Despesas</button>
+          <button class="btn-cancel" onclick="fecharModalAdicionar()">❌ Cancelar</button>
+        </div>
+      </div>
+
+      <!-- ABA 2: ENTRADA MANUAL -->
+      <div id="tab-manual" class="tab-content" style="display: none;">
+        <div style="margin-bottom: 20px;">
+          <button type="button" class="btn-confirm" onclick="adicionarLinhaManual()" style="width: 100%; padding: 10px;">➕ Adicionar Nova Despesa</button>
+        </div>
+
+        <div id="containerDespesasManual" style="max-height: 400px; overflow-y: auto; border: 1px solid rgba(31,163,122,.2); border-radius: 8px; padding: 15px;">
+          <!-- As linhas de despesa serão adicionadas aqui -->
+        </div>
+
+        <div class="form-actions" style="margin-top: 20px;">
+          <button type="button" class="btn-confirm" onclick="salvarTugasDespesasManual()">✅ Salvar Todas</button>
+          <button type="button" class="btn-cancel" onclick="fecharModalAdicionar()">❌ Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CSS PARA LINHAS DE DESPESA -->
+<style>
+  .linha-despesa {
+    background: rgba(31,163,122,.1);
+    border: 1px solid rgba(31,163,122,.2);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    position: relative;
+  }
+
+  .linha-despesa input,
+  .linha-despesa textarea,
+  .linha-despesa select {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(31,163,122,.2);
+    border-radius: 4px;
+    color: #e5f3ee;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+  }
+
+  .linha-despesa input:focus,
+  .linha-despesa textarea:focus,
+  .linha-despesa select:focus {
+    outline: none;
+    border-color: rgba(31,163,122,.5);
+    background: rgba(255,255,255,.08);
+  }
+
+  .btn-deletar-linha {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(244,67,54,.3);
+    color: #ef5350;
+    border: 1px solid rgba(244,67,54,.3);
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  .btn-deletar-linha:hover {
+    background: rgba(244,67,54,.5);
+  }
+</style>
+
+<script src="config.js"></script>
+<script src="auth-utils.js"></script>
+<script src="auth.js"></script>
+<script>
+
+  let todasDespesas = [];
+  const mesesNomes = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await carregarDespesas();
+    renderizarPorMes();
+  });
+
+  async function carregarDespesas() {
+    try {
+      const loaderContainer = document.getElementById('loaderContainer');
+      loaderContainer.classList.remove('hidden');
+
+      console.log('📥 Buscando despesas.json...');
+      const dados = await buscarArquivo("despesas.json");
+      todasDespesas = Array.isArray(dados) ? dados : (dados.dados || []);
+      
+      console.log('✅ Despesas carregadas:', todasDespesas.length);
+      console.log('📋 Dados:', todasDespesas);
+    } catch (erro) {
+      console.error('❌ Erro ao carregar despesas:', erro);
+      console.error('⚠️ Verifique se o arquivo despesas.json existe no Google Drive');
+      todasDespesas = [];
+    } finally {
+      setTimeout(() => {
+        document.getElementById('loaderContainer').classList.add('hidden');
+      }, 500);
+    }
+  }
+
+  function renderizarPorMes() {
+    // Agrupar despesas por mês/ano
+    const mesesAgrupados = {};
+
+    todasDespesas.forEach(d => {
+      const chave = `${d.Ano}-${String(d.Mes).padStart(2, '0')}`;
+      if (!mesesAgrupados[chave]) {
+        mesesAgrupados[chave] = {
+          Mes: d.Mes,
+          Ano: d.Ano,
+          Total: 0,
+          Despesas: []
+        };
+      }
+      mesesAgrupados[chave].Total += d.Valor || 0;
+      mesesAgrupados[chave].Despesas.push(d);
+    });
+
+    // Ordenar por ano/mês decrescente
+    const mesesOrdenados = Object.values(mesesAgrupados).sort((a, b) => {
+      if (b.Ano !== a.Ano) return b.Ano - a.Ano;
+      return b.Mes - a.Mes;
+    });
+
+    console.log('📊 Meses agrupados:', mesesOrdenados);
+
+    const corpoDespesas = document.getElementById('corpoDespesas');
+
+    if (mesesOrdenados.length === 0) {
+      corpoDespesas.innerHTML = `
+        <tr>
+          <td colspan="4" class="empty-state">
+            <div>Nenhuma despesa encontrada</div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    corpoDespesas.innerHTML = mesesOrdenados.map(mes => `
+      <tr onclick="abrirDetalhes(${mes.Mes}, ${mes.Ano})">
+        <td><span class="mes-link">${mesesNomes[mes.Mes]}</span></td>
+        <td>${mes.Ano}</td>
+        <td class="valor">${formatarMoeda(mes.Total)}</td>
+        <td style="text-align: center;">
+          <button class="btn" style="padding: 6px 12px; font-size: 12px;" onclick="abrirDetalhes(${mes.Mes}, ${mes.Ano}); return false;">📋 Detalhes</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function abrirDetalhes(mes, ano) {
+    // Pegar despesas daquele mês
+    const despesasDoMes = todasDespesas.filter(d => d.Mes === mes && d.Ano === ano);
+    
+    // Passar via window (backup) e URL (melhor)
+    window.despesasDoMes = despesasDoMes;
+    window.mesSelecionado = mes;
+    window.anoSelecionado = ano;
+    
+    console.log(`📋 Abrindo detalhes de ${mesesNomes[mes]}/${ano}:`, despesasDoMes.length, 'despesas');
+    
+    // Passar via URL para maior confiabilidade
+    window.location.href = `despesas-detalhes.html?mes=${mes}&ano=${ano}`;
+  }
+
+  function formatarMoeda(valor) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor || 0);
+  }
+
+  // FUNÇÕES DO MODAL
+  let arquivoProcessado = [];
+  let despesasManualListaCounter = 0;  // Contador para IDs únicos das linhas
+
+  function abrirModalAdicionar() {
+    console.log('🔓 Abrindo modal de adicionar despesas');
+    const modal = document.getElementById('modalAdicionar');
+    modal.classList.add('visible');
+    
+    // Limpar dados anteriores
+    document.getElementById('fileInput').value = '';
+    document.getElementById('previewSection').style.display = 'none';
+    document.getElementById('btnSalvar').style.display = 'none';
+    document.getElementById('alertMessage').innerHTML = '';
+    document.getElementById('containerDespesasManual').innerHTML = '';
+    despesasManualListaCounter = 0;
+    arquivoProcessado = [];
+    
+    // Mostrar aba "Importar" por padrão
+    selecionarAba('importar');
+    // Adicionar uma linha vazia por padrão na aba manual
+    adicionarLinhaManual();
+  }
+
+  function adicionarLinhaManual() {
+    console.log('➕ Adicionando linha manual de despesa');
+    const container = document.getElementById('containerDespesasManual');
+    const id = despesasManualListaCounter++;
+
+    const html = `
+      <div class="linha-despesa" id="linha-${id}">
+        <button type="button" class="btn-deletar-linha" onclick="deletarLinhaManual(${id})">🗑️ Deletar</button>
+
+        <label style="color: #7cf0c2; font-weight: 600; font-size: 12px; display: block; margin-bottom: 8px;">📅 Data *</label>
+        <input type="date" class="data-despesa" id="data-${id}" required>
+
+        <label style="color: #7cf0c2; font-weight: 600; font-size: 12px; display: block; margin-bottom: 8px;">📝 Descrição *</label>
+        <textarea class="descricao-despesa" id="desc-${id}" placeholder="Ex: Compra de combustível" required></textarea>
+
+        <label style="color: #7cf0c2; font-weight: 600; font-size: 12px; display: block; margin-bottom: 8px;">💰 Valor *</label>
+        <input type="number" class="valor-despesa" id="valor-${id}" placeholder="0.00" step="0.01" min="0" required onchange="autoCategorizarLinha(${id})">
+
+        <label style="color: #7cf0c2; font-weight: 600; font-size: 12px; display: block; margin-bottom: 8px;">📂 Categoria</label>
+        <select class="categoria-despesa" id="categoria-${id}">
+          <option value="">-- Auto (pela descrição) --</option>
+          <option value="BANCO">BANCO</option>
+          <option value="POSTO">POSTO</option>
+          <option value="TRANSPORTADORA">TRANSPORTADORA</option>
+          <option value="ENERGIA">ENERGIA</option>
+          <option value="AGUA">AGUA</option>
+          <option value="IMPOSTO">IMPOSTO</option>
+          <option value="MERCADO">MERCADO</option>
+          <option value="PESSOA">PESSOA</option>
+          <option value="FACEBOOK">FACEBOOK</option>
+          <option value="SISTEMAS">SISTEMAS</option>
+          <option value="EMBALAGEM">EMBALAGEM</option>
+          <option value="CELULAR">CELULAR</option>
+          <option value="GRAFICA">GRAFICA</option>
+          <option value="MANUTENCAO">MANUTENCAO</option>
+          <option value="OUTRO">OUTRO</option>
+        </select>
+
+        <label style="color: #7cf0c2; font-weight: 600; font-size: 12px; display: block; margin-bottom: 8px;">📋 Observações</label>
+        <textarea class="observacoes-despesa" id="obs-${id}" placeholder="Notas (opcional)" style="height: 50px;"></textarea>
+      </div>
+    `;
+
+    container.innerHTML += html;
+    
+    // Colocar foco na data para preencher
+    document.getElementById(`data-${id}`).focus();
+  }
+
+  function deletarLinhaManual(id) {
+    const linha = document.getElementById(`linha-${id}`);
+    if (linha) {
+      linha.remove();
+      console.log(`🗑️ Linha ${id} deletada`);
+    }
+  }
+
+  function autoCategorizarLinha(id) {
+    const descricao = document.getElementById(`desc-${id}`)?.value || '';
+    const categoriaSelect = document.getElementById(`categoria-${id}`);
+    
+    if (descricao && !categoriaSelect.value) {
+      const catAuto = autoCategorizar(descricao);
+      categoriaSelect.value = catAuto;
+      console.log(`🏷️ Linha ${id} auto-categorizada: ${catAuto}`);
+    }
+  }
+
+  async function salvarTugasDespesasManual() {
+    try {
+      console.log('💾 Salvando múltiplas despesas manuais...');
+      
+      const container = document.getElementById('containerDespesasManual');
+      const linhas = container.querySelectorAll('.linha-despesa');
+      
+      if (linhas.length === 0) {
+        mostrarAlerta('❌ Nenhuma despesa para salvar', 'error');
+        return;
+      }
+
+      let novasDespesas = [];
+      let erros = [];
+
+      // Validar e coletar todas as despesas
+      for (let i = 0; i < linhas.length; i++) {
+        const linha = linhas[i];
+        const id = linha.id.replace('linha-', '');
+
+        const data = document.getElementById(`data-${id}`)?.value;
+        let descricao = document.getElementById(`desc-${id}`)?.value || '';
+        let valor = document.getElementById(`valor-${id}`)?.value || '0';
+        const categoriaSelect = document.getElementById(`categoria-${id}`)?.value || '';
+        const observacoes = document.getElementById(`obs-${id}`)?.value || '';
+
+        // LIMPAR DESCRIÇÃO - remover tudo entre parênteses
+        // Ex: "ROBERSON WILLIAN DA CO (grafica)" → "ROBERSON WILLIAN DA CO"
+        descricao = descricao.replace(/\s*\([^)]*\)/g, '').trim();
+
+        // PARSE CORRETO DE VALOR - Suporta virgula, ponto e R$
+        valor = String(valor).trim();
+        valor = valor.replace(/R\$\s*/g, '');  // Remove R$
+        valor = valor.replace(/\s/g, '');      // Remove espaços
+        valor = valor.replace(',', '.');       // Virgula → ponto
+        valor = parseFloat(valor) || 0;
+        
+        console.log(`💰 Valor original: "${document.getElementById(`valor-${id}`)?.value}" → Parseado: ${valor}`);
+
+        // Validar
+        if (!data) {
+          erros.push(`Linha ${i + 1}: Data é obrigatória`);
+          continue;
+        }
+        if (!descricao.trim()) {
+          erros.push(`Linha ${i + 1}: Descrição é obrigatória`);
+          continue;
+        }
+        if (valor <= 0) {
+          erros.push(`Linha ${i + 1}: Valor deve ser maior que 0`);
+          continue;
+        }
+
+        // Auto-categorizar se não selecionou
+        const categoria = categoriaSelect || autoCategorizar(descricao);
+
+        // Parse da data (formato: YYYY-MM-DD do input date)
+        const dateParts = data.split('-');
+        const ano = parseInt(dateParts[0]);
+        const mes = parseInt(dateParts[1]);
+        const dia = parseInt(dateParts[2]);
+
+        const despesa = {
+          Id: Date.now() + Math.random() + i,  // ID único
+          Data: `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`,
+          Descricao: descricao.trim(),
+          Valor: valor,
+          Categoria: categoria,
+          Mes: mes,
+          Ano: ano,
+          Observacoes: observacoes.trim(),
+          Origem: 'Site',
+          DataCadastro: new Date().toISOString()
+        };
+
+        novasDespesas.push(despesa);
+      }
+
+      // Se teve erros, mostra e não salva
+      if (erros.length > 0) {
+        mostrarAlerta(`❌ Erros encontrados:\n${erros.join('\n')}`, 'error');
+        return;
+      }
+
+      if (novasDespesas.length === 0) {
+        mostrarAlerta('❌ Nenhuma despesa válida para salvar', 'error');
+        return;
+      }
+
+      // Salvar todas as despesas
+      const todasAsDespesas = [...todasDespesas, ...novasDespesas];
+      
+      // Usar FormData para POST com CORS correto
+      const formData = new FormData();
+      formData.append('acao', 'salvarArquivo');
+      formData.append('arquivo', 'despesas.json');
+      formData.append('dados', JSON.stringify(todasAsDespesas));
+
+      console.log('📤 Enviando para:', API_URL);
+      const response = await AuthManager.requisicaoSegura(API_URL, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.status === 'success' || result.message === 'OK') {
+        // Registrar auditoria
+        const usuario = JSON.parse(localStorage.getItem('usuarioLogado') || '{}');
+        const auditoria = {
+          Acao: 'ADICIONAR_DESPESAS_MANUAL',
+          Descricao: `Adicionadas ${novasDespesas.length} despesas manualmente`,
+          Usuario: usuario.Nome || usuario.Email || 'Desconhecido',
+          DataHora: new Date().toISOString()
+        };
+        await registrarAuditoria(auditoria);
+
+        mostrarAlerta(`✅ ${novasDespesas.length} despesas salvas com sucesso!`, 'success');
+        
+        // Atualizar UI
+        todasDespesas = todasAsDespesas;
+        renderizarPorMes();
+        
+        setTimeout(() => fecharModalAdicionar(), 1500);
+      } else {
+        throw new Error(result.message || 'Erro ao salvar');
+      }
+
+    } catch (erro) {
+      console.error('❌ Erro ao salvar despesas:', erro);
+      console.error('Stack completo:', erro.stack);
+      let mensagem = erro.message || 'Erro desconhecido';
+      
+      // Melhorar mensagens de erro específicas
+      if (erro.message.includes('Failed to fetch')) {
+        mensagem = 'Erro de conexão. Verifique se o Google Apps Script está ativo.';
+      } else if (erro.message.includes('HTTP')) {
+        mensagem = `Erro do servidor: ${erro.message}`;
+      }
+      
+      mostrarAlerta(`❌ Erro: ${mensagem}`, 'error');
+    }
+  }
+
+  function fecharModalAdicionar() {
+    console.log('🔐 Fechando modal de adicionar despesas');
+    const modal = document.getElementById('modalAdicionar');
+    modal.classList.remove('visible');
+    
+    // Limpar
+    document.getElementById('fileInput').value = '';
+    document.getElementById('previewSection').style.display = 'none';
+    document.getElementById('btnSalvar').style.display = 'none';
+    document.getElementById('alertMessage').innerHTML = '';
+    document.getElementById('containerDespesasManual').innerHTML = '';
+    despesasManualListaCounter = 0;
+    arquivoProcessado = [];
+  }
+
+  // ✅ AUTO-CATEGORIZAÇÃO PELA DESCRIÇÃO
+  function autoCategorizar(descricao) {
+    const desc = (descricao || '').toUpperCase().trim();
+    
+    // Limpar descrição - remover tudo entre parênteses (categoria entre parênteses)
+    let descLimpa = desc.replace(/\s*\([^)]*\)/g, '').trim();
+    
+    const regras = {
+      'GRAFICA': ['GRAFICA', 'CO', 'IMPRESSAO', 'IMPRESSÃO', 'ROBERSON WILLIAN'],
+      'BANCO': ['TARIFA', 'BANCO', 'TRANSFERÊNCIA', 'TED', 'DOC', 'TAXA', 'CESTA DE RELACIONAMENTO', 'BOLETO', 'MANUTENCAO DE TITULOS', 'LIQUIDACAO BOLETO', 'LIQUIDACAO PIXCOB'],
+      'POSTO': ['POSTO', 'COMBUSTÍVEL', 'GASOLINA', 'DIESEL', 'ABASTEC', 'FELIS', 'SILVA'],
+      'TRANSPORTADORA': ['TRANSPORTADORA', 'FRETE', 'TRANSPORTE', 'TNORTE', 'TRÂNSITO', 'CAIRU', 'LOGISTICA', 'EXPRESSO RIO'],
+      'ENERGIA': ['ENERGIA', 'LUZ', 'ELETRICIDADE', 'ANEEL', 'SETTE TELECOM', 'INTERNET', 'TELECOM'],
+      'AGUA': ['ÁGUA', 'SANEAMENTO', 'HIDRO', 'SABESP'],
+      'IMPOSTO': ['IMPOSTO', 'SPC', 'DARF', 'CDL', 'TAXA DE BOLETO'],
+      'MERCADO': ['MERCADO', 'MERCEARIA', 'DISTRIBUIDORA', 'DICASA', 'LOCK', 'PIRI', 'SUPER', 'SANTOS', 'PEIXOTO', 'SUPERMERCADO'],
+      'FACEBOOK': ['FACEBOOK', 'META', 'ADS', 'PUBLICIDADE'],
+      'PESSOA': ['PIX', 'CAMILA', 'CHARLES', 'PESSOA', 'ROBERSON', 'WILLIAN', 'SILVA', 'JORGE', 'FELIZ'],
+      'SISTEMAS': ['SISTEMA DE NFE', 'NUVEM FISCAL', 'SISTEMA', 'SOFTWARE', 'ZAMBOTTO'],
+      'EMBALAGEM': ['EASYPACK', 'EMBALAGEM', 'CAIXA'],
+      'CELULAR': ['MULTIDISPLAY', 'CELULAR', 'TELEFONE', 'MÓVEL'],
+      'MANUTENCAO': ['MANUTENCAO', 'MANUTENÇÃO', 'REPARO', 'CONSERTO']
+    };
+    
+    for (const [categoria, palavras] of Object.entries(regras)) {
+      for (const palavra of palavras) {
+        if (descLimpa.includes(palavra)) {
+          console.log(`🏷️ Auto-categorizado: "${descricao}" → "${categoria}"`);
+          return categoria;
+        }
+      }
+    }
+    
+    return 'OUTRO';
+  }
+
+  function selecionarAba(aba) {
+    console.log('📑 Selecionando aba:', aba);
+    
+    // Remover active de todos os botões
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    // Remover visible de todos os painéis
+    document.querySelectorAll('.tab-content').forEach(panel => panel.style.display = 'none');
+    
+    // Adicionar active ao botão clicado
+    document.getElementById(`btn-${aba}`).classList.add('active');
+    // Mostrar painel correspondente
+    document.getElementById(`tab-${aba}`).style.display = 'block';
+    
+    // Limpar alertas
+    document.getElementById('alertMessage').innerHTML = '';
+  }
+
+  async function procesarArquivo() {
+    try {
+      console.log('📂 Processando arquivo...');
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+
+      if (!file) {
+        mostrarAlerta('❌ Nenhum arquivo selecionado', 'error');
+        return;
+      }
+
+      let dados = [];
+
+      // Verificar se XLSX está disponível para Excel
+      if ((file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) && typeof XLSX === 'undefined') {
+        mostrarAlerta('⚠️ Biblioteca XLSX não disponível. Use CSV ou preencha manualmente.', 'error');
+        return;
+      }
+
+      if (file.name.endsWith('.csv')) {
+        console.log('📄 Processando CSV...');
+        dados = parseCSV(await file.text());
+      } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        console.log('📊 Processando Excel...');
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        dados = XLSX.utils.sheet_to_json(sheet);
+      } else {
+        mostrarAlerta('❌ Formato não suportado. Use CSV, Excel ou preencha manualmente.', 'error');
+        return;
+      }
+
+      if (dados.length === 0) {
+        mostrarAlerta('❌ Nenhum dado encontrado no arquivo', 'error');
+        return;
+      }
+
+      console.log('✅ Arquivo processado:', dados.length, 'linhas');
+      console.log('📋 Dados:', dados);
+
+      // Transformar dados
+      arquivoProcessado = dados.map((row, idx) => {
+        let data = '';
+        let descricao = '';
+        let valor = 0;
+        let categoria = '';
+
+        // Tentar detectar colunas por nome
+        const colDate = Object.keys(row).find(k => k.toLowerCase().includes('data') || k.toLowerCase().includes('date'));
+        const colDesc = Object.keys(row).find(k => k.toLowerCase().includes('descri') || k.toLowerCase().includes('desc') || k.toLowerCase().includes('item'));
+        const colValor = Object.keys(row).find(k => k.toLowerCase().includes('valor') || k.toLowerCase().includes('value') || k.toLowerCase().includes('amount'));
+        const colCat = Object.keys(row).find(k => k.toLowerCase().includes('categ') || k.toLowerCase().includes('category'));
+
+        if (colDate) data = row[colDate] || '';
+        if (colDesc) descricao = row[colDesc] || '';
+        if (colValor) {
+          const v = row[colValor];
+          // ✅ PARSE CORRETO: Suporta formato brasileiro (1.234,56) e internacional (1234.56)
+          let vStr = String(v).trim();
+          vStr = vStr.replace(/[R$\s]/g, '');  // Remove R$, espaços
+          
+          // Detectar formato: se tem ponto antes da vírgula, é brasileiro (2.473,00)
+          if (vStr.includes(',')) {
+            // Formato brasileiro: 2.473,00 → remove pontos (milhares) e substitui vírgula por ponto
+            vStr = vStr.replace(/\./g, '').replace(',', '.');
+          }
+          // Senão, assume que já está em formato correto ou sem separadores
+          
+          valor = parseFloat(vStr) || 0;
+          valor = Math.abs(valor); // Tornar positivo
+          console.log(`💰 Parse valor: "${row[colValor]}" → ${valor}`);
+        }
+        if (colCat) categoria = row[colCat] || '';
+
+        // Se não encontrou coluna, tenta ordem padrão (0=data, 1=desc, 2=valor, 3=cat)
+        if (!data || !descricao || !valor) {
+          const keys = Object.keys(row);
+          if (!data && keys[0]) data = row[keys[0]];
+          if (!descricao && keys[1]) descricao = row[keys[1]];
+          if (!valor && keys[2]) {
+            const v = row[keys[2]];
+            // ✅ PARSE CORRETO: Suporta formato brasileiro (1.234,56) e internacional (1234.56)
+            let vStr = String(v).trim();
+            vStr = vStr.replace(/[R$\s]/g, '');  // Remove R$, espaços
+            
+            // Detectar formato: se tem ponto antes da vírgula, é brasileiro (2.473,00)
+            if (vStr.includes(',')) {
+              // Formato brasileiro: 2.473,00 → remove pontos (milhares) e substitui vírgula por ponto
+              vStr = vStr.replace(/\./g, '').replace(',', '.');
+            }
+            
+            valor = parseFloat(vStr) || 0;
+            valor = Math.abs(valor);
+            console.log(`💰 Parse valor (fallback): "${row[keys[2]]}" → ${valor}`);
+          }
+          if (!categoria && keys[3]) categoria = row[keys[3]];
+        }
+
+        // ✅ Usar categoria extraída do parênteses se existir (parseCSV coloca em _categoria_extraida)
+        let categoriaFinal = row._categoria_extraida || categoria;
+        // AUTO-CATEGORIZAR se não tem categoria ou está vazio
+        categoriaFinal = String(categoriaFinal).trim() || autoCategorizar(descricao);
+
+        return {
+          Data: String(data).trim(),
+          Descricao: String(descricao).trim(),
+          Valor: valor > 0 ? valor : 0,  // Garante que não seja zero
+          Categoria: categoriaFinal
+        };
+      });
+
+      // Mostrar preview
+      renderizarPreview();
+      document.getElementById('previewSection').style.display = 'block';
+      document.getElementById('btnSalvar').style.display = 'block';
+      mostrarAlerta(`✅ ${arquivoProcessado.length} linhas carregadas com sucesso!`, 'success');
+
+    } catch (erro) {
+      console.error('❌ Erro ao processar arquivo:', erro);
+      mostrarAlerta(`❌ Erro ao processar: ${erro.message}`, 'error');
+    }
+  }
+
+  function adicionarDespesaManual() {
+    try {
+      console.log('✏️ Adicionando despesa manual (deprecated - use multi-line form)...');
+      mostrarAlerta('⚠️ Use a aba "Entrada Manual" para adicionar despesas', 'info');
+    } catch (erro) {
+      console.error('❌ Erro:', erro);
+    }
+  }
+
+  async function salvarDespesaManual(despesa) {
+    try {
+      console.log('💾 Salvando despesa manual...');
+      
+      const todasAsDespesas = [...todasDespesas, despesa];
+      
+      const formData = new FormData();
+      formData.append('acao', 'salvarArquivo');
+      formData.append('arquivo', 'despesas.json');
+      formData.append('dados', JSON.stringify(todasAsDespesas));
+
+      console.log('📤 Enviando para:', API_URL);
+      const response = await AuthManager.requisicaoSegura(API_URL, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.status === 'success' || result.message === 'OK') {
+        // Registrar auditoria
+        const usuario = JSON.parse(localStorage.getItem('usuarioLogado') || '{}');
+        const auditoria = {
+          Acao: 'ADICIONAR_DESPESA_MANUAL',
+          Descricao: `Despesa adicionada: ${despesa.Descricao} (${formatarMoeda(despesa.Valor)})`,
+          Usuario: usuario.Nome || usuario.Email || 'Desconhecido',
+          DataHora: new Date().toISOString()
+        };
+        await registrarAuditoria(auditoria);
+
+        mostrarAlerta('✅ Despesa salva com sucesso!', 'success');
+        
+        // Atualizar UI
+        todasDespesas = todasAsDespesas;
+        document.getElementById('formEntrada').reset();
+        renderizarPorMes();
+        
+        setTimeout(() => fecharModalAdicionar(), 1500);
+      } else {
+        throw new Error(result.message || 'Erro ao salvar');
+      }
+
+    } catch (erro) {
+      console.error('❌ Erro ao salvar:', erro);
+      console.error('Stack completo:', erro.stack);
+      let mensagem = erro.message || 'Erro desconhecido';
+      
+      if (erro.message.includes('Failed to fetch')) {
+        mensagem = 'Erro de conexão. Verifique se o Google Apps Script está ativo.';
+      } else if (erro.message.includes('HTTP')) {
+        mensagem = `Erro do servidor: ${erro.message}`;
+      }
+      
+      mostrarAlerta(`❌ Erro: ${mensagem}`, 'error');
+    }
+  }
+
+  function parseCSV(conteudo) {
+    const linhas = conteudo.trim().split('\n').filter(l => l.trim());
+    
+    if (linhas.length === 0) return [];
+    
+    // Detectar separador (ponto-e-vírgula ou vírgula)
+    const primeiraLinha = linhas[0];
+    const separador = primeiraLinha.includes(';') ? ';' : ',';
+    
+    // Fazer parse da primeira linha
+    const primeiroArray = primeiraLinha.split(separador).map(v => v.trim());
+    
+    // Detectar se primeira linha é header ou dados
+    // Header típico: "Data", "Descrição", "Valor", "Categoria"
+    // Dados típico: "13/01/2026", "PAGAMENTO PIX...", "2.473,00"
+    const ehHeader = /^(data|descri|valor|categ|date|description|amount|category)/i.test(primeiroArray[0]);
+    
+    let headers;
+    let startLine;
+    
+    if (ehHeader) {
+      // Primeira linha é header
+      headers = primeiroArray;
+      startLine = 1;
+      console.log('✅ CSV com header detectado:', headers);
+    } else {
+      // Primeira linha é dado - usar índice como header
+      headers = primeiroArray.map((_, idx) => `Coluna${idx + 1}`);
+      startLine = 0;
+      console.log('✅ CSV sem header - usando nomes genéricos:', headers);
+    }
+    
+    const dados = [];
+    for (let i = startLine; i < linhas.length; i++) {
+      const valores = linhas[i].split(separador).map(v => v.trim());
+      const obj = {};
+      
+      headers.forEach((header, idx) => {
+        let valor = valores[idx] || '';
+        
+        // Se tem parênteses, extrair a categoria
+        // Ex: "ROBERSON WILLIAN DA CO (grafica)" → desc:"ROBERSON WILLIAN DA CO" categoria:"grafica"
+        if (valor.includes('(') && valor.includes(')')) {
+          const match = valor.match(/^(.*?)\s*\(([^)]+)\)/);
+          if (match) {
+            valor = match[1].trim(); // Texto fora dos parênteses
+            if (header.toLowerCase().includes('descri') || header.toLowerCase().includes('desc') || header.toLowerCase().includes('coluna')) {
+              obj['_categoria_extraida'] = match[2].trim().toUpperCase(); // Categoria entre parênteses
+            }
+          }
+        }
+        
+        obj[header] = valor;
+      });
+      
+      dados.push(obj);
+    }
+    
+    console.log('📋 CSV parseado:', dados.length, 'linhas', dados);
+    return dados;
+  }
+
+  function renderizarPreview() {
+    const tbody = document.getElementById('previewBody');
+    tbody.innerHTML = arquivoProcessado.map((item, idx) => `
+      <tr>
+        <td>${item.Data}</td>
+        <td>${item.Descricao}</td>
+        <td class="valor">${formatarMoeda(item.Valor)}</td>
+        <td>
+          <input type="text" class="categoria-input" data-idx="${idx}" value="${item.Categoria}" 
+                 placeholder="Digite categoria..." style="width: 100%; padding: 4px; border-radius: 4px; border: 1px solid #ddd;">
+        </td>
+      </tr>
+    `).join('');
+
+    // Adicionar listeners para atualizar categoria
+    document.querySelectorAll('.categoria-input').forEach(input => {
+      input.addEventListener('change', (e) => {
+        const idx = parseInt(e.target.getAttribute('data-idx'));
+        arquivoProcessado[idx].Categoria = e.target.value;
+      });
+    });
+  }
+
+  async function salvarDespesas() {
+    try {
+      console.log('💾 Salvando despesas do arquivo...');
+      
+      if (arquivoProcessado.length === 0) {
+        mostrarAlerta('❌ Nenhum dado para salvar', 'error');
+        return;
+      }
+
+      // Obter categoria padrão
+      const categoriaPadrao = document.getElementById('categoriaPadrao').value;
+
+      // Processar cada despesa
+      const novasDespesas = [];
+      
+      for (const item of arquivoProcessado) {
+        // Parse da data
+        const dataParts = item.Data.split('/');
+        let data = new Date();
+        
+        if (dataParts.length === 3) {
+          const dia = parseInt(dataParts[0]);
+          const mes = parseInt(dataParts[1]);
+          const ano = parseInt(dataParts[2]);
+          data = new Date(ano, mes - 1, dia);
+        }
+
+        const categoria = item.Categoria.trim() || categoriaPadrao || 'OUTRO';
+
+        const despesa = {
+          Id: Date.now() + Math.random(),
+          Data: `${String(data.getDate()).padStart(2, '0')}/${String(data.getMonth() + 1).padStart(2, '0')}/${data.getFullYear()}`,
+          Descricao: item.Descricao,
+          Valor: item.Valor,
+          Categoria: categoria,
+          Mes: data.getMonth() + 1,
+          Ano: data.getFullYear(),
+          Origem: 'Site',
+          DataCadastro: new Date().toISOString()
+        };
+
+        console.log('📝 Despesa criada:', despesa);
+        novasDespesas.push(despesa);
+      }
+
+      // Salvar no arquivo usando FormData e POST (CORS compatível)
+      const todasAsDespesas = [...todasDespesas, ...novasDespesas];
+      
+      const formData = new FormData();
+      formData.append('acao', 'salvarArquivo');
+      formData.append('arquivo', 'despesas.json');
+      formData.append('dados', JSON.stringify(todasAsDespesas));
+
+      console.log('📤 Enviando para:', API_URL);
+      const response = await AuthManager.requisicaoSegura(API_URL, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('💾 Resposta do servidor:', result);
+
+      if (result.sucesso === true || result.status === 'success' || result.message === 'OK') {
+        // Registrar auditoria
+        const usuario = JSON.parse(localStorage.getItem('usuarioLogado') || '{}');
+        const auditoria = {
+          Acao: 'ADICIONAR_DESPESAS',
+          Descricao: `Adicionadas ${novasDespesas.length} despesas via upload`,
+          Usuario: usuario.Nome || usuario.Email || 'Desconhecido',
+          DataHora: new Date().toISOString(),
+          Quantidade: novasDespesas.length
+        };
+        await registrarAuditoria(auditoria);
+
+        mostrarAlerta(`✅ ${novasDespesas.length} despesas salvas com sucesso!`, 'success');
+        
+        // Atualizar UI
+        todasDespesas = todasAsDespesas;
+        renderizarPorMes();
+        
+        setTimeout(() => fecharModalAdicionar(), 1500);
+      } else {
+        throw new Error(result.message || 'Erro ao salvar');
+      }
+
+    } catch (erro) {
+      console.error('❌ Erro ao salvar despesas:', erro);
+      console.error('Stack completo:', erro.stack);
+      let mensagem = erro.message || 'Erro desconhecido';
+      
+      // Melhorar mensagens de erro específicas
+      if (erro.message.includes('Failed to fetch')) {
+        mensagem = 'Erro de conexão. Verifique se o Google Apps Script está ativo.';
+      } else if (erro.message.includes('HTTP')) {
+        mensagem = `Erro do servidor: ${erro.message}`;
+      }
+      
+      mostrarAlerta(`❌ Erro: ${mensagem}`, 'error');
+    }
+  }
+
+  function mostrarAlerta(mensagem, tipo) {
+    const alertDiv = document.getElementById('alertMessage');
+    const bgColor = tipo === 'success' ? '#4ade80' : '#ef4444';
+    const textColor = '#fff';
+    
+    alertDiv.innerHTML = `
+      <div style="padding: 12px; background: ${bgColor}; color: ${textColor}; border-radius: 6px; margin-bottom: 15px; font-weight: 600;">
+        ${mensagem}
+      </div>
+    `;
+
+    if (tipo === 'success') {
+      setTimeout(() => {
+        alertDiv.innerHTML = '';
+      }, 4000);
+    }
+  }
+
+  async function registrarAuditoria(dados) {
+    try {
+      const response = await AuthManager.requisicaoSegura(CONFIG.API_URL + '?action=save&file=auditoria.json&data=' + encodeURIComponent(JSON.stringify(dados)));
+      console.log('✅ Auditoria registrada');
+    } catch (erro) {
+      console.warn('⚠️ Erro ao registrar auditoria:', erro);
+    }
+  }
+</script>
+</body>
+</html>

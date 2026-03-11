@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Análise de Vendedor - Bovi Premium</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.0.0/dist/chart.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f1b18 0%, #1a3a32 50%, #0f2620 100%);
+      color: #e5f3ee;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 30px;
+      backdrop-filter: blur(14px);
+      margin-bottom: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #1fa37a;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .back-btn {
+      background: rgba(31,163,122,.15);
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+      text-decoration: none;
+    }
+
+    .back-btn:hover {
+      background: rgba(31,163,122,.25);
+      transform: translateX(-4px);
+    }
+
+    /* FILTROS */
+    .filtros-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(14px);
+      margin-bottom: 30px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+    }
+
+    .filtro-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .filtro-label {
+      color: #7cf0c2;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    select, input {
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(31,163,122,.3);
+      color: #e5f3ee;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: rgba(31,163,122,.6);
+      background: rgba(255,255,255,.12);
+    }
+
+    /* KPI CARDS */
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .kpi-card {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(14px);
+      text-align: center;
+    }
+
+    .kpi-label {
+      color: #8fb9ac;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .kpi-valor {
+      color: #1fa37a;
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .kpi-subtext {
+      color: #5fa39c;
+      font-size: 12px;
+    }
+
+    /* TABELA */
+    .tabela-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(14px);
+      margin-bottom: 30px;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th {
+      text-align: left;
+      padding: 15px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      color: #7cf0c2;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+
+    td {
+      padding: 15px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+
+    tr {
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    tr:hover {
+      background: rgba(31,163,122,.1);
+    }
+
+    .vendedor-name {
+      color: #7cf0c2;
+      font-weight: 600;
+    }
+
+    .valor {
+      text-align: right;
+      color: #d4af37;
+      font-weight: 600;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #8fb9ac;
+      font-style: italic;
+    }
+
+    /* GRÁFICOS */
+    .graficos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .chart-container {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(14px);
+      position: relative;
+      height: 300px;
+    }
+
+    .chart-title {
+      color: #7cf0c2;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+    }
+
+    .btn {
+      background: rgba(31,163,122,.2);
+      border: 1px solid rgba(31,163,122,.4);
+      color: #7cf0c2;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(31,163,122,.2);
+    }
+
+    .status-pago {
+      background: rgba(31,163,122,.3);
+      color: #7cf0c2;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-pendente {
+      background: rgba(212,175,55,.3);
+      color: #d4af37;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📊 Análise de Vendedores</h1>
+      <a href="dashboard.html" class="back-btn">← Voltar</a>
+    </header>
+
+    <!-- FILTROS -->
+    <div class="filtros-section">
+      <div class="filtro-item">
+        <label class="filtro-label">Vendedor</label>
+        <select id="filtroVendedor" onchange="aplicarFiltros()">
+          <option value="todos">Todos</option>
+        </select>
+      </div>
+
+      <div class="filtro-item">
+        <label class="filtro-label">Cliente</label>
+        <select id="filtroCliente" onchange="aplicarFiltros()">
+          <option value="todos">Todos</option>
+        </select>
+      </div>
+
+      <div class="filtro-item">
+        <label class="filtro-label">Mídia</label>
+        <select id="filtroMidia" onchange="aplicarFiltros()">
+          <option value="todos">Todos</option>
+        </select>
+      </div>
+
+      <div class="filtro-item">
+        <label class="filtro-label">Comissão (%)</label>
+        <input type="number" id="filtroComissao" value="5" min="0" max="100" onchange="aplicarFiltros()" />
+      </div>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="kpis">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Vendido</div>
+        <div class="kpi-valor" id="totalVendido">R$ 0,00</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Comissão Recebida</div>
+        <div class="kpi-valor" id="comissaoRecebida">R$ 0,00</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Total Recebido</div>
+        <div class="kpi-valor" id="totalRecebido">R$ 0,00</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Clientes Pendentes</div>
+        <div class="kpi-valor" id="clientesPendentes">0 cliente(s)</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Eficiência</div>
+        <div class="kpi-valor" id="eficienciaKPI">0% 🔴</div>
+      </div>
+    </div>
+
+    <!-- TABELA -->
+    <div class="tabela-section">
+      <table>
+        <thead>
+          <tr>
+            <th>Vendedor</th>
+            <th style="text-align: center;">Vendas</th>
+            <th style="text-align: right;">Total Vendido</th>
+            <th style="text-align: right;">Total Recebido</th>
+            <th style="text-align: right;">Comissão Recebida</th>
+            <th style="text-align: center;">Clientes Pendentes</th>
+            <th style="text-align: center;">Eficiência</th>
+            <th style="text-align: center;">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="corpoTabela">
+          <tr><td colspan="8" class="empty-state">Carregando dados...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- GRÁFICOS -->
+    <div class="graficos">
+      <div class="chart-container">
+        <div class="chart-title">Vendas por Vendedor</div>
+        <canvas id="chartVendedor"></canvas>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">Comissão Recebida por Vendedor</div>
+        <canvas id="chartComissao"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+<script src="auth-utils.js"></script>
+  <script src="auth.js"></script>
+
+  <script>
+    let todasVendas = [];
+    let todosClientes = [];
+    let despesasVendedores = {};
+    let chartVendedor = null;
+    let chartComissao = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await carregarDados();
+      renderizarFiltros();
+      aplicarFiltros();
+    });
+
+    async function carregarDados() {
+      try {
+        console.log('📥 Carregando clientes.json...');
+        const clientes = await buscarArquivo("clientes.json");
+        todosClientes = Array.isArray(clientes) ? clientes : (clientes.dados || []);
+
+        // Extrair todas as vendas COM VENDEDOR CORRETO (do Cliente, não da Venda)
+        todasVendas = [];
+        todosClientes.forEach(cliente => {
+          if (cliente.Vendas && Array.isArray(cliente.Vendas)) {
+            cliente.Vendas.forEach(venda => {
+              todasVendas.push({
+                ...venda,
+                NomeCliente: cliente.Nome,
+                CPFCliente: cliente.CPF,
+                Midia: cliente.Midia || venda.Midia || 'Sem mídia',
+                VendedorId: cliente.Vendedor || 'Desconhecido', // ← VENDEDOR DO CLIENTE!
+                Parcelas: venda.Parcelas || [],
+                ValorTotal: venda.ValorTotal || 0,
+                DataVenda: venda.DataVenda || new Date().toISOString()
+              });
+            });
+          }
+        });
+
+        console.log(`✅ Carregadas ${todasVendas.length} vendas de ${todosClientes.length} clientes`);
+
+        // Carregar despesas para buscar comissões pagas
+        console.log('📥 Carregando despesas.json...');
+        const despesas = await buscarArquivo("despesas.json");
+        const todasDespesas = Array.isArray(despesas) ? despesas : (despesas.dados || []);
+        
+        // Agrupar despesas por vendedor (case insensitive)
+        despesasVendedores = {};
+        todasDespesas.forEach(desp => {
+          const descricaoLower = (desp.Descricao || '').toLowerCase().trim();
+          if (!despesasVendedores[descricaoLower]) {
+            despesasVendedores[descricaoLower] = 0;
+          }
+          despesasVendedores[descricaoLower] += desp.Valor || 0;
+        });
+
+        console.log('✅ Despesas carregadas para', Object.keys(despesasVendedores).length, 'vendedores');
+      } catch (erro) {
+        console.error('❌ Erro ao carregar:', erro);
+        const msg = traduzirErro(erro);
+        document.getElementById('corpoTabela').innerHTML = `
+          <tr><td colspan="8" class="empty-state">⚠️ ${msg}</td></tr>
+        `;
+      }
+    }
+
+    function traduzirErro(erro) {
+      if (!erro.message) return 'Erro desconhecido';
+      const msg = erro.message.toLowerCase();
+      if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('timeout')) {
+        return 'Falta de conexão com a internet. Verifique sua conexão.';
+      }
+      return `Erro ao carregar dados: ${erro.message}`;
+    }
+
+    function renderizarFiltros() {
+      // Vendedores únicos
+      const vendedores = [...new Set(todasVendas.map(v => v.VendedorId))].sort();
+      const selectVendedor = document.getElementById('filtroVendedor');
+      selectVendedor.innerHTML = '<option value="todos">Todos</option>' +
+        vendedores.map(v => `<option value="${v}">${v}</option>`).join('');
+
+      // Clientes únicos
+      const clientes = [...new Set(todasVendas.map(v => v.NomeCliente))].sort();
+      const selectCliente = document.getElementById('filtroCliente');
+      selectCliente.innerHTML = '<option value="todos">Todos</option>' +
+        clientes.map(c => `<option value="${c}">${c}</option>`).join('');
+
+      // Mídias únicas
+      const midias = [...new Set(todasVendas.map(v => v.Midia))].sort();
+      const selectMidia = document.getElementById('filtroMidia');
+      selectMidia.innerHTML = '<option value="todos">Todos</option>' +
+        midias.map(m => `<option value="${m}">${m}</option>`).join('');
+    }
+
+    function aplicarFiltros() {
+      const vendedorSelecionado = document.getElementById('filtroVendedor').value;
+      const clienteSelecionado = document.getElementById('filtroCliente').value;
+      const percentualComissao = parseFloat(document.getElementById('filtroComissao').value) / 100 || 0.05;
+      const midiaSelecionada = document.getElementById('filtroMidia').value;
+
+      let vendsFiltradas = todasVendas;
+
+      // Aplicar filtros
+      if (vendedorSelecionado !== 'todos') {
+        vendsFiltradas = vendsFiltradas.filter(v => v.VendedorId === vendedorSelecionado);
+      }
+
+      if (clienteSelecionado !== 'todos') {
+        vendsFiltradas = vendsFiltradas.filter(v => v.NomeCliente === clienteSelecionado);
+      }
+
+      if (midiaSelecionada !== 'todos') {
+        vendsFiltradas = vendsFiltradas.filter(v => v.Midia === midiaSelecionada);
+      }
+
+      // CALCULAR VALORES REAIS
+      const totalVendido = vendsFiltradas.reduce((acc, v) => acc + (v.ValorTotal || 0), 0);
+      
+      // Calcular Total Recebido = soma de Parcelas com Pago: true
+      let totalRecebido = 0;
+      let clientesPagos = new Set();
+      let clientesPendentes = new Set();
+
+      vendsFiltradas.forEach(venda => {
+        if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+          venda.Parcelas.forEach(parcela => {
+            if (parcela.Pago === true) {
+              totalRecebido += (parcela.Valor || 0);
+              clientesPagos.add(venda.NomeCliente);
+            } else {
+              clientesPendentes.add(venda.NomeCliente);
+            }
+          });
+        }
+      });
+
+      // Comissão Recebida = buscar em despesas pelo nome do vendedor
+      let comissaoRecebida = 0;
+      if (vendedorSelecionado !== 'todos') {
+        const vendedorLower = vendedorSelecionado.toLowerCase().trim();
+        // Procurar em despesas por correspondência exata (case-insensitive)
+        for (const [chave, valor] of Object.entries(despesasVendedores)) {
+          if (chave.includes(vendedorLower) || vendedorLower.includes(chave.split(' ')[0])) {
+            comissaoRecebida += valor;
+          }
+        }
+      } else {
+        // Se não filtrar por vendedor, somar tudo
+        comissaoRecebida = Object.values(despesasVendedores).reduce((a, b) => a + b, 0);
+      }
+
+      // Eficiência Real = (Total Recebido / Total Vendido) * 100
+      const eficiencia = totalVendido > 0 ? (totalRecebido / totalVendido * 100) : 0;
+
+      // Atualizar cards KPI
+      document.getElementById('totalVendido').textContent = 'R$ ' + formatarMoeda(totalVendido);
+      document.getElementById('comissaoRecebida').textContent = 'R$ ' + formatarMoeda(comissaoRecebida);
+      document.getElementById('totalRecebido').textContent = 'R$ ' + formatarMoeda(totalRecebido);
+      document.getElementById('clientesPendentes').textContent = clientesPendentes.size + ' cliente(s)';
+      
+      const eficienciaStatus = eficiencia >= 70 ? '🟢 Ótimo' : (eficiencia >= 50 ? '🟡 Bom' : '🔴 Precisa Melhorar');
+      document.getElementById('eficienciaKPI').textContent = Math.round(eficiencia) + '% ' + eficienciaStatus;
+
+      // Renderizar por vendedor
+      const vendedoresAgrupados = agruparPorVendedor(vendsFiltradas);
+
+      // Renderizar tabela
+      renderizarTabela(vendedoresAgrupados, percentualComissao);
+
+      // Renderizar gráficos
+      renderizarGraficos(vendedoresAgrupados);
+    }
+
+    function agruparPorVendedor(vendas) {
+      const grupos = {};
+
+      vendas.forEach(venda => {
+        const vendedor = venda.VendedorId;
+        if (!grupos[vendedor]) {
+          grupos[vendedor] = [];
+        }
+        grupos[vendedor].push(venda);
+      });
+
+      const resultado = [];
+      for (const [vendedor, vendasVendedor] of Object.entries(grupos)) {
+        const totalVendido = vendasVendedor.reduce((sum, v) => sum + (v.ValorTotal || 0), 0);
+        
+        let totalRecebido = 0;
+        let clientesUnicos = new Set();
+        let clientesPagos = new Set();
+        let clientesPendentes = new Set();
+
+        vendasVendedor.forEach(venda => {
+          clientesUnicos.add(venda.NomeCliente);
+          
+          if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+            venda.Parcelas.forEach(parcela => {
+              if (parcela.Pago === true) {
+                totalRecebido += (parcela.Valor || 0);
+                clientesPagos.add(venda.NomeCliente);
+              } else {
+                clientesPendentes.add(venda.NomeCliente);
+              }
+            });
+          }
+        });
+
+        // Buscar comissão paga em despesas
+        let comissaoPaga = 0;
+        const vendedorLower = vendedor.toLowerCase().trim();
+        for (const [chave, valor] of Object.entries(despesasVendedores)) {
+          if (chave.includes(vendedorLower) || vendedorLower.includes(chave.split(' ')[0])) {
+            comissaoPaga += valor;
+          }
+        }
+
+        const eficiencia = totalVendido > 0 ? (totalRecebido / totalVendido * 100) : 0;
+
+        resultado.push({
+          nome: vendedor,
+          totalVendido: totalVendido,
+          totalRecebido: totalRecebido,
+          comissaoPaga: comissaoPaga,
+          qtdVendas: vendasVendedor.length,
+          qtdClientes: clientesUnicos.size,
+          clientesPendentes: clientesPendentes.size,
+          eficiencia: eficiencia,
+          vendas: vendasVendedor
+        });
+      }
+
+      return resultado.sort((a, b) => b.totalVendido - a.totalVendido);
+    }
+
+    function renderizarTabela(vendedores, comissaoPercentual) {
+      const corpoTabela = document.getElementById('corpoTabela');
+
+      if (vendedores.length === 0) {
+        corpoTabela.innerHTML = '<tr><td colspan="8" class="empty-state">Nenhum registro encontrado</td></tr>';
+        return;
+      }
+
+      corpoTabela.innerHTML = vendedores.map(v => {
+        const eficienciaLabel = v.eficiencia >= 70 ? '🟢 Ótimo' : v.eficiencia >= 50 ? '🟡 Bom' : '🔴 Precisa Melhorar';
+        const eficienciaColor = v.eficiencia >= 70 ? '#7cf0c2' : v.eficiencia >= 50 ? '#d4af37' : '#ff6b6b';
+        
+        return `
+          <tr onclick="abrirDetalhesVendedor('${v.nome}')">
+            <td class="vendedor-name">👤 ${v.nome}</td>
+            <td style="text-align: center; color: #d4af37; font-weight: 600;">${v.qtdVendas}</td>
+            <td class="valor">${formatarMoeda(v.totalVendido)}</td>
+            <td class="valor">${formatarMoeda(v.totalRecebido)}</td>
+            <td class="valor">${formatarMoeda(v.comissaoPaga)}</td>
+            <td style="text-align: center;">
+              <span class="status-pendente">${v.clientesPendentes} cliente(s)</span>
+            </td>
+            <td style="text-align: center; color: ${eficienciaColor}; font-weight: 600;">
+              ${eficienciaLabel} ${v.eficiencia.toFixed(1)}%
+            </td>
+            <td style="text-align: center;">
+              <button class="btn" style="padding: 6px 12px; font-size: 12px;" onclick="abrirDetalhesVendedor('${v.nome}'); return false;">👁️</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderizarGraficos(vendedores) {
+      const labels = vendedores.map(v => v.nome);
+      const vendidoData = vendedores.map(v => v.totalVendido);
+      const comissaoData = vendedores.map(v => v.comissaoPaga);
+
+      // Gráfico 1: Vendas
+      const ctx1 = document.getElementById('chartVendedor').getContext('2d');
+      if (chartVendedor) chartVendedor.destroy();
+
+      chartVendedor = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Total Vendido',
+            data: vendidoData,
+            backgroundColor: 'rgba(31,163,122,0.6)',
+            borderColor: '#1fa37a',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#7cf0c2' } }
+          },
+          scales: {
+            y: {
+              ticks: { color: '#7cf0c2' },
+              grid: { color: 'rgba(31,163,122,0.1)' }
+            },
+            x: {
+              ticks: { color: '#7cf0c2' },
+              grid: { color: 'rgba(31,163,122,0.1)' }
+            }
+          }
+        }
+      });
+
+      // Gráfico 2: Comissões
+      const ctx2 = document.getElementById('chartComissao').getContext('2d');
+      if (chartComissao) chartComissao.destroy();
+
+      chartComissao = new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Comissão Recebida',
+            data: comissaoData,
+            borderColor: '#d4af37',
+            backgroundColor: 'rgba(212,175,55,0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#1fa37a',
+            pointBorderColor: '#d4af37',
+            pointRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#7cf0c2' } }
+          },
+          scales: {
+            y: {
+              ticks: { color: '#7cf0c2' },
+              grid: { color: 'rgba(31,163,122,0.1)' }
+            },
+            x: {
+              ticks: { color: '#7cf0c2' },
+              grid: { color: 'rgba(31,163,122,0.1)' }
+            }
+          }
+        }
+      });
+    }
+
+    function abrirDetalhesVendedor(vendedorNome) {
+      window.vendedorSelecionado = vendedorNome;
+      console.log(`🔍 Abrindo análise do vendedor: ${vendedorNome}`);
+      window.location.href = 'analise-vendedor-detalhes.html';
+    }
+
+    function formatarMoeda(valor) {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor || 0);
+    }
+  </script>
+</body>
+</html>

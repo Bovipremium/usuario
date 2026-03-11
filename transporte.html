@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transporte & Rastreamento Premium</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
+      min-height: 100vh;
+      color: #e5f3ee;
+      padding: 20px;
+    }
+
+    .header {
+      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 20px;
+      padding: 20px 30px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 20px 40px rgba(0,0,0,.45);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      color: #1fa37a;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 10px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.3s;
+      backdrop-filter: blur(8px);
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(31,163,122,.2);
+    }
+
+    .btn-adicionar {
+      background: linear-gradient(145deg, rgba(212,175,55,.3), rgba(212,175,55,.15));
+      color: #d4af37;
+      border-color: rgba(212,175,55,.3);
+    }
+
+    .btn-adicionar:hover {
+      background: linear-gradient(145deg, rgba(212,175,55,.4), rgba(212,175,55,.25));
+      box-shadow: 0 10px 20px rgba(212,175,55,.2);
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* ============ FILTROS ============ */
+    .filtros-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(14px);
+    }
+
+    .filtros-section h3 {
+      color: #7cf0c2;
+      margin-bottom: 15px;
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .filtros-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .input-group label {
+      color: #8fb9ac;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .input-group input,
+    .input-group select {
+      background: rgba(15,42,34,.5);
+      border: 1px solid rgba(31,163,122,.2);
+      color: #e5f3ee;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      transition: all 0.3s;
+      backdrop-filter: blur(8px);
+    }
+
+    .input-group input:focus,
+    .input-group select:focus {
+      outline: none;
+      border-color: rgba(31,163,122,.4);
+      background: rgba(15,42,34,.7);
+      box-shadow: 0 0 12px rgba(31,163,122,.2);
+    }
+
+    /* ============ TABELA ============ */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+      border: 1px solid rgba(31,163,122,.15);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,.25);
+    }
+
+    thead {
+      background: linear-gradient(180deg, rgba(31,163,122,.15), rgba(31,163,122,.08));
+      border-bottom: 1px solid rgba(31,163,122,.2);
+    }
+
+    th {
+      color: #7cf0c2;
+      padding: 15px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(31,163,122,.1);
+      transition: all 0.3s;
+    }
+
+    tbody tr:hover {
+      background: rgba(31,163,122,.1);
+    }
+
+    td {
+      padding: 15px;
+      font-size: 13px;
+      color: #b9d8ce;
+    }
+
+    /* ============ STATUS BADGE ============ */
+    .status-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .status-entregue {
+      background: linear-gradient(145deg, rgba(50,200,50,.3), rgba(50,200,50,.15));
+      color: #32c832;
+      border: 1px solid rgba(50,200,50,.3);
+    }
+
+    .status-pendente {
+      background: linear-gradient(145deg, rgba(255,200,0,.3), rgba(255,200,0,.15));
+      color: #ffc107;
+      border: 1px solid rgba(255,200,0,.3);
+    }
+
+    /* ============ AÇÕES ============ */
+    .acoes {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-acao {
+      background: linear-gradient(145deg, rgba(31,163,122,.25), rgba(31,163,122,.1));
+      border: 1px solid rgba(31,163,122,.2);
+      color: #7cf0c2;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn-acao:hover {
+      background: linear-gradient(145deg, rgba(31,163,122,.35), rgba(31,163,122,.2));
+      box-shadow: 0 6px 12px rgba(31,163,122,.15);
+    }
+
+    .btn-deletar {
+      background: linear-gradient(145deg, rgba(255,107,107,.25), rgba(255,107,107,.1));
+      border-color: rgba(255,107,107,.2);
+      color: #ff6b6b;
+    }
+
+    .btn-deletar:hover {
+      background: linear-gradient(145deg, rgba(255,107,107,.35), rgba(255,107,107,.2));
+      box-shadow: 0 6px 12px rgba(255,107,107,.15);
+    }
+
+    /* ============ MODAL ============ */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal.ativo {
+      display: flex;
+    }
+
+    .modal-content {
+      background: linear-gradient(180deg, rgba(15,42,34,.95), rgba(5,11,9,.95));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 30px 60px rgba(0,0,0,.6);
+    }
+
+    .modal-header {
+      color: #1fa37a;
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      border-bottom: 1px solid rgba(31,163,122,.2);
+      padding-bottom: 15px;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: rgba(255,107,107,.2);
+      border: 1px solid rgba(255,107,107,.3);
+      color: #ff6b6b;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: all 0.3s;
+    }
+
+    .modal-close:hover {
+      background: rgba(255,107,107,.3);
+      box-shadow: 0 6px 12px rgba(255,107,107,.2);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      color: #8fb9ac;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      background: rgba(15,42,34,.5);
+      border: 1px solid rgba(31,163,122,.2);
+      color: #e5f3ee;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.3s;
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: rgba(31,163,122,.4);
+      background: rgba(15,42,34,.7);
+      box-shadow: 0 0 12px rgba(31,163,122,.2);
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid rgba(31,163,122,.2);
+    }
+
+    .modal-buttons button {
+      flex: 1;
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 13px;
+    }
+
+    .btn-salvar {
+      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.2));
+      color: #7cf0c2;
+    }
+
+    .btn-salvar:hover {
+      background: linear-gradient(145deg, rgba(31,163,122,.5), rgba(31,163,122,.3));
+      box-shadow: 0 10px 20px rgba(31,163,122,.2);
+    }
+
+    .btn-cancelar {
+      background: linear-gradient(145deg, rgba(255,107,107,.25), rgba(255,107,107,.1));
+      color: #ff6b6b;
+    }
+
+    .btn-cancelar:hover {
+      background: linear-gradient(145deg, rgba(255,107,107,.35), rgba(255,107,107,.2));
+    }
+
+    /* ============ STATS ============ */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: linear-gradient(145deg, rgba(31,163,122,.15), rgba(31,163,122,.08));
+      border: 1px solid rgba(31,163,122,.2);
+      border-radius: 16px;
+      padding: 15px;
+      text-align: center;
+    }
+
+    .stat-label {
+      color: #8fb9ac;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      color: #1fa37a;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    /* ============ RESPONSIVO ============ */
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 15px;
+        padding: 15px;
+      }
+
+      .header h1 {
+        font-size: 22px;
+      }
+
+      .filtros-grid {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      th, td {
+        padding: 10px;
+      }
+
+      .modal-content {
+        width: 95%;
+        padding: 20px;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* ============ LOADER ============ */
+    .loader-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.9);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      backdrop-filter: blur(4px);
+    }
+
+    .loader-container.hidden {
+      display: none;
+    }
+
+    .loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(31, 163, 122, 0.2);
+      border-top: 4px solid #1fa37a;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loader-text {
+      color: #7cf0c2;
+      font-size: 16px;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .loader-subtext {
+      color: #5fa39c;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOADER DE CARREGAMENTO -->
+<div id="loaderContainer" class="loader-container">
+  <div class="loader">
+    <div class="spinner"></div>
+    <div class="loader-text">⏳ Carregando Transportes...</div>
+    <div class="loader-subtext">Buscando dados do Drive</div>
+  </div>
+</div>
+
+<div class="container">
+  <!-- ============ HEADER ============ -->
+  <div class="header">
+    <h1>🚚 Transporte & Rastreamento</h1>
+    <div class="header-actions">
+      <button class="btn btn-adicionar" onclick="abrirModalAdicionar()">+ Adicionar Transporte</button>
+      <button class="btn" onclick="voltarDashboard()">← Voltar</button>
+    </div>
+  </div>
+
+  <!-- ============ ESTATÍSTICAS ============ -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total de Transportes</div>
+      <div class="stat-value" id="totalTransportes">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Entregues</div>
+      <div class="stat-value" id="totalEntregues" style="color: #32c832;">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pendentes</div>
+      <div class="stat-value" id="totalPendentes" style="color: #ffc107;">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Valor Total Frete</div>
+      <div class="stat-value" id="totalValor" style="color: #d4af37;">R$ 0</div>
+    </div>
+  </div>
+
+  <!-- ============ FILTROS ============ -->
+  <div class="filtros-section">
+    <h3>🔍 Filtros de Busca</h3>
+    <div class="filtros-grid">
+      <div class="input-group">
+        <label>Nome do Cliente</label>
+        <input type="text" id="filtroCliente" placeholder="Digite o nome..." onkeyup="filtrarTransportes()">
+      </div>
+      <div class="input-group">
+        <label>Status</label>
+        <select id="filtroStatus" onchange="filtrarTransportes()">
+          <option value="">Todos</option>
+          <option value="0">Não Entregue</option>
+          <option value="1">Entregue</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TABELA ============ -->
+  <div id="tabelaContainer"></div>
+</div>
+
+<!-- ============ MODAL ADICIONAR/EDITAR ============ -->
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <span class="modal-close" onclick="fecharModal()">✕</span>
+    <div class="modal-header" id="modalTitulo">➕ Adicionar Transporte</div>
+    
+    <form id="formTransporte">
+      <div class="form-group">
+        <label>Cliente *</label>
+        <input type="text" id="nomeCliente" required>
+      </div>
+
+      <div class="form-group">
+        <label>Cidade *</label>
+        <input type="text" id="cidade" required>
+      </div>
+
+      <div class="form-group">
+        <label>Estado (UF) *</label>
+        <input type="text" id="estado" maxlength="2" required>
+      </div>
+
+      <div class="form-group">
+        <label>Transportadora *</label>
+        <input type="text" id="transportadora" required>
+      </div>
+
+      <div class="form-group">
+        <label>Código de Rastreio *</label>
+        <input type="text" id="codigoRastreio" required>
+      </div>
+
+      <div class="form-group">
+        <label>Número da NF *</label>
+        <input type="text" id="numeroNF" required>
+      </div>
+
+      <div class="form-group">
+        <label>Valor do Frete (R$) *</label>
+        <input type="number" id="valorFrete" step="0.01" required>
+      </div>
+
+      <div class="form-group">
+        <label>Quantidade de Animais *</label>
+        <input type="number" id="quantidadeAnimais" min="1" required>
+      </div>
+
+      <div class="form-group">
+        <label>Status</label>
+        <select id="status">
+          <option value="0">Não Entregue</option>
+          <option value="1">Entregue</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Data de Entrega</label>
+        <input type="datetime-local" id="dataEntrega">
+      </div>
+
+      <div class="form-group">
+        <label>Observações</label>
+        <textarea id="observacao" placeholder="Adicione notas sobre o transporte..."></textarea>
+      </div>
+
+      <div class="modal-buttons">
+        <button type="submit" class="btn-salvar">💾 Salvar</button>
+        <button type="button" class="btn-cancelar" onclick="fecharModal()">✕ Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+  <script src="config.js"></script>
+<script src="auth-utils.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    let transportes = [];
+    let transportesExibindo = [];
+    let editandoId = null;
+    let clientesMap = {};
+
+    // ============ CARREGAR DADOS DO BACKEND ============
+    async function carregarTransportes() {
+      try {
+        // Mostrar loader
+        const loaderContainer = document.getElementById('loaderContainer');
+        if (loaderContainer) {
+          loaderContainer.classList.remove('hidden');
+        }
+
+        console.log('🔄 Iniciando carregamento de transportes...');
+        
+        // Carregar transportes.json usando buscarArquivo (vem do auth.js)
+        console.log('📥 Buscando transportes.json...');
+        transportes = await buscarArquivo("transportes.json");
+        
+        // Garantir que é um array
+        if (!Array.isArray(transportes)) {
+          transportes = [];
+        }
+        
+        console.log('✅ Transportes carregados:', transportes.length, 'registros');
+        
+        // Carregar clientes.json para referência
+        console.log('📥 Buscando clientes.json...');
+        const clientes = await buscarArquivo("clientes.json");
+        clientes.forEach(c => {
+          clientesMap[c.Id] = c;
+        });
+        console.log('✅ Clientes carregados:', clientes.length, 'registros');
+        
+        // Processar dados para garantir tipos corretos
+        transportes = transportes.map(t => ({
+          Id: parseInt(t.Id) || 0,
+          ClienteId: parseInt(t.ClienteId) || 0,
+          NomeCliente: String(t.NomeCliente || ''),
+          Cidade: String(t.Cidade || ''),
+          Estado: String(t.Estado || ''),
+          CodigoRastreio: String(t.CodigoRastreio || ''),
+          NumeroNF: String(t.NumeroNF || ''),
+          ValorFrete: parseFloat(t.ValorFrete) || 0,
+          QuantidadeAnimais: parseInt(t.QuantidadeAnimais) || 0,
+          Transportadora: String(t.Transportadora || ''),
+          Status: parseInt(t.Status) || 0,
+          DataCadastro: t.DataCadastro || '',
+          DataEntrega: t.DataEntrega || null,
+          Observacao: String(t.Observacao || '')
+        }));
+        
+        console.log('✅ Dados processados e prontos para exibição');
+        
+        transportesExibindo = [...transportes];
+        renderizarTabela();
+        atualizarEstatisticas();
+        
+        console.log('✅ Tabela e estatísticas renderizadas');
+        
+      } catch (erro) {
+        console.error('❌ Erro ao carregar dados:', erro);
+        const mensagemErro = traduzirErro(erro);
+        alert('❌ ' + mensagemErro);
+        transportes = [];
+        transportesExibindo = [];
+        renderizarTabela();
+        atualizarEstatisticas();
+      } finally {
+        // Esconder loader
+        const loaderContainer = document.getElementById('loaderContainer');
+        if (loaderContainer) {
+          setTimeout(() => {
+            loaderContainer.classList.add('hidden');
+          }, 300);
+        }
+      }
+    }  // ============ RENDERIZAR TABELA ============
+  function renderizarTabela() {
+    const container = document.getElementById('tabelaContainer');
+    
+    if (transportes.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #8fb9ac;">
+          <p>📭 Nenhum transporte encontrado</p>
+        </div>
+      `;
+      return;
+    }
+
+    let html = `
+      <table>
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>NF</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    transportesExibindo.forEach(t => {
+      const statusBadge = t.Status === 1 
+        ? '<span class="status-badge status-entregue">✓ Entregue</span>'
+        : '<span class="status-badge status-pendente">⏳ Pendente</span>';
+
+      const dataEntrega = t.DataEntrega ? new Date(t.DataEntrega).toLocaleDateString('pt-BR') : '-';
+
+      html += `
+        <tr ondblclick="rastrearTransporte(${t.Id})">
+          <td>${t.NomeCliente}</td>
+          <td>${t.NumeroNF}</td>
+          <td>${statusBadge}</td>
+          <td>
+            <div class="acoes">
+              <button class="btn-acao" onclick="editarTransporte(${t.Id})">✏️ Editar</button>
+              <button class="btn-acao" onclick="rastrearTransporte(${t.Id})">� Rastrear</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `
+        </tbody>
+      </table>
+    `;
+
+    container.innerHTML = html;
+  }
+
+  // ============ FILTRAR ============
+  function filtrarTransportes() {
+    const cliente = document.getElementById('filtroCliente').value.toLowerCase();
+    const status = document.getElementById('filtroStatus').value;
+
+    transportesExibindo = transportes.filter(t => {
+      const matchCliente = !cliente || t.NomeCliente.toLowerCase().includes(cliente);
+      const matchStatus = !status || t.Status.toString() === status;
+
+      return matchCliente && matchStatus;
+    });
+
+    renderizarTabela();
+  }
+
+  // ============ ESTATÍSTICAS ============
+  function atualizarEstatisticas() {
+    document.getElementById('totalTransportes').textContent = transportes.length;
+    document.getElementById('totalEntregues').textContent = transportes.filter(t => t.Status === 1).length;
+    document.getElementById('totalPendentes').textContent = transportes.filter(t => t.Status === 0).length;
+    
+    const totalValor = transportes.reduce((sum, t) => sum + parseFloat(t.ValorFrete), 0);
+    document.getElementById('totalValor').textContent = 'R$ ' + totalValor.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+  }
+
+  // ============ MODAL ============
+  function abrirModalAdicionar() {
+    editandoId = null;
+    document.getElementById('modalTitulo').textContent = '➕ Adicionar Transporte';
+    document.getElementById('formTransporte').reset();
+    document.getElementById('modal').classList.add('ativo');
+  }
+
+  function editarTransporte(id) {
+    const transporte = transportes.find(t => t.Id === id);
+    if (!transporte) return;
+
+    editandoId = id;
+    document.getElementById('modalTitulo').textContent = '✏️ Editar Transporte';
+    document.getElementById('nomeCliente').value = transporte.NomeCliente;
+    document.getElementById('cidade').value = transporte.Cidade;
+    document.getElementById('estado').value = transporte.Estado;
+    document.getElementById('transportadora').value = transporte.Transportadora;
+    document.getElementById('codigoRastreio').value = transporte.CodigoRastreio;
+    document.getElementById('numeroNF').value = transporte.NumeroNF;
+    document.getElementById('valorFrete').value = transporte.ValorFrete;
+    document.getElementById('quantidadeAnimais').value = transporte.QuantidadeAnimais;
+    document.getElementById('status').value = transporte.Status;
+    document.getElementById('observacao').value = transporte.Observacao;
+
+    if (transporte.DataEntrega) {
+      document.getElementById('dataEntrega').value = new Date(transporte.DataEntrega).toISOString().slice(0, 16);
+    }
+
+    document.getElementById('modal').classList.add('ativo');
+  }
+
+  function fecharModal() {
+    document.getElementById('modal').classList.remove('ativo');
+    editandoId = null;
+  }
+
+  // ============ SALVAR ============
+  document.getElementById('formTransporte').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const dados = {
+      NomeCliente: document.getElementById('nomeCliente').value,
+      Cidade: document.getElementById('cidade').value,
+      Estado: document.getElementById('estado').value.toUpperCase(),
+      Transportadora: document.getElementById('transportadora').value,
+      CodigoRastreio: document.getElementById('codigoRastreio').value,
+      NumeroNF: document.getElementById('numeroNF').value,
+      ValorFrete: parseFloat(document.getElementById('valorFrete').value),
+      QuantidadeAnimais: parseInt(document.getElementById('quantidadeAnimais').value),
+      Status: parseInt(document.getElementById('status').value),
+      Observacao: document.getElementById('observacao').value,
+      DataEntrega: document.getElementById('dataEntrega').value ? new Date(document.getElementById('dataEntrega').value).toISOString() : null
+    };
+
+    if (editandoId) {
+      const indice = transportes.findIndex(t => t.Id === editandoId);
+      if (indice >= 0) {
+        transportes[indice] = { ...transportes[indice], ...dados };
+      }
+    } else {
+      const novoId = Math.max(...transportes.map(t => t.Id), 0) + 1;
+      transportes.push({
+        Id: novoId,
+        ClienteId: 0,
+        DataCadastro: new Date().toISOString(),
+        ...dados
+      });
+    }
+
+    fecharModal();
+    renderizarTabela();
+    atualizarEstatisticas();
+  });
+
+  // ============ RASTREAMENTO ============
+  function rastrearTransporte(id) {
+    const transporte = transportes.find(t => t.Id === id);
+    if (!transporte) return;
+
+    // Verificar se pode rastrear automaticamente (TNT)
+    const podeRastrarAutomatico = transporte.Transportadora.toUpperCase() === 'TNT';
+
+    // Criar modal de rastreamento detalhado
+    const statusIcon = transporte.Status === 1 
+      ? '<span style="color: #00ff00; font-size: 24px;">✅</span><span style="color: #00ff00; font-weight: 700;">ENTREGUE</span>'
+      : '<span style="color: #ffaa00; font-size: 24px;">⏳</span><span style="color: #ffaa00; font-weight: 700;">EM TRÂNSITO</span>';
+
+    const html = `
+      <div style="background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08)); border: 1px solid rgba(31,163,122,.25); border-radius: 16px; padding: 25px; backdrop-filter: blur(14px);">
+        <h3 style="color: #1fa37a; margin-bottom: 20px; font-size: 18px; font-weight: 700;">
+          🔍 Rastreamento - ${transporte.NomeCliente}
+        </h3>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+          <div style="background: rgba(31,163,122,.1); padding: 15px; border-radius: 12px; border-left: 3px solid #1fa37a;">
+            <p style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Código de Rastreio</p>
+            <p style="color: #7cf0c2; font-size: 16px; font-weight: 700;">${transporte.CodigoRastreio}</p>
+          </div>
+          
+          <div style="background: rgba(31,163,122,.1); padding: 15px; border-radius: 12px; border-left: 3px solid #1fa37a;">
+            <p style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Transportadora</p>
+            <p style="color: #7cf0c2; font-size: 16px; font-weight: 700;">${transporte.Transportadora}</p>
+          </div>
+          
+          <div style="background: rgba(212,175,55,.1); padding: 15px; border-radius: 12px; border-left: 3px solid #d4af37;">
+            <p style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Cidade / Estado</p>
+            <p style="color: #d4af37; font-size: 16px; font-weight: 700;">${transporte.Cidade} / ${transporte.Estado}</p>
+          </div>
+          
+          <div style="background: rgba(212,175,55,.1); padding: 15px; border-radius: 12px; border-left: 3px solid #d4af37;">
+            <p style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">NF</p>
+            <p style="color: #d4af37; font-size: 16px; font-weight: 700;">${transporte.NumeroNF}</p>
+          </div>
+        </div>
+
+        <!-- Status Timeline -->
+        <div style="background: rgba(255,255,255,.05); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(31,163,122,.15);">
+          <h4 style="color: #7cf0c2; margin-bottom: 10px; font-size: 13px; font-weight: 600;">📦 Status da Entrega</h4>
+          <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+            ${statusIcon}
+          </div>
+          
+          <!-- Timeline Visual -->
+          <div style="position: relative; padding-left: 30px;">
+            <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: linear-gradient(180deg, #1fa37a 0%, #d4af37 100%);"></div>
+            
+            <!-- Evento: Cadastro -->
+            <div style="margin-bottom: 15px;">
+              <div style="position: absolute; left: -8px; top: 0; width: 14px; height: 14px; background: #1fa37a; border-radius: 50%; border: 2px solid #0a0f0d;"></div>
+              <p style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; margin-bottom: 2px;">Cadastrado</p>
+              <p style="color: #7cf0c2; font-weight: 700;">${new Date(transporte.DataCadastro).toLocaleDateString('pt-BR')} às ${new Date(transporte.DataCadastro).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</p>
+            </div>
+            
+            <!-- Evento: Entrega (se houver) -->
+            ${transporte.DataEntrega && transporte.Status === 1 
+              ? `<div style="margin-bottom: 15px;">
+                  <div style="position: absolute; left: -8px; top: 60px; width: 14px; height: 14px; background: #00ff00; border-radius: 50%; border: 2px solid #0a0f0d;"></div>
+                  <p style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; margin-bottom: 2px;">Entregue</p>
+                  <p style="color: #00ff00; font-weight: 700;">${new Date(transporte.DataEntrega).toLocaleDateString('pt-BR')} às ${new Date(transporte.DataEntrega).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</p>
+                </div>`
+              : `<div style="margin-bottom: 15px;">
+                  <div style="position: absolute; left: -8px; top: 60px; width: 14px; height: 14px; background: rgba(255,170,0,.5); border-radius: 50%; border: 2px solid #0a0f0d;"></div>
+                  <p style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; margin-bottom: 2px;">Em Trânsito</p>
+                  <p style="color: #ffaa00; font-weight: 700;">Previsão: em breve</p>
+                </div>`
+            }
+          </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,.05); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(31,163,122,.15);">
+          <h4 style="color: #7cf0c2; margin-bottom: 10px; font-size: 13px; font-weight: 600;">📋 Detalhes</h4>
+          <table style="width: 100%; font-size: 13px;">
+            <tr>
+              <td style="color: #8fb9ac; padding: 8px 0;">Quantidade de Animais:</td>
+              <td style="color: #7cf0c2; font-weight: 700; text-align: right;">${transporte.QuantidadeAnimais}</td>
+            </tr>
+            <tr>
+              <td style="color: #8fb9ac; padding: 8px 0;">Valor do Frete:</td>
+              <td style="color: #7cf0c2; font-weight: 700; text-align: right;">R$ ${parseFloat(transporte.ValorFrete).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+            </tr>
+            ${transporte.Observacao 
+              ? `<tr>
+                  <td style="color: #8fb9ac; padding: 8px 0;">Observação:</td>
+                  <td style="color: #7cf0c2; font-weight: 700; text-align: right;">${transporte.Observacao}</td>
+                </tr>`
+              : ''}
+          </table>
+        </div>
+
+        <!-- Botões de Ação -->
+        <div style="display: grid; grid-template-columns: ${podeRastrarAutomatico ? '1fr 1fr 1fr' : '1fr 1fr'}; gap: 10px;">
+          ${podeRastrarAutomatico 
+            ? `<button onclick="rastrearAutomaticoTNT('${transporte.NumeroNF}')" style="padding: 12px; background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15)); color: #7cf0c2; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; font-size: 12px;">
+              🔄 Rastrear TNT
+            </button>`
+            : `<button disabled style="padding: 12px; background: rgba(100,100,100,.2); color: #666; border: 1px solid rgba(100,100,100,.2); border-radius: 8px; cursor: not-allowed; font-weight: 600; font-size: 12px;">
+              🔄 Apenas TNT
+            </button>`
+          }
+          <button onclick="notificarWhatsApp(${id})" style="padding: 12px; background: linear-gradient(145deg, rgba(52,168,83,.3), rgba(52,168,83,.15)); color: #35a853; border: 1px solid rgba(52,168,83,.3); border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; font-size: 12px;">
+            � WhatsApp
+          </button>
+          <button onclick="fecharModalRastreamento()" style="padding: 12px; background: linear-gradient(145deg, rgba(212,175,55,.3), rgba(212,175,55,.15)); color: #d4af37; border: 1px solid rgba(212,175,55,.3); border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; font-size: 12px;">
+            ✕ Fechar
+          </button>
+        </div>
+      </div>
+    `;
+
+    const container = document.getElementById('rastreamentoContainer');
+    if (!container) {
+      const div = document.createElement('div');
+      div.id = 'rastreamentoContainer';
+      div.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 600px; max-height: 85vh; overflow-y: auto; z-index: 1000; background: #0a0f0d; border: 1px solid rgba(31,163,122,.3); border-radius: 16px; padding: 25px; backdrop-filter: blur(14px);';
+      document.body.appendChild(div);
+    }
+    
+    container.style.display = 'block';
+    container.innerHTML = html;
+
+    // Overlay
+    let overlay = document.getElementById('rastreamentoOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'rastreamentoOverlay';
+      overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.7); z-index: 999;';
+      overlay.onclick = fecharModalRastreamento;
+      document.body.appendChild(overlay);
+    }
+    overlay.style.display = 'block';
+  }
+
+  function fecharModalRastreamento() {
+    const container = document.getElementById('rastreamentoContainer');
+    const overlay = document.getElementById('rastreamentoOverlay');
+    if (container) container.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  // ============ RASTREAMENTO AUTOMÁTICO TNT ============
+  function rastrearAutomaticoTNT(numeroNF) {
+    // Abre site da TNT e preenche automaticamente via JavaScript
+    
+    const cnpjFixo = "55951841000176";
+    const urlTNT = `https://radar.tntbrasil.com.br/radar/public/localizacaoSimplificada.do`;
+    
+    console.log('� Rastreando NF:', numeroNF);
+    
+    // Abrir em nova aba
+    const janela = window.open(urlTNT, '_blank');
+    
+    // Tentar preencher automaticamente após carregamento
+    if (janela) {
+      // Esperar página carregar
+      janela.onload = () => {
+        try {
+          // Tentar acessar elementos da página (pode falhar por CORS)
+          const campoCnpj = janela.document.getElementById('nrIdentificacao');
+          const campoNF = janela.document.getElementById('nrDocumentoDigito');
+          
+          if (campoCnpj) {
+            campoCnpj.value = cnpjFixo;
+            campoCnpj.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          
+          if (campoNF) {
+            campoNF.value = numeroNF;
+            campoNF.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          
+          console.log('✅ Campos preenchidos automaticamente na TNT');
+        } catch (erro) {
+          console.log('⚠️ Não foi possível preencher automaticamente (CORS). Página aberta manualmente.');
+          console.log('Por favor, preencha: CNPJ=' + cnpjFixo + ', NF=' + numeroNF);
+        }
+      };
+      
+      // Mensagem ao usuário
+      alert(`
+� RASTREAMENTO TNT
+
+✅ Página de rastreamento aberta
+📌 Dados a preencher:
+   • CNPJ: ${cnpjFixo}
+   • NF (Nota Fiscal): ${numeroNF}
+
+Se os campos não foram preenchidos automaticamente:
+1. Copie e cole o CNPJ
+2. Copie e cole o número da NF
+3. Selecione tipo: "Nota Fiscal"
+4. Clique em "Buscar"
+      `);
+    } else {
+      alert('❌ Erro: Abrir pop-up foi bloqueado. Desabilite o bloqueador de pop-ups.');
+    }
+  }
+
+  // ============ NOTIFICAÇÃO WHATSAPP ============
+  function notificarWhatsApp(id) {
+    const transporte = transportes.find(t => t.Id === id);
+    if (!transporte) return;
+
+    // Simular busca de telefone do cliente (em produção viria do banco)
+    const telefone = '5511999999999'; // Placeholder - seria do cliente.Telefone1
+    
+    const mensagem = `🚚 *Rastreamento de Entrega*\n\n` +
+      `Cliente: ${transporte.NomeCliente}\n` +
+      `Transportadora: ${transporte.Transportadora}\n` +
+      `Código: ${transporte.CodigoRastreio}\n` +
+      `NF: ${transporte.NumeroNF}\n` +
+      `Status: ${transporte.Status === 1 ? '✅ ENTREGUE' : '⏳ EM TRÂNSITO'}\n` +
+      `Animais: ${transporte.QuantidadeAnimais}\n` +
+      `Valor: R$ ${parseFloat(transporte.ValorFrete).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+
+    // URL com mensagem codificada
+    const urlWhatsApp = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+    
+    const confirmacao = `
+📱 NOTIFICAÇÃO WHATSAPP
+
+Mensagem a enviar:
+${mensagem}
+
+Deseja abrir o WhatsApp agora?`;
+
+    if (confirm(confirmacao)) {
+      window.open(urlWhatsApp, '_blank');
+      console.log('📱 Abrindo WhatsApp para:', telefone);
+      alert('✅ Notificação de rastreamento enviada ao cliente via WhatsApp!');
+    }
+  }
+
+  // ============ VOLTAR ============
+  function voltarDashboard() {
+    window.location.href = 'index.html';
+  }
+
+  // ============ INICIALIZAR ============
+  window.addEventListener('load', carregarTransportes);
+  
+  // Fechar modal ao clicar fora
+  document.getElementById('modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      fecharModal();
+    }
+  });
+
+  // Traduzir erro de rede
+  function traduzirErro(erro) {
+    if (!erro.message) return 'Erro desconhecido';
+    const msg = erro.message.toLowerCase();
+    if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('timeout')) {
+      return 'Falta de conexão com a internet. Verifique sua conexão.';
+    }
+    return `Erro ao carregar transportes: ${erro.message}`;
+  }
+</script>
+
+</body>
+</html>

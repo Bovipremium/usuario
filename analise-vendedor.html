@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Análise Vendedores - Sistema Última Geração</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
+      min-height: 100vh;
+      color: #e5f3ee;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      color: #1fa37a;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 12px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(31,163,122,.2);
+    }
+
+    /* FILTROS */
+    .filtros-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(14px);
+      margin-bottom: 30px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+    }
+
+    .filtro-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .filtro-label {
+      color: #7cf0c2;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    select, input {
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(31,163,122,.3);
+      color: #e5f3ee;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: rgba(31,163,122,.6);
+      background: rgba(255,255,255,.12);
+    }
+
+    /* KPI CARDS */
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .kpi-card {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(14px);
+      text-align: center;
+    }
+
+    .kpi-label {
+      color: #8fb9ac;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .kpi-valor {
+      color: #1fa37a;
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .kpi-subtext {
+      color: #5fa39c;
+      font-size: 12px;
+    }
+
+    /* TABELA */
+    .tabela-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(14px);
+      overflow-x: auto;
+      margin-bottom: 30px;
+    }
+
+    h2 {
+      color: #1fa37a;
+      font-size: 18px;
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      border-bottom: 2px solid rgba(31,163,122,.3);
+    }
+
+    th {
+      color: #7cf0c2;
+      padding: 15px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+
+    tbody tr:hover {
+      background: rgba(31,163,122,.1);
+    }
+
+    td {
+      padding: 15px;
+      color: #b9d8ce;
+      font-size: 14px;
+    }
+
+    .vendedor-name {
+      color: #e5f3ee;
+      font-weight: 600;
+    }
+
+    .valor {
+      color: #d4af37;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .status-pago {
+      background: rgba(31,163,122,.3);
+      color: #7cf0c2;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .status-nao-pago {
+      background: rgba(255,107,107,.3);
+      color: #ff6b6b;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    /* GRÁFICOS */
+    .graficos-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 30px;
+      margin-bottom: 30px;
+    }
+
+    .grafico-card {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(14px);
+    }
+
+    .chart-container {
+      position: relative;
+      height: 300px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #8fb9ac;
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .header h1 {
+        font-size: 24px;
+      }
+
+      .filtros-section {
+        grid-template-columns: 1fr;
+      }
+
+      .kpis {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .graficos-section {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>🚀 Análise Avançada de Vendedores</h1>
+    <div class="header-actions">
+      <button class="btn" onclick="window.location.href='index.html'">← Dashboard</button>
+    </div>
+  </div>
+
+  <!-- FILTROS AVANÇADOS -->
+  <div class="filtros-section">
+    <div class="filtro-item">
+      <label class="filtro-label">Mês</label>
+      <select id="filtroMes" onchange="aplicarFiltros()">
+        <option value="">Todos</option>
+        <option value="1">Janeiro</option>
+        <option value="2">Fevereiro</option>
+        <option value="3">Março</option>
+        <option value="4">Abril</option>
+        <option value="5">Maio</option>
+        <option value="6">Junho</option>
+        <option value="7">Julho</option>
+        <option value="8">Agosto</option>
+        <option value="9">Setembro</option>
+        <option value="10">Outubro</option>
+        <option value="11">Novembro</option>
+        <option value="12">Dezembro</option>
+      </select>
+    </div>
+
+    <div class="filtro-item">
+      <label class="filtro-label">Ano</label>
+      <select id="filtroAno" onchange="aplicarFiltros()">
+        <option value="">Todos</option>
+        <option value="2022">2022</option>
+        <option value="2023">2023</option>
+        <option value="2024">2024</option>
+        <option value="2025" selected>2025</option>
+        <option value="2026">2026</option>
+      </select>
+    </div>
+
+    <div class="filtro-item">
+      <label class="filtro-label">Vendedor</label>
+      <select id="filtroVendedor" onchange="aplicarFiltros()">
+        <option value="">Todos</option>
+      </select>
+    </div>
+
+    <div class="filtro-item">
+      <label class="filtro-label">Cliente</label>
+      <select id="filtroCliente" onchange="aplicarFiltros()">
+        <option value="">Todos</option>
+      </select>
+    </div>
+
+    <div class="filtro-item">
+      <label class="filtro-label">Mídia/Usuário</label>
+      <select id="filtroMidia" onchange="aplicarFiltros()">
+        <option value="">Todos</option>
+      </select>
+    </div>
+
+    <div class="filtro-item">
+      <label class="filtro-label">Comissão %</label>
+      <input type="number" id="filtroComissao" value="5" min="0" max="100" step="0.5" onchange="aplicarFiltros()">
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="kpis">
+    <div class="kpi-card">
+      <div class="kpi-label">💰 Total Vendido</div>
+      <div class="kpi-valor" id="kpiTotalVendido">R$ 0,00</div>
+      <div class="kpi-subtext" id="kpiQtdVendas">0 vendas</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-label">🎯 Total Comissão</div>
+      <div class="kpi-valor" id="kpiTotalComissao">R$ 0,00</div>
+      <div class="kpi-subtext" id="kpiTaxaComissao">0%</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-label">✅ Comissão Recebida</div>
+      <div class="kpi-valor" id="kpiComissaoPaga">R$ 0,00</div>
+      <div class="kpi-subtext" id="kpiPercentualRecebimento">0%</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-label">⏳ Comissão Pendente</div>
+      <div class="kpi-valor" id="kpiComissaoPendente">R$ 0,00</div>
+      <div class="kpi-subtext">Falta receber</div>
+    </div>
+  </div>
+
+  <!-- GRÁFICOS -->
+  <div class="graficos-section">
+    <div class="grafico-card">
+      <h2>📊 Vendas por Vendedor</h2>
+      <div class="chart-container">
+        <canvas id="chartVendedor"></canvas>
+      </div>
+    </div>
+
+    <div class="grafico-card">
+      <h2>🎯 Comissões Comparativas</h2>
+      <div class="chart-container">
+        <canvas id="chartComissao"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABELA DETALHADA -->
+  <div class="tabela-section">
+    <h2>📋 Detalhamento por Vendedor</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Vendedor</th>
+          <th style="text-align: center;">Qtd Vendas</th>
+          <th style="text-align: right;">Total Vendido</th>
+          <th style="text-align: right;">Cliente Pagou</th>
+          <th style="text-align: right;">Comissão Recebida</th>
+          <th style="text-align: center;">Clientes Pendentes</th>
+          <th style="text-align: center;">Eficiência</th>
+          <th style="text-align: center;">Ação</th>
+        </tr>
+      </thead>
+      <tbody id="corpoTabela">
+        <tr><td colspan="8" class="empty-state">Carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- RELATÓRIO DE RENTABILIDADE -->
+  <div class="tabela-section">
+    <h2>💰 Relatório de Rentabilidade</h2>
+    <div style="margin-bottom: 15px;">
+      <label style="color: #8fb9ac;">Imposto (Simples Nacional %):</label>
+      <input type="number" id="impostoPercentual" value="10" min="0" max="100" style="width: 100px; padding: 8px; background: rgba(31,163,122,.15); color: #7cf0c2; border: 1px solid rgba(31,163,122,.3); border-radius: 6px; margin-left: 10px;" onchange="aplicarFiltros()">
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Cliente</th>
+          <th style="text-align: right;">Venda</th>
+          <th style="text-align: right;">Imposto</th>
+          <th style="text-align: right;">Frete</th>
+          <th style="text-align: right;">Custo</th>
+          <th style="text-align: right;">Lucro</th>
+          <th style="text-align: right;">Recebido</th>
+          <th style="text-align: right;">Falta</th>
+          <th style="text-align: center;">Dias Atraso</th>
+          <th style="text-align: center;">Status</th>
+        </tr>
+      </thead>
+      <tbody id="corpoRelatorio">
+        <tr><td colspan="11" class="empty-state">Carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- LAUDO E RECOMENDAÇÕES -->
+  <div class="tabela-section">
+    <h2>📊 Laudo Analítico</h2>
+    <div id="laudoFinal" style="color: #8fb9ac; line-height: 1.8;">
+      Carregando...
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="auth-utils.js"></script>
+<script src="auth.js"></script>
+<script>
+  let todasVendas = [];
+  let todosClientes = [];
+  let despesasVendedores = {};
+  let chartVendedor = null;
+  let chartComissao = null;
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await carregarDados();
+    renderizarFiltros();
+    aplicarFiltros();
+  });
+
+  async function carregarDados() {
+    try {
+      console.log('📥 Carregando clientes.json...');
+      const clientes = await buscarArquivo("clientes.json");
+      todosClientes = Array.isArray(clientes) ? clientes : (clientes.dados || []);
+
+      // Extrair todas as vendas COM VENDEDOR CORRETO
+      todasVendas = [];
+      todosClientes.forEach(cliente => {
+        if (cliente.Vendas && Array.isArray(cliente.Vendas)) {
+          cliente.Vendas.forEach(venda => {
+            todasVendas.push({
+              ...venda,
+              NomeCliente: cliente.Nome,
+              CPFCliente: cliente.CPF,
+              Midia: cliente.Midia || venda.Midia || 'Sem mídia',
+              VendedorId: cliente.Vendedor || 'Desconhecido', // ← VENDEDOR DO CLIENTE (string)!
+              Parcelas: venda.Parcelas || [],
+              ValorTotal: venda.ValorTotal || 0
+            });
+          });
+        }
+      });
+
+      console.log(`✅ Carregadas ${todasVendas.length} vendas`);
+
+      // Carregar despesas para buscar comissões pagas REAIS
+      console.log('📥 Carregando despesas.json...');
+      const despesas = await buscarArquivo("despesas.json");
+      const todasDespesas = Array.isArray(despesas) ? despesas : (despesas.dados || []);
+      
+      // Agrupar despesas por vendedor (case insensitive) - BUSCANDO COMISSÃO REAL
+      despesasVendedores = {};
+      todasDespesas.forEach(desp => {
+        const descricaoLower = (desp.Descricao || '').toLowerCase().trim();
+        if (!despesasVendedores[descricaoLower]) {
+          despesasVendedores[descricaoLower] = 0;
+        }
+        despesasVendedores[descricaoLower] += desp.Valor || 0;
+      });
+
+      console.log('✅ Despesas carregadas:', Object.keys(despesasVendedores).length, 'vendedores');
+    } catch (erro) {
+      console.error('❌ Erro ao carregar:', erro);
+      const msg = traduzirErro(erro);
+      document.getElementById('corpoTabela').innerHTML = `
+        <tr><td colspan="8" class="empty-state">⚠️ ${msg}</td></tr>
+      `;
+    }
+  }
+
+  function traduzirErro(erro) {
+    if (!erro.message) return 'Erro desconhecido';
+    const msg = erro.message.toLowerCase();
+    if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('timeout')) {
+      return 'Falta de conexão com a internet. Verifique sua conexão.';
+    }
+    return `Erro ao carregar dados: ${erro.message}`;
+  }
+
+  function renderizarFiltros() {
+    const vendedores = [...new Set(todasVendas.map(v => v.VendedorId))].filter(v => v).sort();
+    const clientes = [...new Set(todasVendas.map(v => v.NomeCliente))].filter(v => v).sort();
+    const midias = [...new Set(todasVendas.map(v => v.Midia))].filter(v => v).sort();
+
+    const selectVendedor = document.getElementById('filtroVendedor');
+    vendedores.forEach(v => {
+      const option = document.createElement('option');
+      option.value = v;
+      option.textContent = v;
+      selectVendedor.appendChild(option);
+    });
+
+    const selectCliente = document.getElementById('filtroCliente');
+    clientes.forEach(c => {
+      const option = document.createElement('option');
+      option.value = c;
+      option.textContent = c;
+      selectCliente.appendChild(option);
+    });
+
+    const selectMidia = document.getElementById('filtroMidia');
+    midias.forEach(m => {
+      const option = document.createElement('option');
+      option.value = m;
+      option.textContent = m;
+      selectMidia.appendChild(option);
+    });
+  }
+
+  function aplicarFiltros() {
+    const mes = document.getElementById('filtroMes').value;
+    const ano = document.getElementById('filtroAno').value;
+    const vendedor = document.getElementById('filtroVendedor').value;
+    const cliente = document.getElementById('filtroCliente').value;
+    const midia = document.getElementById('filtroMidia').value;
+    const comissaoPercentual = parseFloat(document.getElementById('filtroComissao').value) || 5;
+
+    let vendasFiltradas = todasVendas.filter(v => {
+      const data = new Date(v.DataVenda);
+      const mesVenda = data.getMonth() + 1;
+      const anoVenda = data.getFullYear();
+
+      const filtroMes = !mes || mesVenda === parseInt(mes);
+      const filtroAno = !ano || anoVenda === parseInt(ano);
+      const filtroVendedor = !vendedor || v.VendedorId === vendedor;
+      const filtroCliente = !cliente || v.NomeCliente === cliente;
+      const filtroMidia = !midia || v.Midia === midia;
+
+      return filtroMes && filtroAno && filtroVendedor && filtroCliente && filtroMidia;
+    });
+
+    // Agrupar por vendedor
+    const vendedoresAgrupados = {};
+    vendasFiltradas.forEach(venda => {
+      const vendedorId = venda.VendedorId;
+      if (!vendedoresAgrupados[vendedorId]) {
+        vendedoresAgrupados[vendedorId] = {
+          id: vendedorId,
+          totalVendido: 0,
+          qtdVendas: 0,
+          comissaoTotal: 0,
+          comissaoPaga: 0,
+          comissaoPendente: 0,
+          totalClientesPago: 0,  // ← REAL: quanto cliente PAGOU (de Parcelas)
+          clientesPendentes: [],
+          vendas: [],
+          eficiencia: 0,
+          statusEficiencia: ''
+        };
+      }
+
+      vendedoresAgrupados[vendedorId].totalVendido += venda.ValorTotal || 0;
+      vendedoresAgrupados[vendedorId].qtdVendas += 1;
+
+      // REAL: Somar valor PAGO pelo cliente (Parcelas com Pago=true)
+      if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+        venda.Parcelas.forEach(parcela => {
+          if (parcela.Pago === true) {
+            vendedoresAgrupados[vendedorId].totalClientesPago += parcela.Valor || 0;
+          } else {
+            // Se parcela não foi paga, é cliente pendente
+            if (!vendedoresAgrupados[vendedorId].clientesPendentes.find(c => c.cliente === venda.NomeCliente)) {
+              vendedoresAgrupados[vendedorId].clientesPendentes.push({
+                cliente: venda.NomeCliente,
+                valor: venda.ValorTotal,
+                data: venda.DataVenda,
+                parcelasAbertas: venda.Parcelas.filter(p => !p.Pago)
+              });
+            }
+          }
+        });
+      }
+
+      // REAL: Comissão total calculada (estimativa)
+      const comissaoCalculada = (venda.ValorTotal * comissaoPercentual) / 100;
+      vendedoresAgrupados[vendedorId].comissaoTotal += comissaoCalculada;
+
+      vendedoresAgrupados[vendedorId].vendas.push(venda);
+    });
+
+    // REAL: Calcular comissão RECEBIDA a partir de despesas.json
+    Object.keys(vendedoresAgrupados).forEach(vendedor => {
+      const grupo = vendedoresAgrupados[vendedor];
+      
+      // Buscar comissão paga em despesas.json (case insensitive)
+      const vendedorLower = vendedor.toLowerCase().trim();
+      const chaveComissao = Object.keys(despesasVendedores).find(
+        chave => chave.includes(vendedorLower) || vendedorLower.includes(chave)
+      );
+      
+      if (chaveComissao) {
+        grupo.comissaoPaga = despesasVendedores[chaveComissao];
+      } else {
+        grupo.comissaoPaga = 0;
+      }
+      
+      grupo.comissaoPendente = grupo.comissaoTotal - grupo.comissaoPaga;
+
+      // REAL: Eficiência = (Total Recebido / Total Vendido) × 100
+      if (grupo.totalVendido > 0) {
+        grupo.eficiencia = (grupo.totalClientesPago / grupo.totalVendido) * 100;
+      } else {
+        grupo.eficiencia = 0;
+      }
+
+      // Determinar status de eficiência
+      if (grupo.eficiencia >= 80) {
+        grupo.statusEficiencia = '🟢 Bom Pagador';
+      } else if (grupo.eficiencia >= 50) {
+        grupo.statusEficiencia = '🟡 Razoável';
+      } else {
+        grupo.statusEficiencia = '🔴 Inadimplente';
+      }
+    });
+
+    const vendedoresArray = Object.values(vendedoresAgrupados);
+
+    // Calcular KPIs
+    const totalVendido = vendedoresArray.reduce((sum, v) => sum + v.totalVendido, 0);
+    const totalComissao = vendedoresArray.reduce((sum, v) => sum + v.comissaoTotal, 0);
+    const comissaoPaga = vendedoresArray.reduce((sum, v) => sum + v.comissaoPaga, 0);
+    const totalClientesPago = vendedoresArray.reduce((sum, v) => sum + v.totalClientesPago, 0);
+    const qtdVendas = vendedoresArray.reduce((sum, v) => sum + v.qtdVendas, 0);
+    const totalClientesPendentes = vendedoresArray.reduce((sum, v) => sum + v.clientesPendentes.length, 0);
+
+    document.getElementById('kpiTotalVendido').textContent = formatarMoeda(totalVendido);
+    document.getElementById('kpiQtdVendas').textContent = `${qtdVendas} vendas`;
+    document.getElementById('kpiTotalComissao').textContent = formatarMoeda(totalComissao);
+    document.getElementById('kpiTaxaComissao').textContent = `${comissaoPercentual.toFixed(1)}%`;
+    document.getElementById('kpiComissaoPaga').textContent = formatarMoeda(comissaoPaga);
+    document.getElementById('kpiPercentualRecebimento').textContent = totalComissao > 0 ? `${((comissaoPaga / totalComissao) * 100).toFixed(1)}%` : '0%';
+    document.getElementById('kpiComissaoPendente').textContent = formatarMoeda(totalComissao - comissaoPaga);
+
+    // Renderizar tabela
+    renderizarTabela(vendedoresArray, comissaoPercentual);
+
+    // Renderizar gráficos
+    renderizarGraficos(vendedoresArray);
+
+    // Renderizar relatório de rentabilidade
+    renderizarRelatorioRentabilidade();
+  }
+
+  function renderizarTabela(vendedores, comissaoPercentual) {
+    const corpoTabela = document.getElementById('corpoTabela');
+
+    if (vendedores.length === 0) {
+      corpoTabela.innerHTML = '<tr><td colspan="8" class="empty-state">Nenhum registro encontrado</td></tr>';
+      return;
+    }
+
+    corpoTabela.innerHTML = vendedores.map(v => {
+      const eficiencia = v.eficiencia >= 80 ? '🟢 Bom' : v.eficiencia >= 50 ? '🟡 OK' : '🔴 Ruim';
+      const eficienciaColor = v.eficiencia >= 80 ? '#7cf0c2' : v.eficiencia >= 50 ? '#d4af37' : '#ff6b6b';
+      
+      return `
+        <tr onclick="abrirDetalhesVendedor('${v.id}')">
+          <td class="vendedor-name">👤 ${v.id}</td>
+          <td style="text-align: center; color: #d4af37; font-weight: 600;">${v.qtdVendas}</td>
+          <td class="valor">${formatarMoeda(v.totalVendido)}</td>
+          <td class="valor">${formatarMoeda(v.totalClientesPago)}</td>
+          <td class="valor">${formatarMoeda(v.comissaoPaga)}</td>
+          <td style="text-align: center;">
+            <span class="status-nao-pago">${v.clientesPendentes.length} clientes</span>
+          </td>
+          <td style="text-align: center; color: ${eficienciaColor}; font-weight: 600;">
+            ${eficiencia} ${v.eficiencia.toFixed(1)}%
+          </td>
+          <td style="text-align: center;">
+            <button class="btn" style="padding: 6px 12px; font-size: 12px;" onclick="abrirDetalhesVendedor('${v.id}'); return false;">👁️</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderizarGraficos(vendedores) {
+    const labels = vendedores.map(v => v.id);
+    const vendidoData = vendedores.map(v => v.totalVendido);
+    const comissaoData = vendedores.map(v => v.comissaoTotal);
+
+    // Gráfico 1: Vendas
+    const ctx1 = document.getElementById('chartVendedor').getContext('2d');
+    if (chartVendedor) chartVendedor.destroy();
+
+    chartVendedor = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Total Vendido',
+          data: vendidoData,
+          backgroundColor: 'rgba(31,163,122,0.6)',
+          borderColor: '#1fa37a',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#7cf0c2' } }
+        },
+        scales: {
+          y: {
+            ticks: { color: '#7cf0c2' },
+            grid: { color: 'rgba(31,163,122,0.1)' }
+          },
+          x: {
+            ticks: { color: '#7cf0c2' },
+            grid: { color: 'rgba(31,163,122,0.1)' }
+          }
+        }
+      }
+    });
+
+    // Gráfico 2: Comissões
+    const ctx2 = document.getElementById('chartComissao').getContext('2d');
+    if (chartComissao) chartComissao.destroy();
+
+    chartComissao = new Chart(ctx2, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Comissão Total',
+          data: comissaoData,
+          borderColor: '#d4af37',
+          backgroundColor: 'rgba(212,175,55,0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#1fa37a',
+          pointBorderColor: '#d4af37',
+          pointRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#7cf0c2' } }
+        },
+        scales: {
+          y: {
+            ticks: { color: '#7cf0c2' },
+            grid: { color: 'rgba(31,163,122,0.1)' }
+          },
+          x: {
+            ticks: { color: '#7cf0c2' },
+            grid: { color: 'rgba(31,163,122,0.1)' }
+          }
+        }
+      }
+    });
+  }
+
+  function abrirDetalhesVendedor(vendedorId) {
+    console.log(`🔍 Abrindo análise do vendedor: ${vendedorId}`);
+    window.location.href = `analise-vendedor-detalhes.html?vendedor=${encodeURIComponent(vendedorId)}`;
+  }
+
+  // FUNÇÕES DE RELATÓRIO
+  function calcularCustoProduto(nomeProduto, receitas) {
+    if (!receitas[nomeProduto]) return 0;
+    const receita = receitas[nomeProduto];
+    let custoTotal = 0;
+    if (receita.Ingredientes && Array.isArray(receita.Ingredientes)) {
+      receita.Ingredientes.forEach(ing => {
+        custoTotal += (ing.CustoPorKg || 0) * (ing.Quantidade || 0);
+      });
+    }
+    return custoTotal;
+  }
+
+  function buscarFreteCliente(nomeCliente, nf, transportes) {
+    const t = transportes.find(tr => 
+      (tr.NomeCliente || '').toUpperCase().includes(nomeCliente.toUpperCase()) && tr.NumeroNF === nf
+    );
+    return t ? t.ValorFrete : 0;
+  }
+
+  async function renderizarRelatorioRentabilidade() {
+    try {
+      // Carregar receitas
+      const receitasData = await buscarArquivo("receitas.json");
+      const receitasArray = Array.isArray(receitasData) ? receitasData : (receitasData.dados || []);
+      let receitas = {};
+      receitasArray.forEach(r => { receitas[r.Nome] = r; });
+
+      // Carregar transportes
+      const transportesData = await buscarArquivo("transporte.json");
+      const transportes = Array.isArray(transportesData) ? transportesData : (transportesData.dados || []);
+
+      // Filtrar vendas
+      const mes = document.getElementById('filtroMes').value;
+      const ano = document.getElementById('filtroAno').value;
+      const vendedor = document.getElementById('filtroVendedor').value;
+      const impostoPercentual = parseFloat(document.getElementById('impostoPercentual').value) || 10;
+
+      let vendasFiltradas = todasVendas.filter(v => {
+        const data = new Date(v.DataVenda);
+        const mesVenda = data.getMonth() + 1;
+        const anoVenda = data.getFullYear();
+        const filtroMes = !mes || mesVenda === parseInt(mes);
+        const filtroAno = !ano || anoVenda === parseInt(ano);
+        const filtroVendedor = !vendedor || v.VendedorId === vendedor;
+        return filtroMes && filtroAno && filtroVendedor;
+      });
+
+      // Construir dados de rentabilidade
+      let vendas = vendasFiltradas.map(v => {
+        let custoRealProdutos = 0;
+        if (v.Produtos && Array.isArray(v.Produtos)) {
+          v.Produtos.forEach(p => {
+            custoRealProdutos += calcularCustoProduto(p.Nome, receitas);
+          });
+        }
+        const frete = buscarFreteCliente(v.NomeCliente, v.NumeroNF, transportes);
+        const imposto = (v.ValorTotal * impostoPercentual) / 100;
+        const custoTotal = custoRealProdutos + imposto + frete;
+        const lucro = v.ValorTotal - custoTotal;
+        
+        return {
+          data: v.DataVenda,
+          cliente: v.NomeCliente,
+          venda: v.ValorTotal,
+          imposto: imposto,
+          frete: frete,
+          custo: custoRealProdutos,
+          lucro: lucro,
+          recebido: v.TotalPago,
+          falta: v.TotalPendente,
+          diasAtraso: v.diasAtraso || 0,
+          statusAtraso: v.diasAtraso > 0
+        };
+      });
+
+      // Renderizar tabela
+      const corpoRelatorio = document.getElementById('corpoRelatorio');
+      corpoRelatorio.innerHTML = vendas.map(v => {
+        const statusClass = v.falta === 0 ? 'positivo' : (v.diasAtraso > 0 ? 'negativo' : 'alerta');
+        const statusTexto = v.falta === 0 ? '✅ Completo' : (v.diasAtraso > 0 ? `🔴 ${v.diasAtraso}d` : '⏳ Pendente');
+        
+        return `
+          <tr>
+            <td>${new Date(v.data).toLocaleDateString('pt-BR')}</td>
+            <td>${v.cliente.substring(0, 30)}</td>
+            <td class="valor" style="color: #7cf0c2;">R$ ${v.venda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+            <td class="valor">R$ ${v.imposto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+            <td class="valor">R$ ${v.frete.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+            <td class="valor">R$ ${v.custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+            <td class="valor" style="color: ${v.lucro > 0 ? '#7cf0c2' : '#ff6b6b'};">R$ ${v.lucro.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+            <td class="valor" style="color: #d4af37;">R$ ${v.recebido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+            <td class="valor" style="color: ${v.falta > 0 ? '#ff6b6b' : '#7cf0c2'};">R$ ${v.falta.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+            <td style="text-align: center; color: ${v.diasAtraso > 0 ? '#ff6b6b' : '#7cf0c2'};">${v.diasAtraso} dias</td>
+            <td style="text-align: center; color: ${statusClass === 'positivo' ? '#7cf0c2' : statusClass === 'negativo' ? '#ff6b6b' : '#ffa500'};">${statusTexto}</td>
+          </tr>
+        `;
+      }).join('');
+
+      // Calcular e renderizar laudo
+      const totalVendas = vendas.reduce((sum, v) => sum + v.venda, 0);
+      const totalImposto = vendas.reduce((sum, v) => sum + v.imposto, 0);
+      const totalFrete = vendas.reduce((sum, v) => sum + v.frete, 0);
+      const totalCusto = vendas.reduce((sum, v) => sum + v.custo, 0);
+      const totalLucro = vendas.reduce((sum, v) => sum + v.lucro, 0);
+      const totalRecebido = vendas.reduce((sum, v) => sum + v.recebido, 0);
+      const margem = (totalLucro / totalVendas) * 100;
+
+      const laudo = `
+        <strong style="color: #d4af37;">📊 RESUMO EXECUTIVO</strong><br>
+        Total de Vendas: ${vendas.length} | R$ ${totalVendas.toLocaleString('pt-BR', {minimumFractionDigits: 2})}<br>
+        Custos Reais: R$ ${totalCusto.toLocaleString('pt-BR', {minimumFractionDigits: 2})} | Impostos: R$ ${totalImposto.toLocaleString('pt-BR', {minimumFractionDigits: 2})} | Fretes: R$ ${totalFrete.toLocaleString('pt-BR', {minimumFractionDigits: 2})}<br>
+        <strong style="color: #7cf0c2;">Lucro Líquido: R$ ${totalLucro.toLocaleString('pt-BR', {minimumFractionDigits: 2})} | Margem: ${margem.toFixed(1)}%</strong><br>
+        Recebido: R$ ${totalRecebido.toLocaleString('pt-BR', {minimumFractionDigits: 2})} (${((totalRecebido/totalVendas)*100).toFixed(1)}%) | Pendente: R$ ${(totalVendas - totalRecebido).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+      `;
+      
+      document.getElementById('laudoFinal').innerHTML = laudo;
+
+    } catch (erro) {
+      console.error('❌ Erro ao renderizar relatório:', erro);
+      document.getElementById('corpoRelatorio').innerHTML = '<tr><td colspan="11">❌ Erro ao carregar relatório</td></tr>';
+    }
+  }
+
+  function abrirDetalhesVendedor(vendedorId) {
+    console.log(`🔍 Abrindo análise do vendedor: ${vendedorId}`);
+    window.location.href = `analise-vendedor-detalhes.html?vendedor=${encodeURIComponent(vendedorId)}`;
+  }
+
+  function formatarMoeda(valor) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor || 0);
+  }
+</script>
+</body>
+</html>
