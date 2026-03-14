@@ -946,7 +946,7 @@
       sessionStorage.setItem('dadosContratoParaAssinatura', JSON.stringify(dadosContrato));
 
       // ✅ MOSTRAR MODAL IMEDIATAMENTE (não espera resposta do servidor)
-      const urlAssinatura = `http://www.bovipremium.com.br/assinatura/`;
+      const urlAssinatura = `www.google.com`;
       mostrarModalAssinaturaComLink(urlAssinatura);
 
       // Enviar para Google Apps Script salvar na pasta ~cliente~ (em background)
@@ -1677,22 +1677,31 @@
     return fcList.includes(clienteAtual.Nome);
   }
 
-  // Marcar cliente como FC
+  // Marcar cliente como FC (requer palavra-chave)
   function marcarClienteFC() {
+    const senha = prompt('🔐 Digite a palavra-chave para marcar FC:\n\n(Use "Marcar")', '');
+    
+    if (senha !== 'Marcar') {
+      alert('❌ Palavra-chave incorreta!\n\n💡 Use "Marcar" para habilitar o FC');
+      return false;
+    }
+
     let fcList = JSON.parse(localStorage.getItem('fcClientes') || '[]');
     if (!fcList.includes(clienteAtual.Nome)) {
       fcList.push(clienteAtual.Nome);
     }
     localStorage.setItem('fcClientes', JSON.stringify(fcList));
     renderizarBotaoFC();
+    alert('✅ Cliente marcado com FC!');
+    return true;
   }
 
   // Desmarcar cliente como FC (requer senha)
   function desmarcarClienteFC() {
-    const senha = prompt('🔐 Digite a palavra-chave para desmarcar FC:\n\n(Mesma palavra usada para deletar)', '');
+    const senha = prompt('🔐 Digite a palavra-chave para desmarcar FC:\n\n(Use uma palavra-chave específica)', '');
     
-    if (senha !== 'Excluir') {
-      alert('❌ Palavra-chave incorreta!');
+    if (senha !== 'Desmarcar') {
+      alert('❌ Palavra-chave incorreta!\n\n💡 Use "Desmarcar" para remover o FC');
       return false;
     }
 
@@ -1700,6 +1709,7 @@
     fcList = fcList.filter(nome => nome !== clienteAtual.Nome);
     localStorage.setItem('fcClientes', JSON.stringify(fcList));
     renderizarBotaoFC();
+    alert('✅ FC removido com sucesso!');
     return true;
   }
 
@@ -1727,12 +1737,12 @@
       btn.style.background = '#1fa37a';
       btn.style.color = '#fff';
       btn.style.border = '2px solid #0f6b52';
-      btn.title = '✅ Cliente marcado com FC - Clique para desmarcar';
+      btn.title = '✅ Cliente marcado com FC - Clique para desmarcar (requer palavra-chave "Desmarcar")';
     } else {
       btn.style.background = '#f0f0f0';
       btn.style.color = '#666';
       btn.style.border = '2px solid #ddd';
-      btn.title = '⭕ Clique para marcar como FC';
+      btn.title = '⭕ Clique para marcar como FC (requer palavra-chave "Marcar")';
     }
   }
 
