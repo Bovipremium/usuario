@@ -489,6 +489,24 @@
 <script src="auditoria.js"></script>
 <script src="seguranca.js"></script>
 <script src="alertas-ligacoes.js"></script>
+<script src="notificacoes.js"></script>
 <script src="app.js"></script>
+
+<!-- ✅ SOLICITAR PERMISSÃO DE NOTIFICAÇÕES AO INICIAR -->
+<script>
+  window.addEventListener('load', async () => {
+    // Aguardar 2 segundos para não interromper o carregamento
+    setTimeout(async () => {
+      if ('Notification' in window && Notification.permission === 'default') {
+        const permissao = await notificacoes.solicitarPermissao();
+        if (permissao) {
+          console.log('✅ Notificações habilitadas com sucesso!');
+        } else {
+          console.log('⚠️ Usuário recusou notificações');
+        }
+      }
+    }, 2000);
+  });
+</script>
 </body>
 </html>
