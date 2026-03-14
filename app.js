@@ -870,6 +870,14 @@ function filtrarDados(tipo) {
   }
 
   renderizarTabela(tipo, filtrados);
+  
+  // 🎯 SCROLL AUTOMÁTICO PARA O PRIMEIRO RESULTADO
+  setTimeout(() => {
+    const tabela = document.querySelector('table tbody tr');
+    if (tabela) {
+      tabela.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 100);
 }
 
 // ============================================
@@ -900,6 +908,14 @@ function filtrarDadosPagamentos() {
   });
 
   renderizarTabelaPagamentos(filtrados);
+  
+  // 🎯 SCROLL AUTOMÁTICO PARA O PRIMEIRO RESULTADO
+  setTimeout(() => {
+    const tabela = document.querySelector('table tbody tr');
+    if (tabela) {
+      tabela.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 100);
 }
 
 // ============================================
