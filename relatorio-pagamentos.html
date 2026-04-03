@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="sidebar-dock.css">
+  <title>Relatório de Pagamentos Premium - Sistema Financeiro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
+      min-height: 100vh;
+      padding: 24px;
+      color: #e5f3ee;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* HEADER PREMIUM */
+    .header {
+      background: linear-gradient(135deg, #1fa37a 0%, #0f6b52 100%);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(31, 163, 122, 0.25);
+      color: #e5f3ee;
+      padding: 32px;
+      border-radius: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .header .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .header select {
+      padding: 10px 16px;
+      border: 1px solid rgba(31, 163, 122, 0.25);
+      border-radius: 10px;
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #e5f3ee;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s;
+    }
+
+    .header select:hover {
+      background: rgba(31, 163, 122, 0.15);
+      border-color: rgba(31, 163, 122, 0.5);
+    }
+
+    .header select option {
+      background: #0e1f1a;
+      color: #e5f3ee;
+    }
+
+    .header label {
+      color: #e5f3ee;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .header label:hover {
+      color: #7cf0c2;
+    }
+
+    .header input[type="checkbox"] {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+      accent-color: #1fa37a;
+    }
+
+    .header button {
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #e5f3ee;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.3s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .header button:hover {
+      background: rgba(31, 163, 122, 0.2);
+      border-color: rgba(31, 163, 122, 0.5);
+      transform: translateY(-1px);
+    }
+
+    /* MÉTRICAS PREMIUM */
+    .metrics-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .metric-card {
+      background: linear-gradient(135deg, rgba(31, 163, 122, 0.1), rgba(124, 240, 194, 0.05));
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(31, 163, 122, 0.25);
+      padding: 28px;
+      border-radius: 16px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #1fa37a, #7cf0c2);
+      opacity: 0.6;
+    }
+
+    .metric-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(31, 163, 122, 0.5);
+      background: linear-gradient(135deg, rgba(31, 163, 122, 0.15), rgba(124, 240, 194, 0.08));
+      box-shadow: 0 20px 40px rgba(31, 163, 122, 0.15);
+    }
+
+    .metric-card.success { --color: #32c832; }
+    .metric-card.danger { --color: #ff6b6b; }
+    .metric-card.warning { --color: #ffc107; }
+    .metric-card.info { --color: #00d4ff; }
+    .metric-card.gold { --color: #d4af37; }
+
+    .metric-card.success::before { background: linear-gradient(90deg, #32c832, #64e864); }
+    .metric-card.danger::before { background: linear-gradient(90deg, #ff6b6b, #ff8a8a); }
+    .metric-card.warning::before { background: linear-gradient(90deg, #ffc107, #ffd94a); }
+    .metric-card.info::before { background: linear-gradient(90deg, #00d4ff, #4de5ff); }
+    .metric-card.gold::before { background: linear-gradient(90deg, #d4af37, #e8c547); }
+
+    .metric-label {
+      font-size: 11px;
+      color: #b9d8ce;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .metric-value {
+      font-size: 36px;
+      font-weight: 800;
+      color: #7cf0c2;
+      margin-bottom: 8px;
+      line-height: 1;
+    }
+
+    .metric-card.danger .metric-value { color: #ff6b6b; }
+    .metric-card.warning .metric-value { color: #ffc107; }
+    .metric-card.info .metric-value { color: #00d4ff; }
+    .metric-card.gold .metric-value { color: #d4af37; }
+
+    .metric-subtitle {
+      font-size: 12px;
+      color: #8fb9ac;
+      font-weight: 500;
+    }
+
+    /* SEÇÃO DE GRÁFICOS */
+    .charts-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .chart-container {
+      background: linear-gradient(135deg, rgba(31, 163, 122, 0.08), rgba(124, 240, 194, 0.03));
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(31, 163, 122, 0.25);
+      padding: 28px;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s;
+    }
+
+    .chart-container:hover {
+      border-color: rgba(31, 163, 122, 0.5);
+      background: linear-gradient(135deg, rgba(31, 163, 122, 0.12), rgba(124, 240, 194, 0.06));
+    }
+
+    .chart-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #e5f3ee;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid rgba(31, 163, 122, 0.3);
+      letter-spacing: 0.3px;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: 350px;
+    }
+
+    /* ANÁLISE ESTRATÉGICA */
+    .strategic-section {
+      background: linear-gradient(135deg, rgba(31, 163, 122, 0.08), rgba(124, 240, 194, 0.03));
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(31, 163, 122, 0.25);
+      padding: 32px;
+      border-radius: 16px;
+      margin-bottom: 32px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #e5f3ee;
+      margin-bottom: 28px;
+      padding-bottom: 14px;
+      border-bottom: 2px solid rgba(31, 163, 122, 0.3);
+      letter-spacing: 0.3px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .performance-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .performance-item {
+      background: linear-gradient(135deg, rgba(31, 163, 122, 0.1), rgba(124, 240, 194, 0.04));
+      border: 1px solid rgba(31, 163, 122, 0.25);
+      padding: 24px;
+      border-radius: 14px;
+      border-left: 4px solid #1fa37a;
+      transition: all 0.3s;
+    }
+
+    .performance-item:hover {
+      transform: translateY(-4px);
+      border-color: rgba(31, 163, 122, 0.5);
+      background: linear-gradient(135deg, rgba(31, 163, 122, 0.15), rgba(124, 240, 194, 0.07));
+    }
+
+    .performance-item.positive { border-left-color: #32c832; }
+    .performance-item.negative { border-left-color: #ff6b6b; }
+    .performance-item.warning { border-left-color: #ffc107; }
+
+    .performance-label {
+      font-size: 11px;
+      color: #b9d8ce;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .performance-value {
+      font-size: 32px;
+      font-weight: 800;
+      color: #7cf0c2;
+      margin-bottom: 8px;
+      line-height: 1;
+    }
+
+    .performance-item.negative .performance-value { color: #ff6b6b; }
+    .performance-item.warning .performance-value { color: #ffc107; }
+
+    .performance-description {
+      font-size: 12px;
+      color: #8fb9ac;
+      font-weight: 500;
+    }
+
+    /* TABELAS PREMIUM */
+    .table-section {
+      background: linear-gradient(135deg, rgba(31, 163, 122, 0.08), rgba(124, 240, 194, 0.03));
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(31, 163, 122, 0.25);
+      padding: 28px;
+      border-radius: 16px;
+      margin-bottom: 32px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead {
+      background: linear-gradient(90deg, rgba(31, 163, 122, 0.2), rgba(124, 240, 194, 0.1));
+      border-bottom: 2px solid rgba(31, 163, 122, 0.3);
+    }
+
+    th {
+      padding: 16px;
+      text-align: left;
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #7cf0c2;
+    }
+
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(31, 163, 122, 0.15);
+      color: #b9d8ce;
+    }
+
+    tbody tr {
+      transition: all 0.3s;
+    }
+
+    tbody tr:hover {
+      background: rgba(31, 163, 122, 0.1);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .valor-cell {
+      text-align: right;
+      font-weight: 700;
+      color: #7cf0c2;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* BOTÕES */
+    button {
+      font-family: 'Inter', sans-serif;
+      transition: all 0.3s;
+    }
+
+    .btn-details {
+      padding: 8px 16px;
+      background: linear-gradient(135deg, #1fa37a, #0f6b52);
+      border: 1px solid rgba(31, 163, 122, 0.5);
+      color: #e5f3ee;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .btn-details:hover {
+      background: linear-gradient(135deg, #0f6b52, #0a3d2e);
+      border-color: rgba(31, 163, 122, 0.8);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(31, 163, 122, 0.2);
+    }
+
+    /* STATUS BADGE */
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-paid {
+      background: rgba(50, 200, 50, 0.3);
+      color: #64e864;
+      border: 1px solid rgba(50, 200, 50, 0.5);
+    }
+
+    .status-pending {
+      background: rgba(255, 107, 107, 0.3);
+      color: #ff8a8a;
+      border: 1px solid rgba(255, 107, 107, 0.5);
+    }
+
+    .status-partial {
+      background: rgba(255, 193, 7, 0.3);
+      color: #ffd94a;
+      border: 1px solid rgba(255, 193, 7, 0.5);
+    }
+
+    /* LOADING */
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: #b9d8ce;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(31, 163, 122, 0.2);
+      border-top-color: #1fa37a;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ALERTA ESTRATÉGICO */
+    .strategic-alert {
+      background: linear-gradient(135deg, rgba(255, 107, 107, 0.1), rgba(255, 107, 107, 0.05));
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      border-left: 4px solid #ff6b6b;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      color: #ff8a8a;
+      font-weight: 500;
+    }
+
+    .strategic-alert.success {
+      background: linear-gradient(135deg, rgba(50, 200, 50, 0.1), rgba(50, 200, 50, 0.05));
+      border-color: rgba(50, 200, 50, 0.3);
+      border-left-color: #32c832;
+      color: #64e864;
+    }
+
+    .strategic-alert.warning {
+      background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05));
+      border-color: rgba(255, 193, 7, 0.3);
+      border-left-color: #ffc107;
+      color: #ffd94a;
+    }
+
+    /* RESPONSIVO */
+    @media (max-width: 1200px) {
+      .charts-section {
+        grid-template-columns: 1fr;
+      }
+      
+      .metric-card {
+        min-width: 0;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 16px;
+        padding: 24px;
+      }
+
+      .header h1 {
+        font-size: 24px;
+        width: 100%;
+      }
+
+      .header .controls {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .metrics-section {
+        grid-template-columns: 1fr;
+      }
+
+      .performance-grid {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        font-size: 11px;
+      }
+
+      th, td {
+        padding: 10px 12px;
+      }
+
+      .metric-value {
+        font-size: 28px;
+      }
+
+      .performance-value {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header Premium -->
+    <div class="header">
+      <div>
+        <h1>📊 Relatório de Pagamentos</h1>
+      </div>
+      <div class="controls">
+        <select id="selectMes" onchange="atualizarRelatorio()">
+          <option value="">Todos os Meses</option>
+          <option value="1">Janeiro</option>
+          <option value="2">Fevereiro</option>
+          <option value="3">Março</option>
+          <option value="4">Abril</option>
+          <option value="5">Maio</option>
+          <option value="6">Junho</option>
+          <option value="7">Julho</option>
+          <option value="8">Agosto</option>
+          <option value="9">Setembro</option>
+          <option value="10">Outubro</option>
+          <option value="11">Novembro</option>
+          <option value="12">Dezembro</option>
+        </select>
+        <select id="selectAno" onchange="atualizarRelatorio()">
+          <option value="">Todos os Anos</option>
+        </select>
+        <select id="selectVendedor" onchange="atualizarRelatorio()">
+          <option value="">Todos os Vendedores</option>
+        </select>
+        <select id="selectMidia" onchange="atualizarRelatorio()">
+          <option value="">Todos os Canais</option>
+        </select>
+        <label style="display: flex; align-items: center; gap: 8px; margin: 0;">
+          <input type="checkbox" id="chkGeral" onchange="atualizarRelatorio()">
+          <span style="font-size: 13px; font-weight: 600;">Relatório Geral</span>
+        </label>
+        <button onclick="window.history.back()">⬅ Voltar</button>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div id="relatorioContent">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>Carregando dados financeiros...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+<script src="auth-utils.js"></script>
+  <script>
+    // Registrar o plugin de data labels
+    Chart.register(ChartDataLabels);
+
+    // Dados globais
+    let todosClientes = [];
+    let todasDespesas = [];
+    let chartsInstances = [];
+    let todosVendedores = new Set();
+    let todasMidias = new Set();
+
+    // Carregar dados ao abrir página
+    window.addEventListener('load', async () => {
+      await carregarDados();
+      popularAnosSelect();
+      popularVendedores();
+      popularMidias();
+      atualizarRelatorio();
+    });
+
+    // Função para carregar dados
+    async function carregarDados() {
+      try {
+        const API_URL = CONFIG.API_URL;
+        
+        const respClientes = await AuthManager.requisicaoSegura(API_URL + '?acao=buscar&arquivo=clientes.json');
+        const clientesData = await respClientes.json();
+        todosClientes = Array.isArray(clientesData) ? clientesData : clientesData.dados || [];
+
+        const respDespesas = await AuthManager.requisicaoSegura(API_URL + '?acao=buscar&arquivo=despesas.json');
+        const despesasData = await respDespesas.json();
+        todasDespesas = Array.isArray(despesasData) ? despesasData : despesasData.dados || [];
+      } catch (erro) {
+        console.error('Erro ao carregar dados:', erro);
+        const mensagemErro = traduzirErro(erro);
+        document.getElementById('relatorioContent').innerHTML = `
+          <div class="strategic-alert" style="margin: 20px;">
+            <p>❌ ${mensagemErro}</p>
+          </div>
+        `;
+      }
+    }
+
+    function popularAnosSelect() {
+      const anoAtual = new Date().getFullYear();
+      const selectAno = document.getElementById('selectAno');
+      for (let ano = anoAtual; ano >= anoAtual - 5; ano--) {
+        const option = document.createElement('option');
+        option.value = ano;
+        option.textContent = ano;
+        selectAno.appendChild(option);
+      }
+    }
+
+    function popularVendedores() {
+      todosClientes.forEach(cliente => {
+        if (cliente.Vendedor) {
+          todosVendedores.add(cliente.Vendedor.trim());
+        }
+      });
+
+      const selectVendedor = document.getElementById('selectVendedor');
+      const vendedoresArray = Array.from(todosVendedores).sort();
+      vendedoresArray.forEach(vendedor => {
+        const option = document.createElement('option');
+        option.value = vendedor;
+        option.textContent = vendedor;
+        selectVendedor.appendChild(option);
+      });
+    }
+
+    function popularMidias() {
+      todosClientes.forEach(cliente => {
+        if (cliente.Midia && cliente.Midia.trim() !== '') {
+          todasMidias.add(cliente.Midia.trim());
+        }
+      });
+
+      const selectMidia = document.getElementById('selectMidia');
+      const midiasArray = Array.from(todasMidias).sort();
+      midiasArray.forEach(midia => {
+        const option = document.createElement('option');
+        option.value = midia;
+        option.textContent = midia;
+        selectMidia.appendChild(option);
+      });
+    }
+
+    function formatarMoeda(valor) {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+    }
+
+    function formatarData(data) {
+      if (!data) return '-';
+      const d = new Date(data);
+      return d.toLocaleDateString('pt-BR');
+    }
+
+    function extrairParcelasFiltradas() {
+      const mes = document.getElementById('selectMes').value;
+      const ano = document.getElementById('selectAno').value;
+      const vendedor = document.getElementById('selectVendedor').value;
+      const midia = document.getElementById('selectMidia').value;
+      const chkGeral = document.getElementById('chkGeral').checked;
+      const parcelas = [];
+
+      todosClientes.forEach(cliente => {
+        // Validar se cliente tem dados básicos
+        if (!cliente || !cliente.Vendas) return;
+
+        // FILTRO DE VENDEDOR: Só inclui se vendedor foi selecionado E correspondência exata
+        if (vendedor && vendedor.trim() !== '') {
+          const vendedorCliente = (cliente.Vendedor || '').trim();
+          if (vendedorCliente !== vendedor.trim()) {
+            return; // Pula este cliente se vendedor não bate
+          }
+        }
+
+        // FILTRO DE MÍDIA: Só inclui se mídia foi selecionada E correspondência exata
+        // IMPORTANTE: Mídia é um campo do Cliente (Cliente.Midia), não da Venda!
+        if (midia && midia.trim() !== '') {
+          const midiaCliente = (cliente.Midia || '').trim();
+          if (midiaCliente !== midia.trim()) {
+            return; // Pula este cliente se mídia não bate
+          }
+        }
+
+        // Se passou nos filtros de vendedor e mídia, processa todas as vendas deste cliente
+        if (!Array.isArray(cliente.Vendas)) return;
+        
+        cliente.Vendas.forEach(venda => {
+          if (!venda.Parcelas || !Array.isArray(venda.Parcelas)) return;
+          
+          venda.Parcelas.forEach(parcela => {
+            // FILTRO DE DATA: Aplica em nível de parcela
+            if (mes || ano) {
+              const dataParcela = new Date(parcela.DataVencimento);
+              if (mes && dataParcela.getMonth() + 1 !== parseInt(mes)) return;
+              if (ano && dataParcela.getFullYear() !== parseInt(ano)) return;
+            }
+            
+            parcelas.push({
+              ...parcela,
+              nomeCliente: cliente.Nome,
+              cpfCliente: cliente.CPF,
+              clienteId: cliente.Id,
+              vendedor: cliente.Vendedor,
+              midia: cliente.Midia
+            });
+          });
+        });
+      });
+
+      return parcelas;
+    }
+
+    function extrairDespesasFiltradas() {
+      const mes = document.getElementById('selectMes').value;
+      const ano = document.getElementById('selectAno').value;
+      return todasDespesas.filter(despesa => {
+        if (!despesa.DataCadastro) return false;
+        if (mes || ano) {
+          const dataDespesa = new Date(despesa.DataCadastro);
+          if (mes && dataDespesa.getMonth() + 1 !== parseInt(mes)) return false;
+          if (ano && dataDespesa.getFullYear() !== parseInt(ano)) return false;
+        }
+        return true;
+      });
+    }
+
+    function calcularMetricas() {
+      const parcelas = extrairParcelasFiltradas();
+      const despesas = extrairDespesasFiltradas();
+
+      const pagos = parcelas.filter(p => p.Pago).length;
+      const nãoPagos = parcelas.filter(p => !p.Pago).length;
+      const totalEmitido = parcelas.reduce((sum, p) => sum + (p.Valor || 0), 0);
+      const totalPago = parcelas.filter(p => p.Pago).reduce((sum, p) => sum + (p.Valor || 0), 0);
+      const totalNãoPago = parcelas.filter(p => !p.Pago).reduce((sum, p) => sum + (p.Valor || 0), 0);
+      const totalDespesas = despesas.reduce((sum, d) => sum + (d.Valor || 0), 0);
+      const lucroLiquido = totalPago - totalDespesas;
+      const percentualAdimplencia = parcelas.length > 0 ? (pagos / parcelas.length * 100).toFixed(2) : 0;
+
+      // Clientes inadimplentes
+      const clientesIndadimplentes = new Set();
+      parcelas.filter(p => !p.Pago).forEach(p => {
+        clientesIndadimplentes.add(p.nomeCliente);
+      });
+
+      // Dados por mês (últimos 6 meses)
+      const dados6meses = obterDadosPor6Meses();
+
+      return {
+        parcelas,
+        despesas,
+        pagos,
+        nãoPagos,
+        totalEmitido,
+        totalPago,
+        totalNãoPago,
+        totalDespesas,
+        lucroLiquido,
+        percentualAdimplencia,
+        clientesIndadimplentes: Array.from(clientesIndadimplentes),
+        dados6meses,
+        margemLucro: totalEmitido > 0 ? ((lucroLiquido / totalEmitido) * 100).toFixed(2) : 0
+      };
+    }
+
+    function obterDadosPor6Meses() {
+      const dados = {};
+      const hoje = new Date();
+      
+      for (let i = 5; i >= 0; i--) {
+        const data = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+        const mes = data.getMonth() + 1;
+        const ano = data.getFullYear();
+        const chave = `${ano}-${String(mes).padStart(2, '0')}`;
+        
+        dados[chave] = {
+          totalEmitido: 0,
+          totalPago: 0,
+          totalPendente: 0,
+          despesas: 0
+        };
+      }
+
+      // Somar valores
+      todosClientes.forEach(cliente => {
+        if (!cliente.Vendas) return;
+        cliente.Vendas.forEach(venda => {
+          if (!venda.Parcelas) return;
+          venda.Parcelas.forEach(parcela => {
+            const dataParcela = new Date(parcela.DataVencimento);
+            const mes = dataParcela.getMonth() + 1;
+            const ano = dataParcela.getFullYear();
+            const chave = `${ano}-${String(mes).padStart(2, '0')}`;
+            
+            if (dados[chave]) {
+              dados[chave].totalEmitido += parcela.Valor || 0;
+              if (parcela.Pago) {
+                dados[chave].totalPago += parcela.Valor || 0;
+              } else {
+                dados[chave].totalPendente += parcela.Valor || 0;
+              }
+            }
+          });
+        });
+      });
+
+      todasDespesas.forEach(despesa => {
+        const dataDespesa = new Date(despesa.DataCadastro);
+        const mes = dataDespesa.getMonth() + 1;
+        const ano = dataDespesa.getFullYear();
+        const chave = `${ano}-${String(mes).padStart(2, '0')}`;
+        
+        if (dados[chave]) {
+          dados[chave].despesas += despesa.Valor || 0;
+        }
+      });
+
+      return dados;
+    }
+
+    function atualizarRelatorio() {
+      const metricas = calcularMetricas();
+      const contentDiv = document.getElementById('relatorioContent');
+
+      // ✅ Limpar conteúdo anterior completamente
+      contentDiv.innerHTML = '';
+      
+      // Destruir gráficos anteriores
+      chartsInstances.forEach(chart => chart.destroy());
+      chartsInstances = [];
+
+      let html = `
+        <!-- ALERTAS ESTRATÉGICOS -->
+        ${metricas.nãoPagos > 0 ? `
+          <div class="strategic-alert" style="margin-bottom: 24px;">
+            ⚠️ <strong>Atenção:</strong> ${metricas.nãoPagos} boleto(s) pendente(s) totalizando ${formatarMoeda(metricas.totalNãoPago)}
+          </div>
+        ` : `
+          <div class="strategic-alert success" style="margin-bottom: 24px;">
+            ✅ <strong>Excelente:</strong> Todos os boletos foram pagos!
+          </div>
+        `}
+
+        ${metricas.lucroLiquido < 0 ? `
+          <div class="strategic-alert" style="margin-bottom: 24px;">
+            🚨 <strong>Crítico:</strong> Resultado negativo de ${formatarMoeda(metricas.lucroLiquido)}. Despesas superiores à receita!
+          </div>
+        ` : ''}
+
+        <!-- MÉTRICAS PREMIUM -->
+        <div class="metrics-section">
+          <div class="metric-card success">
+            <div class="metric-label">✅ Boletos Pagos</div>
+            <div class="metric-value">${metricas.pagos}</div>
+            <div class="metric-subtitle">${formatarMoeda(metricas.totalPago)}</div>
+          </div>
+
+          <div class="metric-card ${metricas.nãoPagos > 0 ? 'danger' : 'success'}">
+            <div class="metric-label">⏳ Boletos Pendentes</div>
+            <div class="metric-value">${metricas.nãoPagos}</div>
+            <div class="metric-subtitle">${formatarMoeda(metricas.totalNãoPago)}</div>
+          </div>
+
+          <div class="metric-card info">
+            <div class="metric-label">📄 Total Emitido</div>
+            <div class="metric-value">${metricas.parcelas.length}</div>
+            <div class="metric-subtitle">${formatarMoeda(metricas.totalEmitido)}</div>
+          </div>
+
+          <div class="metric-card ${parseFloat(metricas.percentualAdimplencia) >= 80 ? 'success' : parseFloat(metricas.percentualAdimplencia) >= 60 ? 'warning' : 'danger'}">
+            <div class="metric-label">📊 Taxa de Adimplência</div>
+            <div class="metric-value">${metricas.percentualAdimplencia}%</div>
+            <div class="metric-subtitle">${metricas.pagos} de ${metricas.parcelas.length}</div>
+          </div>
+
+          <div class="metric-card gold">
+            <div class="metric-label">💸 Lucro Líquido</div>
+            <div class="metric-value">${formatarMoeda(metricas.lucroLiquido)}</div>
+            <div class="metric-subtitle">Despesas: ${formatarMoeda(metricas.totalDespesas)}</div>
+          </div>
+        </div>
+
+        <!-- GRÁFICOS ROBUSTOS -->
+        <div class="charts-section">
+          <div class="chart-container">
+            <div class="chart-title">📊 Distribuição de Pagamentos</div>
+            <div class="chart-wrapper">
+              <canvas id="chartPagamento"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-container">
+            <div class="chart-title">💰 Valores em Movimento</div>
+            <div class="chart-wrapper">
+              <canvas id="chartValores"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-container">
+            <div class="chart-title">📈 Tendência 6 Meses</div>
+            <div class="chart-wrapper">
+              <canvas id="chartTendencia"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-container">
+            <div class="chart-title">🎯 Composição Financeira</div>
+            <div class="chart-wrapper">
+              <canvas id="chartComposicao"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- ANÁLISE ESTRATÉGICA -->
+        <div class="strategic-section">
+          <div class="section-title">🎯 Análise Estratégica Financeira</div>
+          <div class="performance-grid">
+            <div class="performance-item ${metricas.percentualAdimplencia >= 80 ? 'positive' : metricas.percentualAdimplencia >= 60 ? 'warning' : 'negative'}">
+              <div class="performance-label">Taxa de Adimplência</div>
+              <div class="performance-value">${metricas.percentualAdimplencia}%</div>
+              <div class="performance-description">
+                ${parseFloat(metricas.percentualAdimplencia) >= 85 ? '✅ Excelente - Acima de 85%' : 
+                  parseFloat(metricas.percentualAdimplencia) >= 70 ? '⚠️ Bom - Entre 70-85%' : 
+                  parseFloat(metricas.percentualAdimplencia) >= 50 ? '❌ Crítico - Abaixo de 70%' : 
+                  '🚨 Emergência - Muito baixo'}
+              </div>
+            </div>
+
+            <div class="performance-item ${metricas.lucroLiquido >= 0 ? 'positive' : 'negative'}">
+              <div class="performance-label">Margem de Lucro</div>
+              <div class="performance-value">${metricas.margemLucro}%</div>
+              <div class="performance-description">
+                ${metricas.lucroLiquido >= 0 ? '✅ Operação lucrativa' : '❌ Operação deficitária'}
+              </div>
+            </div>
+
+            <div class="performance-item ${metricas.percentualAdimplencia >= 80 ? 'positive' : 'warning'}">
+              <div class="performance-label">Fluxo de Caixa</div>
+              <div class="performance-value">${formatarMoeda(metricas.totalPago)}</div>
+              <div class="performance-description">
+                Entrada esperada: ${formatarMoeda(metricas.totalEmitido)}
+              </div>
+            </div>
+
+            <div class="performance-item">
+              <div class="performance-label">Clientes Inadimplentes</div>
+              <div class="performance-value">${metricas.clientesIndadimplentes.length}</div>
+              <div class="performance-description">
+                ${metricas.clientesIndadimplentes.length > 0 ? 
+                  metricas.clientesIndadimplentes.slice(0, 2).join(', ') + (metricas.clientesIndadimplentes.length > 2 ? '...' : '') : 
+                  'Nenhum'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABELA DE TOP CLIENTES -->
+        <div class="table-section">
+          <div class="section-title">🏆 Top 10 Clientes por Valor de Vendas</div>
+          ${renderizarTopClientes(metricas.parcelas)}
+        </div>
+      `;
+
+      contentDiv.innerHTML = html;
+      setTimeout(() => renderizarGraficos(metricas), 100);
+    }
+
+    function renderizarTopClientes(parcelas) {
+      const clientesValor = {};
+      
+      parcelas.forEach(p => {
+        if (!clientesValor[p.nomeCliente]) {
+          clientesValor[p.nomeCliente] = { total: 0, pago: 0, pendente: 0, count: 0 };
+        }
+        clientesValor[p.nomeCliente].total += p.Valor || 0;
+        clientesValor[p.nomeCliente].count++;
+        if (p.Pago) {
+          clientesValor[p.nomeCliente].pago += p.Valor || 0;
+        } else {
+          clientesValor[p.nomeCliente].pendente += p.Valor || 0;
+        }
+      });
+
+      const top10 = Object.entries(clientesValor)
+        .sort((a, b) => b[1].total - a[1].total)
+        .slice(0, 10);
+
+      if (top10.length === 0) {
+        return '<p style="text-align: center; padding: 20px; color: #8fb9ac;">Nenhum cliente registrado.</p>';
+      }
+
+      let html = '<table><thead><tr><th>Posição</th><th>Cliente</th><th>Total Vendido</th><th>Pago</th><th>Pendente</th><th>Status</th></tr></thead><tbody>';
+
+      top10.forEach((item, idx) => {
+        const [cliente, dados] = item;
+        const statusClass = dados.pendente === 0 ? 'paid' : dados.pago > 0 ? 'partial' : 'pending';
+        const statusText = dados.pendente === 0 ? '✅ Quitado' : dados.pago > 0 ? '⚠️ Parcial' : '❌ Pendente';
+
+        html += `
+          <tr>
+            <td style="font-weight: 700; color: #d4af37;">🥇 ${idx + 1}</td>
+            <td>${cliente}</td>
+            <td class="valor-cell">${formatarMoeda(dados.total)}</td>
+            <td class="valor-cell" style="color: #32c832;">${formatarMoeda(dados.pago)}</td>
+            <td class="valor-cell" style="color: #ff6b6b;">${formatarMoeda(dados.pendente)}</td>
+            <td><span class="status-badge status-${statusClass}">${statusText}</span></td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      return html;
+    }
+
+    function renderizarGraficos(metricas) {
+      const mesesLabels = Object.keys(metricas.dados6meses).map(chave => {
+        const [ano, mes] = chave.split('-');
+        const nomeMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        return nomeMeses[parseInt(mes) - 1];
+      });
+
+      // Gráfico 1: Distribuição de Pagamentos (Donut)
+      const ctx1 = document.getElementById('chartPagamento')?.getContext('2d');
+      if (ctx1) {
+        const chart1 = new Chart(ctx1, {
+          type: 'doughnut',
+          data: {
+            labels: ['✅ Pagos', '⏳ Pendentes'],
+            datasets: [{
+              data: [metricas.pagos, metricas.nãoPagos],
+              backgroundColor: ['#32c832', '#ff6b6b'],
+              borderColor: ['rgba(31, 163, 122, 0.3)', 'rgba(31, 163, 122, 0.3)'],
+              borderWidth: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              datalabels: {
+                color: '#e5f3ee',
+                font: { weight: 'bold', size: 14 },
+                formatter: (value, ctx) => {
+                  const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                  const pct = ((value / total) * 100).toFixed(0);
+                  return `${value}\n(${pct}%)`;
+                }
+              },
+              legend: {
+                position: 'bottom',
+                labels: { color: '#e5f3ee', padding: 20, font: { size: 13, weight: '600' } }
+              }
+            }
+          }
+        });
+        chartsInstances.push(chart1);
+      }
+
+      // Gráfico 2: Valores (Bar)
+      const ctx2 = document.getElementById('chartValores')?.getContext('2d');
+      if (ctx2) {
+        const chart2 = new Chart(ctx2, {
+          type: 'bar',
+          data: {
+            labels: ['Pagos', 'Pendentes', 'Despesas'],
+            datasets: [{
+              label: 'R$',
+              data: [metricas.totalPago, metricas.totalNãoPago, metricas.totalDespesas],
+              backgroundColor: ['#32c832', '#ff6b6b', '#ffc107'],
+              borderColor: ['rgba(50, 200, 50, 0.5)', 'rgba(255, 107, 107, 0.5)', 'rgba(255, 193, 7, 0.5)'],
+              borderWidth: 2,
+              borderRadius: 8
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              datalabels: {
+                color: '#e5f3ee',
+                font: { weight: 'bold', size: 11 },
+                formatter: (value) => formatarMoeda(value)
+              },
+              legend: { labels: { color: '#e5f3ee', font: { size: 13, weight: '600' } } }
+            },
+            scales: {
+              y: {
+                ticks: { color: '#b9d8ce', callback: (v) => 'R$ ' + (v / 1000).toFixed(0) + 'k' },
+                grid: { color: 'rgba(31, 163, 122, 0.1)' }
+              },
+              x: { ticks: { color: '#b9d8ce' }, grid: { display: false } }
+            }
+          }
+        });
+        chartsInstances.push(chart2);
+      }
+
+      // Gráfico 3: Tendência 6 Meses (Line)
+      const ctx3 = document.getElementById('chartTendencia')?.getContext('2d');
+      if (ctx3) {
+        const emitidoData = Object.values(metricas.dados6meses).map(d => d.totalEmitido);
+        const pagoData = Object.values(metricas.dados6meses).map(d => d.totalPago);
+        const despesasData = Object.values(metricas.dados6meses).map(d => d.despesas);
+
+        const chart3 = new Chart(ctx3, {
+          type: 'line',
+          data: {
+            labels: mesesLabels,
+            datasets: [
+              {
+                label: 'Emitido',
+                data: emitidoData,
+                borderColor: '#00d4ff',
+                backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#00d4ff',
+                pointBorderColor: '#e5f3ee',
+                pointBorderWidth: 2,
+                pointRadius: 5
+              },
+              {
+                label: 'Pago',
+                data: pagoData,
+                borderColor: '#32c832',
+                backgroundColor: 'rgba(50, 200, 50, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#32c832',
+                pointBorderColor: '#e5f3ee',
+                pointBorderWidth: 2,
+                pointRadius: 5
+              },
+              {
+                label: 'Despesas',
+                data: despesasData,
+                borderColor: '#ff6b6b',
+                backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#ff6b6b',
+                pointBorderColor: '#e5f3ee',
+                pointBorderWidth: 2,
+                pointRadius: 5
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              datalabels: { display: false },
+              legend: { labels: { color: '#e5f3ee', font: { size: 13, weight: '600' }, padding: 20 } }
+            },
+            scales: {
+              y: {
+                ticks: { color: '#b9d8ce', callback: (v) => 'R$ ' + (v / 1000).toFixed(0) + 'k' },
+                grid: { color: 'rgba(31, 163, 122, 0.1)' }
+              },
+              x: { ticks: { color: '#b9d8ce' }, grid: { display: false } }
+            }
+          }
+        });
+        chartsInstances.push(chart3);
+      }
+
+      // Gráfico 4: Composição (Radar)
+      const ctx4 = document.getElementById('chartComposicao')?.getContext('2d');
+      if (ctx4) {
+        const totalReceita = metricas.totalPago;
+        const taxaAdimplencia = parseFloat(metricas.percentualAdimplencia);
+        const margemLucro = parseFloat(metricas.margemLucro);
+        const eficiencia = Math.min(100, (metricas.parcelas.length > 0 ? (metricas.pagos / metricas.parcelas.length * 100) : 0));
+
+        const chart4 = new Chart(ctx4, {
+          type: 'radar',
+          data: {
+            labels: ['Adimplência', 'Margem', 'Eficiência', 'Fluxo de Caixa', 'Saúde Financeira'],
+            datasets: [{
+              label: 'Indicadores (%)',
+              data: [
+                taxaAdimplencia,
+                Math.max(0, margemLucro),
+                eficiencia,
+                Math.min(100, (metricas.totalPago / metricas.totalEmitido * 100) || 0),
+                Math.min(100, (metricas.lucroLiquido > 0 ? 90 : 30))
+              ],
+              borderColor: '#1fa37a',
+              backgroundColor: 'rgba(31, 163, 122, 0.15)',
+              pointBackgroundColor: '#7cf0c2',
+              pointBorderColor: '#1fa37a',
+              pointBorderWidth: 2,
+              pointRadius: 5,
+              borderWidth: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              datalabels: { color: '#e5f3ee', font: { weight: 'bold', size: 11 }, formatter: (v) => v.toFixed(0) + '%' },
+              legend: { labels: { color: '#e5f3ee', font: { size: 13, weight: '600' } } }
+            },
+            scales: {
+              r: {
+                ticks: { color: '#8fb9ac', font: { size: 11 } },
+                grid: { color: 'rgba(31, 163, 122, 0.2)' },
+                beginAtZero: true,
+                max: 100
+              }
+            }
+          }
+        });
+        chartsInstances.push(chart4);
+      }
+    }
+
+    function traduzirErro(erro) {
+      if (!erro.message) return 'Erro desconhecido';
+      const msg = erro.message.toLowerCase();
+      if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('timeout')) {
+        return 'Falta de conexão com a internet. Verifique sua conexão.';
+      }
+      return `Erro ao carregar dados: ${erro.message}`;
+    }
+  </script>
+<script src="sidebar-dock.js"></script>
+</body>
+</html>

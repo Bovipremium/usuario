@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="sidebar-dock.css">
+  <title>Contas a Pagar - Bovi Premium</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
+      min-height: 100vh;
+      color: #e5f3ee;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* HEADER */
+    .header {
+      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 20px 40px rgba(0,0,0,.45);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      color: #1fa37a;
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 12px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+      backdrop-filter: blur(8px);
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(31,163,122,.2);
+    }
+
+    .btn-add {
+      background: linear-gradient(145deg, rgba(212,175,55,.3), rgba(212,175,55,.15));
+      color: #d4af37;
+      border-color: rgba(212,175,55,.3);
+    }
+
+    .btn-add:hover {
+      background: linear-gradient(145deg, rgba(212,175,55,.4), rgba(212,175,55,.25));
+      box-shadow: 0 10px 20px rgba(212,175,55,.2);
+    }
+
+    .btn-back {
+      background: linear-gradient(145deg, rgba(100,100,100,.3), rgba(100,100,100,.15));
+      color: #aaa;
+      border-color: rgba(100,100,100,.3);
+    }
+
+    .btn-back:hover {
+      background: linear-gradient(145deg, rgba(100,100,100,.4), rgba(100,100,100,.25));
+      box-shadow: 0 10px 20px rgba(100,100,100,.2);
+    }
+
+    /* FORMULÁRIO */
+    .form-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 30px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+    }
+
+    .form-section h2 {
+      color: #1fa37a;
+      font-size: 20px;
+      margin-bottom: 25px;
+      border-bottom: 2px solid rgba(31,163,122,.3);
+      padding-bottom: 15px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group label {
+      color: #7cf0c2;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      background: rgba(15,42,34,.5);
+      border: 1px solid rgba(31,163,122,.2);
+      color: #e5f3ee;
+      padding: 12px 15px;
+      border-radius: 10px;
+      font-size: 14px;
+      transition: all 0.3s;
+      backdrop-filter: blur(8px);
+      font-family: 'Inter', sans-serif;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: rgba(31,163,122,.4);
+      background: rgba(15,42,34,.7);
+      box-shadow: 0 0 12px rgba(31,163,122,.2);
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .form-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 25px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(31,163,122,.2);
+    }
+
+    .form-buttons button {
+      flex: 1;
+      max-width: 150px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: #1fa37a;
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      text-transform: none;
+      color: #b9d8ce;
+    }
+
+    .recorrencia-options {
+      display: none;
+      padding: 15px;
+      background: rgba(31,163,122,.1);
+      border-radius: 10px;
+      margin-top: 15px;
+    }
+
+    .recorrencia-options.show {
+      display: block;
+    }
+
+    .recorrencia-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 25px;
+      justify-content: flex-end;
+    }
+
+    .btn-primary {
+      background: linear-gradient(145deg, rgba(76,175,80,.3), rgba(76,175,80,.15));
+      color: #81c784;
+      border-color: rgba(76,175,80,.3);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(145deg, rgba(76,175,80,.4), rgba(76,175,80,.25));
+      box-shadow: 0 10px 20px rgba(76,175,80,.2);
+    }
+
+    .btn-danger {
+      background: linear-gradient(145deg, rgba(220,53,69,.3), rgba(220,53,69,.15));
+      color: #ff9999;
+      border-color: rgba(220,53,69,.3);
+    }
+
+    .btn-danger:hover {
+      background: linear-gradient(145deg, rgba(220,53,69,.4), rgba(220,53,69,.25));
+      box-shadow: 0 10px 20px rgba(220,53,69,.2);
+    }
+
+    /* BARRA DE PESQUISA */
+    /* TABELA */
+    .tabela-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 30px;
+      backdrop-filter: blur(14px);
+      overflow-x: auto;
+    }
+
+    .tabela-section h2 {
+      color: #1fa37a;
+      font-size: 20px;
+      margin-bottom: 25px;
+      border-bottom: 2px solid rgba(31,163,122,.3);
+      padding-bottom: 15px;
+    }
+
+    .tabela-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+      border: 1px solid rgba(31,163,122,.15);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,.25);
+    }
+
+    thead {
+      background: linear-gradient(180deg, rgba(31,163,122,.15), rgba(31,163,122,.08));
+      border-bottom: 1px solid rgba(31,163,122,.2);
+    }
+
+    th {
+      color: #7cf0c2;
+      padding: 15px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(31,163,122,.1);
+      transition: all 0.3s;
+    }
+
+    tbody tr:hover {
+      background: rgba(31,163,122,.1);
+    }
+
+    td {
+      padding: 15px;
+      font-size: 13px;
+      color: #b9d8ce;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .status-recorrente {
+      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+    }
+
+    .status-unica {
+      background: linear-gradient(145deg, rgba(212,175,55,.3), rgba(212,175,55,.15));
+      color: #d4af37;
+      border: 1px solid rgba(212,175,55,.3);
+    }
+
+    .status-pago {
+      background: linear-gradient(145deg, rgba(40,167,69,.3), rgba(40,167,69,.15));
+      color: #28a745;
+      border: 1px solid rgba(40,167,69,.3);
+    }
+
+    .status-vencido {
+      background: linear-gradient(145deg, rgba(255,107,107,.3), rgba(255,107,107,.15));
+      color: #ff6b6b;
+      border: 1px solid rgba(255,107,107,.3);
+    }
+
+    .status-avencer {
+      background: linear-gradient(145deg, rgba(255,193,7,.3), rgba(255,193,7,.15));
+      color: #ffc107;
+      border: 1px solid rgba(255,193,7,.3);
+    }
+
+    .acoes {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-editar,
+    .btn-deletar {
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn-editar {
+      background: rgba(31,163,122,.3);
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+    }
+
+    .btn-editar:hover {
+      background: rgba(31,163,122,.4);
+    }
+
+    .btn-deletar {
+      background: rgba(220,53,69,.3);
+      color: #ff9999;
+      border: 1px solid rgba(220,53,69,.3);
+    }
+
+    .btn-deletar:hover {
+      background: rgba(220,53,69,.4);
+    }
+
+    /* RESUMO */
+    .resumo-section {
+      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 16px;
+      padding: 25px;
+      margin-bottom: 30px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 20px;
+      backdrop-filter: blur(14px);
+    }
+
+    .resumo-item {
+      padding: 15px;
+      background: rgba(255,255,255,.03);
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .resumo-label {
+      color: #8fb9ac;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      margin-bottom: 5px;
+    }
+
+    .resumo-valor {
+      color: #1fa37a;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .loading {
+      text-align: center;
+      color: #1fa37a;
+      padding: 40px;
+      font-size: 16px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(31,163,122,.3);
+      border-top: 3px solid #1fa37a;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .mensagem {
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+
+    .mensagem-sucesso {
+      background: rgba(76,175,80,.2);
+      border: 1px solid rgba(76,175,80,.3);
+      color: #81c784;
+    }
+
+    .mensagem-erro {
+      background: rgba(220,53,69,.2);
+      border: 1px solid rgba(220,53,69,.3);
+      color: #ff9999;
+    }
+
+    /* Modal de confirmação */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,.6);
+      backdrop-filter: blur(5px);
+    }
+
+    .modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: linear-gradient(180deg, rgba(15,42,34,.95), rgba(5,11,9,.95));
+      border: 1px solid rgba(31,163,122,.3);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
+      backdrop-filter: blur(14px);
+    }
+
+    .modal-header {
+      color: #1fa37a;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 15px;
+    }
+
+    .modal-message {
+      color: #b9d8ce;
+      margin-bottom: 25px;
+      line-height: 1.6;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    /* FILTROS */
+    .filtros-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 25px;
+      margin-bottom: 25px;
+      backdrop-filter: blur(14px);
+    }
+
+    .filtros-section h3 {
+      color: #7cf0c2;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .filtros-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+    }
+
+    /* MODAL DE FORMULÁRIO */
+    #modalFormulario {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,.6);
+      backdrop-filter: blur(5px);
+    }
+
+    #modalFormulario.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-form-content {
+      background: linear-gradient(180deg, rgba(15,42,34,.95), rgba(5,11,9,.95));
+      border: 1px solid rgba(31,163,122,.3);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 700px;
+      width: 95%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
+      backdrop-filter: blur(14px);
+    }
+
+    .modal-form-header {
+      color: #1fa37a;
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(31,163,122,.2);
+      padding-bottom: 15px;
+    }
+
+    .modal-close-btn {
+      background: rgba(255,107,107,.2);
+      border: 1px solid rgba(255,107,107,.3);
+      color: #ff6b6b;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: all 0.3s;
+    }
+
+    .modal-close-btn:hover {
+      background: rgba(255,107,107,.3);
+      box-shadow: 0 6px 12px rgba(255,107,107,.2);
+    }
+
+    /* MODAL DE EDIÇÃO */
+    #modalEdicao {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,.6);
+      backdrop-filter: blur(5px);
+    }
+
+    #modalEdicao.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* MODAL DE CONFIRMAÇÃO */
+    #modalConfirmacao {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,.6);
+      backdrop-filter: blur(5px);
+    }
+
+    #modalConfirmacao.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,.6);
+      backdrop-filter: blur(5px);
+    }
+
+    .modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: linear-gradient(180deg, rgba(15,42,34,.95), rgba(5,11,9,.95));
+      border: 1px solid rgba(31,163,122,.3);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 700px;
+      width: 95%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
+      backdrop-filter: blur(14px);
+    }
+
+    .modal-header {
+      color: #1fa37a;
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(31,163,122,.2);
+      padding-bottom: 15px;
+    }
+
+    .close-btn {
+      background: rgba(255,107,107,.2);
+      border: 1px solid rgba(255,107,107,.3);
+      color: #ff6b6b;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: all 0.3s;
+    }
+
+    .close-btn:hover {
+      background: rgba(255,107,107,.3);
+      box-shadow: 0 6px 12px rgba(255,107,107,.2);
+    }
+
+    .modal-message {
+      color: #e5f3ee;
+      font-size: 16px;
+      margin-bottom: 25px;
+      line-height: 1.6;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 15px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(145deg, rgba(31,163,122,.5), rgba(31,163,122,.35));
+    }
+
+    .btn-danger {
+      background: linear-gradient(145deg, rgba(255,107,107,.3), rgba(255,107,107,.15));
+      color: #ff9999;
+      border: 1px solid rgba(255,107,107,.3);
+    }
+
+    .btn-danger:hover {
+      background: linear-gradient(145deg, rgba(255,107,107,.4), rgba(255,107,107,.25));
+    }
+
+    @media (max-width: 768px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+
+      .tabela-container {
+        font-size: 12px;
+      }
+
+      th, td {
+        padding: 10px 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <h1>💰 Contas a Pagar</h1>
+      <p style="color: #8fb9ac; font-size: 13px; margin-top: 5px;">Sistema avançado de gerenciamento de contas e despesas recorrentes</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-back" onclick="voltarPagamentos()">← Voltar</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- MENSAGENS -->
+    <div id="mensagemContainer"></div>
+
+    <!-- FILTROS -->
+    <div class="filtros-section">
+      <h3>🔍 Filtros</h3>
+      <div class="filtros-grid">
+        <div class="form-group">
+          <label>Mês</label>
+          <select id="filtroMes">
+            <option value="">Todos os meses</option>
+            <option value="1">Janeiro</option>
+            <option value="2">Fevereiro</option>
+            <option value="3">Março</option>
+            <option value="4">Abril</option>
+            <option value="5">Maio</option>
+            <option value="6">Junho</option>
+            <option value="7">Julho</option>
+            <option value="8">Agosto</option>
+            <option value="9">Setembro</option>
+            <option value="10">Outubro</option>
+            <option value="11">Novembro</option>
+            <option value="12">Dezembro</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Ano</label>
+          <input type="number" id="filtroAno" placeholder="Ex: 2026" min="2020" max="2099">
+        </div>
+
+        <div class="form-group">
+          <label>Status</label>
+          <select id="filtroStatus">
+            <option value="">Todos</option>
+            <option value="A Vencer">⏳ A Vencer</option>
+            <option value="Vencido">⚠️ Vencido</option>
+            <option value="Pago">✅ Pago</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Categoria</label>
+          <select id="filtroCategoria">
+            <option value="">Todas</option>
+            <option value="Aluguel">Aluguel</option>
+            <option value="Utilities">Utilidades</option>
+            <option value="Internet">Internet</option>
+            <option value="Transporte">Transporte</option>
+            <option value="Salarios">Salários</option>
+            <option value="Fornecedores">Fornecedores</option>
+            <option value="Manutencao">Manutenção</option>
+            <option value="Servicos">Serviços</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="aplicarFiltros()" style="width: 100%;">🔍 Filtrar</button>
+        </div>
+
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button class="btn btn-back" onclick="limparFiltros()" style="width: 100%;">🔄 Limpar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESUMO -->
+    <div class="resumo-section" id="resumoSection">
+      <div class="resumo-item">
+        <div class="resumo-label">Total em Contas</div>
+        <div class="resumo-valor" id="totalContas">R$ 0,00</div>
+      </div>
+      <div class="resumo-item">
+        <div class="resumo-label">Contas Recorrentes</div>
+        <div class="resumo-valor" id="contasRecorrentes">0</div>
+      </div>
+      <div class="resumo-item">
+        <div class="resumo-label">Próximos 30 dias</div>
+        <div class="resumo-valor" id="proximos30">R$ 0,00</div>
+      </div>
+      <div class="resumo-item">
+        <div class="resumo-label">Quantidade</div>
+        <div class="resumo-valor" id="totalQuantidade">0</div>
+      </div>
+    </div>
+
+    <!-- BOTÃO ADICIONAR -->
+    <div style="margin-bottom: 30px; text-align: center;">
+      <button class="btn btn-add" onclick="abrirModalConta()" style="padding: 15px 40px; font-size: 16px;">
+        ➕ Adicionar Nova Conta
+      </button>
+    </div>
+
+    <!-- TABELA DE CONTAS -->
+    <div class="tabela-section">
+      <h2>📋 Contas Registradas</h2>
+      
+      <!-- BARRA DE PESQUISA -->
+      <div id="pesquisaContainer"></div>
+      
+      <div class="tabela-container" id="tabelaContainer">
+        <div class="loading"><div class="spinner"></div> Carregando contas...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE FORMULÁRIO -->
+  <div class="modal" id="modalFormulario">
+    <div class="modal-content modal-form-content">
+      <div class="modal-header">
+        ➕ Nova Conta
+        <button class="close-btn" onclick="fecharModal()">×</button>
+      </div>
+      
+      <form id="formContaBridge" onsubmit="return salvarConta(event)">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Descrição *</label>
+            <input type="text" id="inputDescricao" required placeholder="Ex: Aluguel, Fornecedor, etc">
+          </div>
+
+          <div class="form-group">
+            <label>Valor (R$) *</label>
+            <input type="number" id="inputValor" required step="0.01" min="0" placeholder="0.00">
+          </div>
+
+          <div class="form-group">
+            <label>Data de Pagamento *</label>
+            <input type="date" id="inputDataPagamento" required>
+          </div>
+
+          <div class="form-group">
+            <label>Categoria *</label>
+            <input type="text" id="inputCategoria" required placeholder="Ex: Fornecedor A">
+          </div>
+
+          <div class="form-group">
+            <label>Recorrência</label>
+            <select id="inputRecorrencia">
+              <option value="">Não recorrente</option>
+              <option value="mensal">📅 Mensal</option>
+              <option value="bimestral">📅 Bimestral</option>
+              <option value="trimestral">📅 Trimestral</option>
+              <option value="semestral">📅 Semestral</option>
+              <option value="anual">📅 Anual</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Notas</label>
+            <textarea id="inputNotas" placeholder="Adicione observações..."></textarea>
+          </div>
+        </div>
+
+        <div class="form-buttons">
+          <button type="button" class="btn btn-back" onclick="fecharModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">💾 Salvar Conta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE EDIÇÃO -->
+  <div class="modal" id="modalEdicao">
+    <div class="modal-content modal-form-content">
+      <div class="modal-header">
+        ✏️ Editar Conta
+        <button class="close-btn" onclick="fecharModal('modalEdicao')">×</button>
+      </div>
+      
+      <form id="formEdicaoConta" onsubmit="return salvarEdicaoConta(event)">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Descrição</label>
+            <input type="text" id="editDescricao" readonly placeholder="Ex: Aluguel, Fornecedor, etc">
+          </div>
+
+          <div class="form-group">
+            <label>Valor (R$)</label>
+            <input type="number" id="editValor" readonly step="0.01" min="0" placeholder="0.00">
+          </div>
+
+          <div class="form-group">
+            <label>Data de Pagamento</label>
+            <input type="date" id="editDataPagamento" readonly>
+          </div>
+
+          <div class="form-group">
+            <label>Categoria</label>
+            <input type="text" id="editCategoria" readonly placeholder="Ex: Fornecedor A">
+          </div>
+
+          <div class="form-group">
+            <label>Status Atual</label>
+            <input type="text" id="editStatus" readonly style="border-color: #7cf0c2;">
+          </div>
+
+          <div class="form-group">
+            <label>Marcar como PAGO</label>
+            <select id="editStatusPagamento">
+              <option value="">Não alterar</option>
+              <option value="Pago">✅ Marcar como PAGO</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Notas</label>
+            <textarea id="editNotas" placeholder="Adicione observações..." style="height: 100px;"></textarea>
+          </div>
+        </div>
+
+        <div class="form-buttons">
+          <button type="button" class="btn btn-back" onclick="fecharModal('modalEdicao')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">💾 Salvar Alterações</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIRMAÇÃO -->
+  <div class="modal" id="modalConfirmacao">
+    <div class="modal-content">
+      <div class="modal-header">⚠️ Confirmar Exclusão</div>
+      <div class="modal-message" id="modalMessage">Tem certeza que deseja deletar esta conta?</div>
+      <div class="modal-buttons">
+        <button class="btn btn-back" onclick="fecharModal('modalConfirmacao')">Cancelar</button>
+        <button class="btn btn-danger" onclick="confirmarDelecao()">🗑️ Deletar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="config.js"></script>
+  <script src="pesquisa-utils.js"></script>
+  <script src="auth.js"></script>
+  <script src="auditoria.js"></script>
+  <script src="contas.js"></script>
+<script src="sidebar-dock.js"></script>
+</body>
+</html>

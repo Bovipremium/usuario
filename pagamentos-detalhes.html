@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="sidebar-dock.css">
+  <title>Vendas e Pagamentos - Bovi Premium</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
+      min-height: 100vh;
+      color: #e5f3ee;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      color: #1fa37a;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .btn {
+      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 12px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
+      transform: translateY(-2px);
+    }
+
+    .btn.danger {
+      background: linear-gradient(145deg, rgba(220,53,69,.3), rgba(220,53,69,.15));
+      color: #ff9999;
+      border-color: rgba(220,53,69,.3);
+    }
+
+    .btn.danger:hover {
+      background: linear-gradient(145deg, rgba(220,53,69,.4), rgba(220,53,69,.25));
+    }
+
+    .btn.pequeno {
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+
+    .cliente-card {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 25px;
+      backdrop-filter: blur(14px);
+      margin-bottom: 30px;
+    }
+
+    .section-title {
+      color: #1fa37a;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      border-bottom: 2px solid rgba(31,163,122,.3);
+      padding-bottom: 12px;
+    }
+
+    .vendas-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 20px;
+    }
+
+    .venda-card {
+      background: linear-gradient(135deg, rgba(31,163,122,.1), rgba(31,163,122,.05));
+      border: 1px solid rgba(31,163,122,.2);
+      border-radius: 12px;
+      padding: 20px;
+      border-left: 3px solid #1fa37a;
+    }
+
+    .venda-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(31,163,122,.2);
+    }
+
+    .venda-numero {
+      color: #7cf0c2;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .venda-data {
+      color: #8fb9ac;
+      font-size: 12px;
+    }
+
+    .venda-info {
+      margin-bottom: 15px;
+    }
+
+    .venda-info-label {
+      color: #8fb9ac;
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .venda-info-valor {
+      color: #7cf0c2;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .parcelas-list {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid rgba(31,163,122,.2);
+    }
+
+    .parcela-item {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .parcela-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .parcela-numero {
+      color: #7cf0c2;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .parcela-status {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .parcela-status.pago {
+      background: rgba(16,185,129,.2);
+      color: #10b981;
+    }
+
+    .parcela-status.pendente {
+      background: rgba(220,53,69,.2);
+      color: #ff9999;
+    }
+
+    .parcela-info {
+      color: #8fb9ac;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .parcela-botoes {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .parcela-btn {
+      background: rgba(31,163,122,.2);
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.3s;
+    }
+
+    .parcela-btn:hover {
+      background: rgba(31,163,122,.3);
+    }
+
+    .empty-message {
+      text-align: center;
+      padding: 40px;
+      color: #8fb9ac;
+      font-style: italic;
+    }
+
+    .venda-botoes {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(31,163,122,.2);
+    }
+
+    .venda-btn {
+      flex: 1;
+      background: rgba(31,163,122,.2);
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .venda-btn:hover {
+      background: rgba(31,163,122,.3);
+    }
+
+    .venda-btn.danger {
+      background: rgba(220,53,69,.2);
+      color: #ff9999;
+      border-color: rgba(220,53,69,.3);
+    }
+
+    .venda-btn.danger:hover {
+      background: rgba(220,53,69,.3);
+    }
+
+    .anexos-section {
+      background: linear-gradient(135deg, rgba(31,163,122,.1), rgba(31,163,122,.05));
+      border: 1px solid rgba(31,163,122,.2);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+      border-left: 3px solid #1fa37a;
+    }
+
+    .anexos-title {
+      color: #7cf0c2;
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+
+    .anexos-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .anexo-item {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      padding: 12px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .anexo-info {
+      flex: 1;
+    }
+
+    .anexo-nome {
+      color: #7cf0c2;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .anexo-detalhes {
+      color: #8fb9ac;
+      font-size: 12px;
+    }
+
+    .anexo-botoes {
+      display: flex;
+      gap: 6px;
+      margin-left: 12px;
+    }
+
+    .anexo-btn {
+      background: rgba(31,163,122,.2);
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .anexo-btn:hover {
+      background: rgba(31,163,122,.3);
+    }
+
+    @media (max-width: 768px) {
+      .anexo-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .anexo-botoes {
+        margin-left: 0;
+        margin-top: 8px;
+      }
+    }
+
+    /* Loading Spinner */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      backdrop-filter: blur(3px);
+    }
+
+    .spinner {
+      border: 4px solid rgba(31, 163, 122, 0.2);
+      border-top: 4px solid #1fa37a;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <h1>💰 Vendas e Pagamentos</h1>
+    </div>
+    <button class="btn" onclick="voltarParaPagamentos()">← Voltar</button>
+  </div>
+
+  <!-- CLIENTE INFO -->
+  <div class="cliente-card">
+    <div class="section-title">📌 Cliente: <span id="clienteNome">Carregando...</span></div>
+    <button class="btn" onclick="novaVenda()" style="margin-top: 15px;">➕ Criar Nova Venda</button>
+  </div>
+
+  <!-- UPLOAD DE DOCUMENTOS -->
+  <div class="cliente-card">
+    <div class="section-title">📄 Upload de Documentos</div>
+    <p style="color: #8fb9ac; margin-bottom: 20px; font-size: 14px;">
+      Envie documentos do cliente para o Google Drive. Os arquivos serão organizados em pastas específicas.
+    </p>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+      <button class="btn" onclick="abrirUploadAnexo()" style="background: linear-gradient(145deg, rgba(100, 200, 150,.3), rgba(100, 200, 150,.15)); border-color: rgba(100, 200, 150,.3);">
+        📎 Anexo (PDF, Imagem, Doc)
+      </button>
+      <button class="btn" onclick="abrirUploadNF()" style="background: linear-gradient(145deg, rgba(200, 150, 100,.3), rgba(200, 150, 100,.15)); border-color: rgba(200, 150, 100,.3);">
+        📄 Nota Fiscal (PDF, Imagem)
+      </button>
+    </div>
+  </div>
+
+  <!-- VENDAS -->
+  <div class="cliente-card">
+    <div class="section-title">📋 Vendas</div>
+    <div class="vendas-grid" id="vendasContainer">
+      <p class="empty-message">Carregando vendas...</p>
+    </div>
+  </div>
+
+  <!-- ANEXOS -->
+  <div class="cliente-card">
+    <div class="section-title">📎 Arquivos Anexados</div>
+    <div class="anexos-grid" id="anexosContainer">
+      <p class="empty-message">Carregando arquivos...</p>
+    </div>
+  </div>
+
+  <!-- NOTAS FISCAIS -->
+  <div class="cliente-card">
+    <div class="section-title">📄 Notas Fiscais</div>
+    <div class="anexos-grid" id="nfsContainer">
+      <p class="empty-message">Carregando notas fiscais...</p>
+    </div>
+  </div>
+
+<script src="config.js"></script>
+<script src="auth-utils.js"></script>
+<script src="auth.js"></script>
+<script src="auditoria.js"></script>
+
+<script>
+  // 🔐 Definir deviceId para autenticação
+  const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+  
+  let clienteAtual = null;
+
+  // 🔧 Fechar todos os modais abertos
+  // 🔧 Mostrar loading spinner
+  function mostrarLoading() {
+    if (document.getElementById('loadingOverlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'loadingOverlay';
+    overlay.className = 'loading-overlay';
+    overlay.innerHTML = '<div class="spinner"></div>';
+    document.body.appendChild(overlay);
+  }
+
+  // 🔧 Ocultar loading spinner
+  function ocultarLoading() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.remove();
+  }
+
+  function fecharTodosModais() {
+    const modais = document.querySelectorAll('[class*="modal"]');
+    modais.forEach(m => {
+      if (m && m.parentNode) {
+        m.remove();
+      }
+    });
+  }
+
+  // Carregar página
+  async function carregarPagina() {
+    // Tentar sessionStorage primeiro, depois localStorage
+    let clienteJson = sessionStorage.getItem('clienteSelecionado');
+    
+    if (!clienteJson) {
+      clienteJson = localStorage.getItem('clienteSelecionado');
+    }
+
+    console.log('🔍 Buscando clienteSelecionado:', clienteJson);
+
+    if (!clienteJson) {
+      alert('❌ Cliente não especificado');
+      console.log('❌ Nenhum cliente no sessionStorage ou localStorage');
+      voltarParaPagamentos();
+      return;
+    }
+
+    try {
+      clienteAtual = JSON.parse(clienteJson);
+      console.log('✅ Cliente carregado:', clienteAtual);
+
+      if (!clienteAtual) {
+        alert('❌ Cliente não encontrado');
+        voltarParaPagamentos();
+        return;
+      }
+
+      document.getElementById('clienteNome').textContent = clienteAtual.Nome;
+      renderizarVendas();
+      
+      // 📎 Carregar anexos e notas fiscais
+      setTimeout(() => {
+        carregarAnexos('ANEXO');
+        carregarAnexos('NF');
+      }, 500);
+    } catch (erro) {
+      console.error('Erro ao carregar:', erro);
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // Renderizar vendas
+  function renderizarVendas() {
+    const container = document.getElementById('vendasContainer');
+    
+    // ✅ Limpar container completamente
+    container.innerHTML = '';
+
+    if (!clienteAtual.Vendas || clienteAtual.Vendas.length === 0) {
+      container.innerHTML = '<p class="empty-message">Nenhuma venda registrada</p>';
+      return;
+    }
+
+    let html = '';
+    clienteAtual.Vendas.forEach((venda, vendaIdx) => {
+      const dataVenda = formatarData(venda.DataVenda);
+      const valor = formatarMoeda(venda.ValorTotal || venda.Valor || 0);
+      const parcelas = venda.Parcelas || [];
+
+      let htmlParcelas = '';
+      parcelas.forEach((parc, parcIdx) => {
+        const dataParcela = formatarData(parc.DataVencimento);
+        const dataPagamento = parc.DataPagamento ? formatarData(parc.DataPagamento) : '-';
+        const statusClass = parc.Pago ? 'pago' : 'pendente';
+        const statusTxt = parc.Pago ? '✅ Pago' : '⏳ Pendente';
+        const mesAtualTxt = parc.ContarNoMesAtual ? ' (Mês Atual)' : '';
+
+        htmlParcelas += `
+          <div class="parcela-item">
+            <div class="parcela-header">
+              <span class="parcela-numero">Parcela ${parc.Numero}</span>
+              <span class="parcela-status ${statusClass}">${statusTxt}${mesAtualTxt}</span>
+            </div>
+            <div class="parcela-info">
+              Vence: ${dataParcela} | Valor: ${formatarMoeda(parc.Valor)}
+              ${parc.Pago ? `<br>💳 Pagto: ${dataPagamento}` : ''}
+            </div>
+            <div class="parcela-botoes">
+              <button class="parcela-btn" onclick="marcarComoPago(${vendaIdx}, ${parcIdx}, ${!parc.Pago})">
+                ${parc.Pago ? '📋 Marcar Não Pago' : '✅ Marcar Pago'}
+              </button>
+              <button class="parcela-btn" onclick="editarDataVencimento(${vendaIdx}, ${parcIdx})">
+                📅 Editar Data
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      html += `
+        <div class="venda-card">
+          <div class="venda-header">
+            <span class="venda-numero">NF: ${venda.NumeroNF || 'S/N'}</span>
+            <span class="venda-data">${dataVenda}</span>
+          </div>
+          <div class="venda-info">
+            <div class="venda-info-label">Descrição</div>
+            <div class="venda-info-valor">${venda.Descricao || '-'}</div>
+          </div>
+          <div class="venda-info">
+            <div class="venda-info-label">Valor Total</div>
+            <div class="venda-info-valor">${valor}</div>
+          </div>
+          <div class="parcelas-list">
+            <strong style="color: #8fb9ac; font-size: 12px;">Parcelas:</strong>
+            ${htmlParcelas}
+          </div>
+          <div class="venda-botoes">
+            <button class="venda-btn" onclick="abrirWhatsApp('${clienteAtual.Id}')">
+              💬 WhatsApp
+            </button>
+            <button class="venda-btn danger" onclick="deletarVenda('${venda.Id}')">
+              🗑️ Deletar Venda
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  }
+
+  // Criar nova venda
+  async function novaVenda() {
+    const valor = prompt('Valor total da venda:', '');
+    if (!valor || isNaN(valor) || parseFloat(valor) <= 0) {
+      alert('❌ Valor inválido');
+      return;
+    }
+
+    const descricao = prompt('Descrição da venda:', '');
+    if (!descricao) {
+      alert('❌ Descrição é obrigatória');
+      return;
+    }
+
+    try {
+      const valorNum = parseFloat(valor);
+      const valorParcela = valorNum / 3;
+      const hoje = new Date();
+
+      const novaVenda = {
+        Id: Date.now().toString(),
+        NumeroNF: '',
+        DataVenda: hoje.toISOString().split('T')[0],
+        Valor: valorNum,
+        Descricao: descricao,
+        Parcelas: [
+          {
+            Numero: 1,
+            DataVencimento: new Date(hoje.getTime() + 30*24*60*60*1000).toISOString().split('T')[0],
+            Valor: valorParcela,
+            Pago: false,
+            DataPagamento: null
+          },
+          {
+            Numero: 2,
+            DataVencimento: new Date(hoje.getTime() + 60*24*60*60*1000).toISOString().split('T')[0],
+            Valor: valorParcela,
+            Pago: false,
+            DataPagamento: null
+          },
+          {
+            Numero: 3,
+            DataVencimento: new Date(hoje.getTime() + 90*24*60*60*1000).toISOString().split('T')[0],
+            Valor: valorParcela,
+            Pago: false,
+            DataPagamento: null
+          }
+        ]
+      };
+
+      if (!clienteAtual.Vendas) clienteAtual.Vendas = [];
+      clienteAtual.Vendas.push(novaVenda);
+
+      const clientes = await buscarArquivo('clientes.json');
+      const idx = clientes.findIndex(c => c.Id === clienteAtual.Id);
+      if (idx >= 0) clientes[idx] = clienteAtual;
+
+      // ✅ OTIMIZAÇÃO: Salvar em background
+      salvarDadosComAuditoria(
+        'clientes.json',
+        clientes,
+        'auditoria',
+        'Criar',
+        'Venda',
+        novaVenda.Id,
+        `Venda ${novaVenda.Id}`,
+        `Nova venda criada: ${descricao} (R$ ${valor})`,
+        'null',
+        JSON.stringify(novaVenda)
+      );
+
+      renderizarVendas();
+      alert('✅ Venda criada com sucesso!');
+    } catch (erro) {
+      console.error('Erro:', erro);
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // Marcar como pago/não pago
+  async function marcarComoPago(vendaIdx, parcelaIdx, pago) {
+    try {
+      mostrarLoading();
+      
+      console.log('🔍 Procurando venda no índice:', vendaIdx, 'Parcela:', parcelaIdx);
+      
+      if (vendaIdx < 0 || vendaIdx >= clienteAtual.Vendas.length) {
+        ocultarLoading();
+        alert('❌ Venda não encontrada');
+        return;
+      }
+      
+      const venda = clienteAtual.Vendas[vendaIdx];
+      console.log('✅ Venda encontrada');
+      
+      if (!venda.Parcelas || !venda.Parcelas[parcelaIdx]) {
+        ocultarLoading();
+        alert('❌ Parcela não encontrada');
+        return;
+      }
+
+      const parcelaAntiga = JSON.parse(JSON.stringify(venda.Parcelas[parcelaIdx]));
+      
+      // Se está marcando como pago
+      if (pago) {
+        const dataVencimento = new Date(venda.Parcelas[parcelaIdx].DataVencimento);
+        const hoje = new Date();
+        const mesAtual = `${String(hoje.getMonth() + 1).padStart(2, '0')}/${hoje.getFullYear()}`;
+        const mesVencimento = `${String(dataVencimento.getMonth() + 1).padStart(2, '0')}/${dataVencimento.getFullYear()}`;
+        
+        // Se a data é futura ou diferente do mês atual, perguntar
+        if (dataVencimento > hoje || mesVencimento !== mesAtual) {
+          ocultarLoading();
+          const contar = confirm(
+            `📅 A parcela vence em: ${formatarData(venda.Parcelas[parcelaIdx].DataVencimento)}\n` +
+            `📆 Mês/Ano da venda: ${mesVencimento}\n` +
+            `📌 Você deseja contar como recebimento de ${mesAtual}?\n\n` +
+            `OK = Contar no mês atual (${mesAtual})\n` +
+            `CANCELAR = Contar na data de vencimento (${mesVencimento})`
+          );
+          
+          mostrarLoading();
+          
+          if (contar) {
+            // Contar no mês atual - usar data de hoje
+            venda.Parcelas[parcelaIdx].DataPagamento = new Date().toISOString().split('T')[0];
+            venda.Parcelas[parcelaIdx].ContarNoMesAtual = true;
+            console.log('✅ Será contado no mês atual:', venda.Parcelas[parcelaIdx].DataPagamento);
+          } else {
+            // Contar na data de vencimento - usar data de vencimento
+            venda.Parcelas[parcelaIdx].DataPagamento = venda.Parcelas[parcelaIdx].DataVencimento.split('T')[0];
+            venda.Parcelas[parcelaIdx].ContarNoMesAtual = false;
+            console.log('✅ Será contado na data de vencimento:', venda.Parcelas[parcelaIdx].DataPagamento);
+          }
+        } else {
+          // Mesma data, marcar normalmente
+          venda.Parcelas[parcelaIdx].DataPagamento = new Date().toISOString().split('T')[0];
+          venda.Parcelas[parcelaIdx].ContarNoMesAtual = false;
+        }
+        
+        venda.Parcelas[parcelaIdx].Pago = true;
+      } else {
+        // Marcando como não pago - limpar dados
+        venda.Parcelas[parcelaIdx].Pago = false;
+        venda.Parcelas[parcelaIdx].DataPagamento = null;
+        venda.Parcelas[parcelaIdx].ContarNoMesAtual = false;
+      }
+
+      console.log('💾 Atualizado em memória, agora salvando...');
+
+      // ✅ BUSCAR CLIENTES DO DRIVE E SALVAR
+      try {
+        const clientes = await buscarArquivo('clientes.json');
+        if (!Array.isArray(clientes)) {
+          ocultarLoading();
+          alert('❌ Erro: dados de clientes inválidos');
+          return;
+        }
+
+        const idx = clientes.findIndex(c => c.Id === clienteAtual.Id);
+        if (idx < 0) {
+          ocultarLoading();
+          alert('❌ Cliente não encontrado no Drive');
+          return;
+        }
+
+        clientes[idx] = clienteAtual;
+        console.log('✅ Cliente atualizado no array');
+
+        // ✅ SALVAR NO GOOGLE DRIVE - AGUARDAR RESPOSTA
+        const resultado = await salvarClientesNoGoogleDrive(clientes);
+        if (!resultado) {
+          ocultarLoading();
+          alert('❌ Erro ao salvar no Drive');
+          return;
+        }
+        console.log('✅ Salvo no Google Drive com sucesso!');
+
+        // ✅ RECARREGAR DADOS DO DRIVE PARA SINCRONIZAR
+        await recarregarClienteDoServidor();
+        console.log('✅ Cliente sincronizado com Drive');
+
+        // Registrar auditoria (sem esperar)
+        const acao = pago ? 'Marcar como Pago' : 'Marcar como Não Pago';
+        registrarAuditoria(
+          acao,
+          'Parcela',
+          parcelaIdx.toString(),
+          `Parcela ${parcelaIdx + 1} - NF ${venda.NumeroNF}`,
+          `Parcela marcada como ${pago ? 'paga' : 'não paga'}`,
+          JSON.stringify(parcelaAntiga),
+          JSON.stringify(venda.Parcelas[parcelaIdx])
+        );
+
+      } catch (erroSalvar) {
+        console.error('❌ Erro ao salvar:', erroSalvar);
+        ocultarLoading();
+        alert('❌ Erro ao salvar: ' + erroSalvar.message);
+        return;
+      }
+
+      // ✅ Atualizar UI COM OS DADOS SINCRONIZADOS DO DRIVE
+      console.log('✅ Recarregando UI...');
+      renderizarVendas();
+      ocultarLoading();
+      alert(`✅ Parcela marcada como ${pago ? 'paga' : 'não paga'}!`);
+
+    } catch (erro) {
+      console.error('Erro:', erro);
+      ocultarLoading();
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // ✅ RECARREGAR CLIENTE DO SERVIDOR (SINCRONIZAR)
+  async function recarregarClienteDoServidor() {
+    try {
+      console.log('🔄 Recarregando cliente do Drive...');
+      const clientes = await buscarArquivo('clientes.json');
+      if (!Array.isArray(clientes)) {
+        console.error('❌ Dados de clientes inválidos');
+        return false;
+      }
+
+      const clienteAtualizado = clientes.find(c => c.Id === clienteAtual.Id);
+      if (!clienteAtualizado) {
+        console.error('❌ Cliente não encontrado no Drive após recarregar');
+        return false;
+      }
+
+      // Atualizar a variável global
+      clienteAtual = clienteAtualizado;
+      
+      // Atualizar também no sessionStorage
+      sessionStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
+      
+      console.log('✅ Cliente recarregado com sucesso do Drive');
+      return true;
+    } catch (erro) {
+      console.error('❌ Erro ao recarregar cliente:', erro);
+      return false;
+    }
+  }
+
+  // ✅ FUNÇÃO PARA SALVAR CLIENTES NO GOOGLE DRIVE
+  async function salvarClientesNoGoogleDrive(clientes) {
+    try {
+      const dadosJson = JSON.stringify(clientes);
+      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+
+      console.log('📤 Enviando para Google Drive:', {
+        acao: 'salvar',
+        arquivo: 'clientes.json',
+        deviceId: deviceId,
+        tamanho: dadosJson.length
+      });
+
+      const response = await fetch(CONFIG.API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          'acao': 'salvar',
+          'arquivo': 'clientes.json',
+          'dados': dadosJson,
+          'deviceId': deviceId
+        })
+      });
+
+      console.log('📡 Status da resposta:', response.status, response.ok);
+
+      if (!response.ok) {
+        console.error('❌ Resposta HTTP não OK:', response.status);
+        return false;
+      }
+
+      let resultado;
+      try {
+        const textoResposta = await response.text();
+        console.log('📨 Resposta bruta COMPLETA do servidor (', textoResposta.length, 'chars):', textoResposta);
+        console.log('📨 Tipo de resposta:', typeof textoResposta);
+        console.log('📨 Primeiros 1000 chars:', textoResposta.substring(0, 1000));
+        
+        if (textoResposta && textoResposta.trim()) {
+          try {
+            resultado = JSON.parse(textoResposta);
+            console.log('✅ Parsed como JSON com sucesso');
+          } catch (parseError) {
+            console.log('❌ ERRO ao fazer parse JSON:', parseError.message);
+            console.log('❌ Tentando analisar resposta bruta...');
+            // Se não for JSON, trata como string simples
+            resultado = { success: textoResposta.includes('sucesso') || textoResposta.includes('success') };
+          }
+        } else {
+          console.log('⚠️ Resposta vazia do servidor');
+          resultado = { success: true, mensagem: 'Salvo (sem resposta)' };
+        }
+      } catch (e) {
+        console.log('❌ Erro ao ler resposta:', e.message);
+        resultado = { success: true, mensagem: 'Salvo (erro ao ler resposta)' };
+      }
+
+      console.log('🔍 Resultado final do servidor (objeto):', resultado);
+      console.log('🔍 resultado.success =', resultado.success);
+      console.log('🔍 resultado.sucesso =', resultado.sucesso);
+
+      // Validar se realmente salvou
+      const sucesso = resultado && (resultado.success === true || resultado.sucesso === true);
+      console.log('🔍 Validação final: sucesso =', sucesso);
+      
+      if (!sucesso) {
+        console.error('❌ FALHA - Servidor não confirmou sucesso:', resultado);
+        return false;
+      }
+
+      console.log('✅✅✅ Arquivo DEFINITIVAMENTE salvo no Google Drive!');
+      return true;
+
+    } catch (erro) {
+      console.error('❌ Erro ao salvar:', erro);
+      return false;
+    }
+  }
+
+  // Editar data de vencimento
+  async function editarDataVencimento(vendaIdx, parcelaIdx) {
+    try {
+      console.log('🔍 Procurando venda para editar data no índice:', vendaIdx, 'Parcela:', parcelaIdx);
+      
+      if (vendaIdx < 0 || vendaIdx >= clienteAtual.Vendas.length) {
+        alert('❌ Venda não encontrada');
+        return;
+      }
+      
+      const venda = clienteAtual.Vendas[vendaIdx];
+      console.log('✅ Venda encontrada');
+      
+      if (!venda.Parcelas || !venda.Parcelas[parcelaIdx]) {
+        alert('❌ Parcela não encontrada');
+        return;
+      }
+
+      const novaData = prompt('Nova data de vencimento (YYYY-MM-DD):', venda.Parcelas[parcelaIdx].DataVencimento.split('T')[0]);
+      if (!novaData) return;
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(novaData)) {
+        alert('❌ Formato inválido. Use YYYY-MM-DD');
+        return;
+      }
+
+      mostrarLoading();
+
+      const parcelaAntiga = JSON.parse(JSON.stringify(venda.Parcelas[parcelaIdx]));
+      venda.Parcelas[parcelaIdx].DataVencimento = novaData;
+
+      const clientes = await buscarArquivo('clientes.json');
+      const idx = clientes.findIndex(c => c.Id === clienteAtual.Id);
+      if (idx >= 0) clientes[idx] = clienteAtual;
+
+      // ✅ Salvar no Drive - VERIFICAR SE SALVOU
+      const resultadoSalvar = await salvarClientesNoGoogleDrive(clientes);
+      if (!resultadoSalvar) {
+        ocultarLoading();
+        alert('❌ Erro ao salvar no Drive');
+        return;
+      }
+      console.log('✅ Data de vencimento salva no Drive');
+
+      // ✅ RECARREGAR DADOS DO DRIVE PARA SINCRONIZAR
+      await recarregarClienteDoServidor();
+      console.log('✅ Cliente sincronizado com Drive');
+
+      // ✅ Registrar auditoria em background
+      registrarAuditoria(
+        'Atualizar',
+        'Parcela',
+        parcelaIdx.toString(),
+        `Parcela ${parcelaIdx + 1}`,
+        `Data de vencimento alterada para ${novaData}`,
+        JSON.stringify(parcelaAntiga),
+        JSON.stringify(venda.Parcelas[parcelaIdx])
+      );
+
+      renderizarVendas();
+      ocultarLoading();
+      alert('✅ Data de vencimento atualizada!');
+    } catch (erro) {
+      console.error('Erro:', erro);
+      ocultarLoading();
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // Deletar venda
+  async function deletarVenda(vendaId) {
+    const senha = prompt('Digite a palavra-chave para confirmar deleção:', '');
+    if (senha !== 'Excluir ok') {
+      alert('❌ Palavra-chave incorreta');
+      return;
+    }
+
+    try {
+      console.log('🔍 Procurando venda para deletar:', vendaId);
+      
+      const venda = clienteAtual.Vendas.find(v => v.Id == vendaId || v.Id === vendaId);
+      console.log('✅ Venda encontrada:', venda);
+      
+      if (!venda) {
+        alert('❌ Venda não encontrada');
+        return;
+      }
+      
+      const vendaDeletada = JSON.parse(JSON.stringify(venda));
+
+      clienteAtual.Vendas = clienteAtual.Vendas.filter(v => v.Id != vendaId && v.Id !== vendaId);
+
+      const clientes = await buscarArquivo('clientes.json');
+      const idx = clientes.findIndex(c => c.Id === clienteAtual.Id);
+      if (idx >= 0) clientes[idx] = clienteAtual;
+
+      // ✅ OTIMIZAÇÃO: Salvar em background
+      salvarDadosComAuditoria(
+        'clientes.json',
+        clientes,
+        'auditoria',
+        'Deletar',
+        'Venda',
+        vendaId,
+        `Venda ${vendaId}`,
+        'Venda deletada via Site',
+        JSON.stringify(vendaDeletada),
+        ''
+      );
+
+      // ✅ NÃO recarregar - dados já atualizados
+      console.log('🔄 Recarregando dados...');
+      const clientesAtualizados = await buscarArquivo('clientes.json');
+      clienteAtual = clientesAtualizados.find(c => c.Id === clienteAtual.Id);
+      console.log('✅ Dados recarregados:', clienteAtual);
+
+      renderizarVendas();
+      alert('✅ Venda deletada!');
+    } catch (erro) {
+      console.error('Erro:', erro);
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // 📎 Carregar Anexos / Notas Fiscais
+  async function carregarAnexos(tipo) {
+    try {
+      const containerId = tipo === 'NF' ? 'nfsContainer' : 'anexosContainer';
+      const container = document.getElementById(containerId);
+
+      if (!container) return;
+
+      console.log(`📎 Carregando ${tipo}s para cliente: ${clienteAtual.Nome} (${clienteAtual.CPF})`);
+
+      // 🔐 Usar AuthManager.requisicaoSegura com URL + options
+      const payload = {
+        action: 'listarArquivosCliente',
+        cpf: clienteAtual.CPF,
+        nome: clienteAtual.Nome,
+        tipo: tipo
+      };
+
+      console.log(`📤 Enviando payload:`, payload);
+
+      const response = await AuthManager.requisicaoSegura(CONFIG.API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      const dados = await response.json();
+      console.log(`✅ Resposta de ${tipo}s:`, dados);
+
+      if (!dados || dados.status !== 'success') {
+        console.log(`⚠️ Sem ${tipo}s para este cliente`);
+        container.innerHTML = `<p class="empty-message">Nenhum ${tipo === 'NF' ? 'nota fiscal' : 'arquivo'} encontrado</p>`;
+        return;
+      }
+
+      const arquivos = dados.arquivos || [];
+
+      if (!arquivos || arquivos.length === 0) {
+        console.log(`ℹ️ Cliente não possui ${tipo}s`);
+        container.innerHTML = `<p class="empty-message">Nenhum ${tipo === 'NF' ? 'nota fiscal' : 'arquivo'} encontrado</p>`;
+        return;
+      }
+
+      console.log(`✅ ${arquivos.length} ${tipo}(s) encontrado(s)`);
+
+      let html = '';
+      arquivos.forEach(arquivo => {
+        const dataFormatada = new Date(arquivo.dataCriacao).toLocaleDateString('pt-BR');
+        html += `
+          <div class="anexo-item">
+            <div class="anexo-info">
+              <div class="anexo-nome">📄 ${arquivo.nome}</div>
+              <div class="anexo-detalhes">${arquivo.tamanho} • ${dataFormatada}</div>
+            </div>
+            <div class="anexo-botoes">
+              <button class="anexo-btn" onclick="window.open('${arquivo.url}', '_blank')">
+                ⬇️ Baixar
+              </button>
+              <button class="anexo-btn" onclick="window.open('${arquivo.previewUrl}', '_blank')">
+                👁️ Visualizar
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    } catch (erro) {
+      console.error(`❌ Erro ao carregar ${tipo}s:`, erro);
+      const containerId = tipo === 'NF' ? 'nfsContainer' : 'anexosContainer';
+      const container = document.getElementById(containerId);
+      if (container) {
+        container.innerHTML = `<p class="empty-message">Erro ao carregar ${tipo === 'NF' ? 'notas fiscais' : 'arquivos'}</p>`;
+      }
+    }
+  }
+
+  // Helpers
+  function formatarData(data) {
+    if (!data) return '-';
+    return new Date(data).toLocaleDateString('pt-BR');
+  }
+
+  function formatarMoeda(valor) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor || 0);
+  }
+
+  function voltarParaPagamentos() {
+    window.location.href = 'index.html?modulo=pagamentos';
+  }
+
+  // Inicializar quando o DOM estiver pronto
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', carregarPagina);
+  } else {
+    carregarPagina();
+  }
+
+  // ✅ Abrir WhatsApp
+  function abrirWhatsApp(clienteId) {
+    const cliente = clientesData.find(c => c.Id === clienteId);
+    if (!cliente) {
+      alert('❌ Cliente não encontrado');
+      return;
+    }
+
+    const tel1 = cliente.Telefone1 || '';
+    const tel2 = cliente.Telefone2 || '';
+
+    if (!tel1 && !tel2) {
+      alert('❌ Cliente não possui telefone');
+      return;
+    }
+
+    // ✅ Se tem 2 telefones, perguntar qual usar
+    if (tel1 && tel2) {
+      const escolha = prompt(`Qual número deseja usar?\n\n1️⃣ ${tel1}\n2️⃣ ${tel2}\n\nDigite 1 ou 2:`);
+      
+      if (escolha === '1') {
+        abrirWhatsAppComNumero(tel1);
+      } else if (escolha === '2') {
+        abrirWhatsAppComNumero(tel2);
+      } else {
+        alert('❌ Opção inválida');
+      }
+      return;
+    }
+
+    // Se tem só 1, usar esse
+    const telefone = tel1 || tel2;
+    abrirWhatsAppComNumero(telefone);
+  }
+
+  // Função auxiliar para abrir WhatsApp com o número
+  function abrirWhatsAppComNumero(numero) {
+    const numeroLimpo = numero.replace(/\D/g, '');
+
+    if (!numeroLimpo) {
+      alert('❌ Número de telefone inválido');
+      return;
+    }
+
+    let numeroFinal = numeroLimpo;
+    if (!numeroFinal.startsWith("55")) {
+      numeroFinal = "55" + numeroFinal;
+    }
+
+    const urlApp = "https://wa.me/" + numeroFinal;
+    const urlWeb = "whatsapp://send?phone=" + numeroFinal;
+
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      window.location.href = urlApp;
+
+      setTimeout(() => {
+        window.location.href = urlWeb;
+      }, 1200);
+
+    } else {
+      window.open(urlWeb, "_blank");
+    }
+  }
+</script>
+
+<!-- 📎 Importar sistema de upload de documentos -->
+<script src="clientes-upload-docs.js"></script>
+
+<script src="sidebar-dock.js"></script>
+</body>
+</html>

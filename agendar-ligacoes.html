@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="sidebar-dock.css">
+  <title>Agendar Ligações - Bovi Premium</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
+      min-height: 100vh;
+      color: #e5f3ee;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      color: #1fa37a;
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    .btn {
+      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 12px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(31,163,122,.2);
+    }
+
+    .btn-add {
+      background: linear-gradient(145deg, rgba(76,175,80,.3), rgba(76,175,80,.15));
+      color: #81c784;
+      border-color: rgba(76,175,80,.3);
+    }
+
+    .btn-add:hover {
+      background: linear-gradient(145deg, rgba(76,175,80,.4), rgba(76,175,80,.25));
+      box-shadow: 0 10px 20px rgba(76,175,80,.2);
+    }
+
+    .btn-delete {
+      background: linear-gradient(145deg, rgba(244,67,54,.3), rgba(244,67,54,.15));
+      color: #ef5350;
+      border: 1px solid rgba(244,67,54,.3);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .btn-delete:hover {
+      background: linear-gradient(145deg, rgba(244,67,54,.5), rgba(244,67,54,.3));
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(14px);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 15px;
+    }
+
+    .card-numero {
+      color: #d4af37;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .card-status {
+      display: inline-block;
+      background: rgba(76,175,80,.2);
+      color: #81c784;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .card-status.ativo {
+      background: rgba(76,175,80,.2);
+      color: #81c784;
+    }
+
+    .card-status.vencido {
+      background: rgba(244,67,54,.2);
+      color: #ef5350;
+    }
+
+    .card-info {
+      color: #b9d8ce;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .card-label {
+      color: #8fb9ac;
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .card-valor {
+      color: #7cf0c2;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .card-descricao {
+      color: #a8c5bc;
+      font-size: 12px;
+      font-style: italic;
+      margin-bottom: 15px;
+      padding: 10px;
+      background: rgba(31,163,122,.1);
+      border-left: 3px solid rgba(31,163,122,.3);
+      border-radius: 4px;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .tabela-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(14px);
+      overflow-x: auto;
+      margin-bottom: 30px;
+    }
+
+    h2 {
+      color: #1fa37a;
+      font-size: 18px;
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      border-bottom: 2px solid rgba(31,163,122,.3);
+    }
+
+    th {
+      color: #7cf0c2;
+      padding: 15px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      transition: all 0.3s;
+    }
+
+    tbody tr:hover {
+      background: rgba(31,163,122,.1);
+    }
+
+    td {
+      padding: 15px;
+      color: #b9d8ce;
+      font-size: 13px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #8fb9ac;
+    }
+
+    /* MODAL */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 10000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.visible {
+      display: flex;
+    }
+
+    .modal {
+      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 500px;
+      width: 90%;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    }
+
+    .modal-header {
+      color: #1fa37a;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: #7cf0c2;
+      font-size: 28px;
+      cursor: pointer;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      color: #7cf0c2;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(31,163,122,.2);
+      border-radius: 8px;
+      color: #e5f3ee;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: rgba(31,163,122,.5);
+      background: rgba(255,255,255,.08);
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 30px;
+    }
+
+    .form-actions button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-confirm {
+      background: linear-gradient(145deg, rgba(76,175,80,.3), rgba(76,175,80,.15));
+      color: #81c784;
+      border: 1px solid rgba(76,175,80,.3);
+    }
+
+    .btn-confirm:hover {
+      background: linear-gradient(145deg, rgba(76,175,80,.4), rgba(76,175,80,.25));
+      box-shadow: 0 10px 20px rgba(76,175,80,.2);
+    }
+
+    .btn-cancel {
+      background: linear-gradient(145deg, rgba(244,67,54,.3), rgba(244,67,54,.15));
+      color: #ef5350;
+      border: 1px solid rgba(244,67,54,.3);
+    }
+
+    .btn-cancel:hover {
+      background: linear-gradient(145deg, rgba(244,67,54,.4), rgba(244,67,54,.25));
+      box-shadow: 0 10px 20px rgba(244,67,54,.2);
+    }
+
+    .alert-message {
+      background: rgba(76,175,80,.2);
+      border: 1px solid rgba(76,175,80,.3);
+      color: #81c784;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 13px;
+    }
+
+    .alert-message.error {
+      background: rgba(244,67,54,.2);
+      border-color: rgba(244,67,54,.3);
+      color: #ef5350;
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .header h1 {
+        font-size: 24px;
+      }
+
+      .cards {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>📞 Agendar Ligações</h1>
+    <div style="display: flex; gap: 12px;">
+      <button class="btn btn-add" onclick="abrirModalAgendar()">📞 Agendar Ligação</button>
+      <button class="btn" onclick="window.location.href='index.html'">← Dashboard</button>
+    </div>
+  </div>
+
+  <!-- CARDS DE AGENDAMENTOS -->
+  <div id="cardsContainer" class="cards">
+    <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; color: #8fb9ac;">
+      ⏳ Carregando agendamentos...
+    </div>
+  </div>
+
+  <!-- TABELA DETALHADA -->
+  <div class="tabela-section" id="tabelaSection" style="display: none;">
+    <h2>📋 Todos os Agendamentos</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Número</th>
+          <th>Data/Hora</th>
+          <th>Descrição</th>
+          <th>Intervalo</th>
+          <th>Status</th>
+          <th>Ação</th>
+        </tr>
+      </thead>
+      <tbody id="corpoTabela">
+        <tr><td colspan="6" class="empty-state">Nenhum agendamento</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL: AGENDAR LIGAÇÃO -->
+<div id="modalAgendar" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span>📞 Agendar Ligação</span>
+      <button class="modal-close" onclick="fecharModalAgendar()">✕</button>
+    </div>
+
+    <div id="alertMessage"></div>
+
+    <form id="formAgendamento">
+      <div class="form-group">
+        <label>📞 Número do Cliente *</label>
+        <input type="text" id="numero" placeholder="Ex: (11) 98765-4321" required>
+      </div>
+
+      <div class="form-group">
+        <label>📅 Data *</label>
+        <input type="date" id="data" required>
+      </div>
+
+      <div class="form-group">
+        <label>🕐 Hora *</label>
+        <input type="time" id="hora" required>
+      </div>
+
+      <div class="form-group">
+        <label>⏱️ Intervalo de Repetição (minutos) *</label>
+        <input type="number" id="intervalo" value="3" min="1" max="1440" required>
+        <small style="color: #8fb9ac; display: block; margin-top: 5px;">
+          A cada quantos minutos o alerta deve aparecer?
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label>📝 Descrição</label>
+        <textarea id="descricao" placeholder="Ex: Confirmar entrega, seguimento de venda..." style="height: 80px;"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-confirm">✅ Agendar</button>
+        <button type="button" class="btn-cancel" onclick="fecharModalAgendar()">❌ Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="auth-utils.js"></script>
+<script src="auth.js"></script>
+<script src="alertas-ligacoes.js"></script>
+<script>
+  let todosAgendamentos = [];
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await carregarAgendamentos();
+    renderizarAgendamentos();
+    
+    // Auto-preencher data/hora atual
+    const hoje = new Date();
+    document.getElementById('data').valueAsDate = hoje;
+    document.getElementById('hora').value = hoje.toTimeString().slice(0, 5);
+    
+    // ✅ Pré-preencher com dados do cliente (se vindo de cliente-detalhes.html)
+    const clienteParaAgendar = sessionStorage.getItem('clienteParaAgendarLigacao');
+    if (clienteParaAgendar) {
+      try {
+        const cliente = JSON.parse(clienteParaAgendar);
+        document.getElementById('numero').value = cliente.telefone || '';
+        document.getElementById('descricao').value = `Cliente: ${cliente.nomeCliente}${cliente.email ? ` | Email: ${cliente.email}` : ''}`;
+        sessionStorage.removeItem('clienteParaAgendarLigacao'); // Limpar após usar
+      } catch (e) {
+        console.log('⚠️ Erro ao pré-preencher cliente:', e);
+      }
+    }
+  });
+
+  async function carregarAgendamentos() {
+    try {
+      console.log('📥 Carregando agendamentos_ligacoes.json...');
+      const dados = await buscarArquivo("agendamentos_ligacoes.json");
+      todosAgendamentos = Array.isArray(dados) ? dados : (dados.dados || []);
+      console.log(`✅ Carregados ${todosAgendamentos.length} agendamentos`);
+    } catch (erro) {
+      console.warn('⚠️ Arquivo de agendamentos não encontrado:', erro);
+      todosAgendamentos = [];
+    }
+  }
+
+  function renderizarAgendamentos() {
+    const cardsContainer = document.getElementById('cardsContainer');
+    
+    if (todosAgendamentos.length === 0) {
+      cardsContainer.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; color: #8fb9ac;">
+          📭 Nenhum agendamento. Clique em "📞 Agendar Ligação" para começar!
+        </div>
+      `;
+      document.getElementById('tabelaSection').style.display = 'none';
+      return;
+    }
+
+    // Renderizar cards
+    cardsContainer.innerHTML = todosAgendamentos.map((agendamento, idx) => {
+      const dataHora = new Date(agendamento.DataHoraInicio);
+      const agora = new Date();
+      const estaPendente = dataHora > agora;
+      
+      return `
+        <div class="card">
+          <div class="card-header">
+            <div class="card-numero">☎️ ${agendamento.Numero}</div>
+            <span class="card-status ${estaPendente ? 'ativo' : 'vencido'}">
+              ${estaPendente ? '⏳ Pendente' : '✓ Vencido'}
+            </span>
+          </div>
+          
+          <div class="card-label">Data/Hora Agendada</div>
+          <div class="card-valor">${formatarDataHora(agendamento.DataHoraInicio)}</div>
+          
+          <div class="card-label">Intervalo de Alerta</div>
+          <div class="card-valor">${agendamento.IntervalMinutos} min</div>
+          
+          ${agendamento.Descricao ? `
+            <div class="card-descricao">${agendamento.Descricao}</div>
+          ` : ''}
+          
+          <div class="card-actions">
+            <button class="btn btn-delete" onclick="excluirAgendamento(${idx})">🗑️ Excluir</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Renderizar tabela
+    const corpoTabela = document.getElementById('corpoTabela');
+    corpoTabela.innerHTML = todosAgendamentos.map((agendamento, idx) => {
+      const dataHora = new Date(agendamento.DataHoraInicio);
+      const agora = new Date();
+      const estaPendente = dataHora > agora;
+      
+      return `
+        <tr>
+          <td>☎️ ${agendamento.Numero}</td>
+          <td>${formatarDataHora(agendamento.DataHoraInicio)}</td>
+          <td>${agendamento.Descricao || '-'}</td>
+          <td>${agendamento.IntervalMinutos} min</td>
+          <td><span style="color: ${estaPendente ? '#81c784' : '#ef5350'};">
+            ${estaPendente ? '⏳ Pendente' : '✓ Vencido'}
+          </span></td>
+          <td>
+            <button class="btn btn-delete" onclick="excluirAgendamento(${idx})">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    document.getElementById('tabelaSection').style.display = 'block';
+  }
+
+  function abrirModalAgendar() {
+    document.getElementById('modalAgendar').classList.add('visible');
+    document.getElementById('formAgendamento').reset();
+    document.getElementById('alertMessage').innerHTML = '';
+    
+    // Auto-preencher data/hora
+    const agora = new Date();
+    document.getElementById('data').valueAsDate = agora;
+    document.getElementById('hora').value = agora.toTimeString().slice(0, 5);
+  }
+
+  function fecharModalAgendar() {
+    document.getElementById('modalAgendar').classList.remove('visible');
+  }
+
+  document.getElementById('formAgendamento').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await salvarAgendamento();
+  });
+
+  async function salvarAgendamento() {
+    try {
+      const numero = document.getElementById('numero').value.trim();
+      const data = document.getElementById('data').value;
+      const hora = document.getElementById('hora').value;
+      const intervalo = parseInt(document.getElementById('intervalo').value);
+      const descricao = document.getElementById('descricao').value.trim();
+
+      if (!numero || !data || !hora) {
+        mostrarAlerta('❌ Preencha todos os campos obrigatórios', 'error');
+        return;
+      }
+
+      // Combinar data e hora
+      const [ano, mes, dia] = data.split('-');
+      const [horas, minutos] = hora.split(':');
+      const dataHoraInicio = new Date(ano, mes - 1, dia, horas, minutos);
+
+      if (dataHoraInicio < new Date()) {
+        mostrarAlerta('❌ A data/hora deve ser futura', 'error');
+        return;
+      }
+
+      const novoAgendamento = {
+        Numero: numero,
+        DataHoraInicio: dataHoraInicio.toISOString(),
+        IntervalMinutos: intervalo,
+        Descricao: descricao || 'Ligação agendada',
+        DataCriacao: new Date().toISOString(),
+        Id: 'lig_' + Date.now()
+      };
+
+      todosAgendamentos.push(novoAgendamento);
+
+      // Salvar no Google Drive
+      const formData = new FormData();
+      formData.append('acao', 'salvarArquivo');
+      formData.append('arquivo', 'agendamentos_ligacoes.json');
+      formData.append('dados', JSON.stringify(todosAgendamentos));
+
+      console.log('📤 Salvando agendamento...');
+      const response = await AuthManager.requisicaoSegura(API_URL, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.sucesso === true || result.status === 'success') {
+        mostrarAlerta(`✅ Ligação agendada para ${numero}!`, 'success');
+        fecharModalAgendar();
+        renderizarAgendamentos();
+      } else {
+        throw new Error(result.message || 'Erro ao salvar');
+      }
+
+    } catch (erro) {
+      console.error('❌ Erro:', erro);
+      mostrarAlerta(`❌ Erro: ${erro.message}`, 'error');
+    }
+  }
+
+  async function excluirAgendamento(idx) {
+    if (!confirm('Tem certeza que deseja excluir este agendamento?')) {
+      return;
+    }
+
+    try {
+      todosAgendamentos.splice(idx, 1);
+
+      const formData = new FormData();
+      formData.append('acao', 'salvarArquivo');
+      formData.append('arquivo', 'agendamentos_ligacoes.json');
+      formData.append('dados', JSON.stringify(todosAgendamentos));
+
+      const response = await AuthManager.requisicaoSegura(API_URL, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      mostrarAlerta('✅ Agendamento excluído!', 'success');
+      renderizarAgendamentos();
+
+    } catch (erro) {
+      console.error('❌ Erro:', erro);
+      mostrarAlerta(`❌ Erro ao excluir: ${erro.message}`, 'error');
+    }
+  }
+
+  function mostrarAlerta(mensagem, tipo) {
+    const alertDiv = document.getElementById('alertMessage');
+    const bgColor = tipo === 'success' ? 'rgba(76,175,80,.2)' : 'rgba(244,67,54,.2)';
+    const borderColor = tipo === 'success' ? 'rgba(76,175,80,.3)' : 'rgba(244,67,54,.3)';
+    const textColor = tipo === 'success' ? '#81c784' : '#ef5350';
+
+    alertDiv.innerHTML = `
+      <div style="background: ${bgColor}; border: 1px solid ${borderColor}; color: ${textColor}; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: 600;">
+        ${mensagem}
+      </div>
+    `;
+
+    if (tipo === 'success') {
+      setTimeout(() => {
+        alertDiv.innerHTML = '';
+      }, 3000);
+    }
+  }
+
+  function formatarDataHora(dataString) {
+    const data = new Date(dataString);
+    return data.toLocaleDateString('pt-BR') + ' às ' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+</script>
+<script src="sidebar-dock.js"></script>
+</body>
+</html>
