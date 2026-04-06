@@ -509,6 +509,9 @@ function abrirDetalhePagamento(nomeCliente) {
 // FUNÇÃO: ABRIR DETALHES DO CLIENTE
 // ============================================
 function abrirDetalhesCliente(nomeCliente) {
+  // 📍 MOSTRAR LOADING IMEDIATAMENTE
+  mostrarLoadingCliente();
+
   // Buscar o cliente completo
   buscarArquivo("clientes.json").then(clientes => {
     const cliente = Array.isArray(clientes) ? 
@@ -528,16 +531,64 @@ function abrirDetalhesCliente(nomeCliente) {
       console.log('✅ Cliente salvo no localStorage:', localStorage.getItem('clienteSelecionado') ? 'SIM' : 'NÃO');
       console.log('🚀 Redirecionando...');
       
-      // Redirecionar para página de detalhes
+      // Redirecionar para página de detalhes (loading continua até carregar)
       setTimeout(() => {
         window.location.href = 'clientes-detalhes.html';
       }, 100);
     } else {
+      ocultarLoadingCliente();
       alert('Erro: Cliente não encontrado');
     }
   }).catch(erro => {
+    ocultarLoadingCliente();
     alert('Erro ao buscar detalhes: ' + erro.message);
   });
+}
+
+// 📍 FUNCÕES DE LOADING DO CLIENTE
+function mostrarLoadingCliente() {
+  if (document.getElementById('loadingClienteOverlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'loadingClienteOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    backdrop-filter: blur(8px);
+  `;
+  overlay.innerHTML = `
+    <div style="text-align: center;">
+      <div style="
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(31,163,122,.2);
+        border-top: 4px solid #1fa37a;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 20px;
+      "></div>
+      <p style="color: #7cf0c2; font-size: 16px; font-weight: 600; margin: 0;">⏳ Carregando Cliente...</p>
+      <p style="color: #8fb9ac; font-size: 12px; margin: 8px 0 0;">Por favor, aguarde</p>
+    </div>
+    <style>
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function ocultarLoadingCliente() {
+  const overlay = document.getElementById('loadingClienteOverlay');
+  if (overlay) overlay.remove();
 }
 
 // Verificar inadimplência do cliente
