@@ -324,12 +324,10 @@ function renderizarTabela(aplicarFiltroAtivo = false) {
 
   contasOrdenadas.forEach(conta => {
     const statusClass = conta.StatusPagamento === 'Pago' ? 'status-pago' : 
-                       conta.StatusPagamento === 'Vencido' ? 'status-vencido' :
-                       'status-avencer';
+                       'status-naopago';
     
     const statusTexto = conta.StatusPagamento === 'Pago' ? '✅ PAGO' : 
-                        conta.StatusPagamento === 'Vencido' ? '⚠️ VENCIDO' :
-                        '⏳ A VENCER';
+                        '❌ NÃO PAGO';
 
     html += `
       <tr>
@@ -490,19 +488,9 @@ async function salvarEdicaoConta(event) {
 // CALCULAR STATUS AUTOMATICAMENTE
 // ============================================
 function calcularStatusAutomatico(dataPagamento) {
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  
-  const data = new Date(dataPagamento);
-  data.setHours(0, 0, 0, 0);
-  
-  if (data > hoje) {
-    return 'A Vencer';
-  } else if (data < hoje) {
-    return 'Vencido';
-  } else {
-    return 'A Vencer';
-  }
+  // Qualquer conta que não esteja marcada como "Pago" é "Não Pago"
+  // Data vencida ou não, se não foi pago, é "Não Pago"
+  return 'Não Pago';
 }
 
 // ============================================
@@ -511,7 +499,7 @@ function calcularStatusAutomatico(dataPagamento) {
 function atualizarStatusTodasAsContas() {
   contasAtivas.forEach(conta => {
     if (conta.StatusPagamento !== 'Pago') {
-      conta.StatusPagamento = calcularStatusAutomatico(conta.DataPagamento);
+      conta.StatusPagamento = 'Não Pago';
     }
   });
 }
