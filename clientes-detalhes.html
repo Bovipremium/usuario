@@ -2625,12 +2625,44 @@
       
       inputCidade.addEventListener('change', () => {
         if (inputCidade.value.trim()) {
+          // Normalizar a cidade: remover espaços extras e garantir formato "Cidade-UF"
+          let cidadeNormalizada = inputCidade.value.trim();
+          
+          // Se não tiver hífen, tentar adicionar (ex: "goiania go" → "Goiania-GO")
+          if (!cidadeNormalizada.includes('-')) {
+            const partes = cidadeNormalizada.split(/\s+/);
+            if (partes.length >= 2) {
+              // Última parte é UF
+              const uf = partes[partes.length - 1].toUpperCase();
+              const cidade = partes.slice(0, -1).join(' ');
+              cidadeNormalizada = `${cidade}-${uf}`;
+            }
+          }
+          
+          // Converter para formato padrão: Primeira letra maiúscula, resto minúscula
+          const [cidade, uf] = cidadeNormalizada.split('-');
+          if (cidade && uf) {
+            cidadeNormalizada = `${cidade.charAt(0).toUpperCase()}${cidade.slice(1).toLowerCase()}-${uf.toUpperCase()}`;
+          }
+          
           // Atualizar o texto do evento com a nova cidade
-          const novoTexto = historicoEditavel[idx].text.replace(
-            /- [A-ZÁÉÍÓÚÃÕç\s]+\-[A-Z]{2}/,
-            `- ${inputCidade.value}`
-          );
+          const textoAntigo = historicoEditavel[idx].text;
+          
+          // Procurar por padrão "- ALGUMA_COISA" ou "- ALGUMA_COISA-UF"
+          let novoTexto;
+          if (textoAntigo.includes(' - ')) {
+            // Substitui após o último " - "
+            const partes = textoAntigo.split(' - ');
+            const prefixo = partes.slice(0, -1).join(' - ');
+            novoTexto = `${prefixo} - ${cidadeNormalizada}`;
+          } else {
+            novoTexto = textoAntigo;
+          }
+          
           historicoEditavel[idx].text = novoTexto;
+          inputCidade.value = cidadeNormalizada; // Atualizar o campo com valor normalizado
+          
+          console.log(`✏️ Evento ${idx + 1} atualizado: "${textoAntigo}" → "${novoTexto}"`);
         }
       });
     });
