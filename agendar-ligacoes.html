@@ -629,16 +629,19 @@
 
       todosAgendamentos.push(novoAgendamento);
 
-      // Salvar no Google Drive
-      const formData = new FormData();
-      formData.append('acao', 'salvarArquivo');
-      formData.append('arquivo', 'agendamentos_ligacoes.json');
-      formData.append('dados', JSON.stringify(todosAgendamentos));
-
+      // Salvar no Google Drive usando URLSearchParams
+      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+      
       console.log('📤 Salvando agendamento...');
-      const response = await AuthManager.requisicaoSegura(API_URL, {
+      const response = await fetch(API_URL, {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          'acao': 'salvar',
+          'arquivo': 'agendamentos_ligacoes.json',
+          'dados': JSON.stringify(todosAgendamentos),
+          'deviceId': deviceId
+        })
       });
 
       if (!response.ok) {
@@ -668,14 +671,18 @@
     try {
       todosAgendamentos.splice(idx, 1);
 
-      const formData = new FormData();
-      formData.append('acao', 'salvarArquivo');
-      formData.append('arquivo', 'agendamentos_ligacoes.json');
-      formData.append('dados', JSON.stringify(todosAgendamentos));
-
-      const response = await AuthManager.requisicaoSegura(API_URL, {
+      // Salvar no Google Drive usando URLSearchParams
+      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+      
+      const response = await fetch(API_URL, {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          'acao': 'salvar',
+          'arquivo': 'agendamentos_ligacoes.json',
+          'dados': JSON.stringify(todosAgendamentos),
+          'deviceId': deviceId
+        })
       });
 
       if (!response.ok) {
