@@ -332,6 +332,12 @@
       border: 1px solid rgba(40,167,69,.3);
     }
 
+    .status-naopago {
+      background: linear-gradient(145deg, rgba(220,53,69,.3), rgba(220,53,69,.15));
+      color: #ff6b6b;
+      border: 1px solid rgba(220,53,69,.3);
+    }
+
     .status-vencido {
       background: linear-gradient(145deg, rgba(255,107,107,.3), rgba(255,107,107,.15));
       color: #ff6b6b;
@@ -803,8 +809,7 @@
           <label>Status</label>
           <select id="filtroStatus">
             <option value="">Todos</option>
-            <option value="A Vencer">⏳ A Vencer</option>
-            <option value="Vencido">⚠️ Vencido</option>
+            <option value="Não Pago">❌ Não Pago</option>
             <option value="Pago">✅ Pago</option>
           </select>
         </div>
