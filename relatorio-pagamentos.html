@@ -800,6 +800,8 @@
         lucroLiquido,
         percentualAdimplencia,
         clientesIndadimplentes: Array.from(clientesIndadimplentes),
+        boletosAtrasados,
+        boletosAtrasadosPagos,
         boletosAtrasadosNaoPagos,
         boletosPendentesNaoPagos,
         dados6meses,
@@ -914,7 +916,7 @@
           <div class="metric-card ${parseFloat(metricas.percentualAdimplencia) >= 80 ? 'success' : parseFloat(metricas.percentualAdimplencia) >= 60 ? 'warning' : 'danger'}">
             <div class="metric-label">📊 Taxa de Adimplência</div>
             <div class="metric-value">${metricas.percentualAdimplencia}%</div>
-            <div class="metric-subtitle">${metricas.pagos} de ${metricas.parcelas.length}</div>
+            <div class="metric-subtitle">${metricas.boletosAtrasadosPagos.length} de ${metricas.boletosAtrasados.length}</div>
           </div>
 
           <div class="metric-card gold">
