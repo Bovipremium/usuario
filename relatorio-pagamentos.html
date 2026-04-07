@@ -557,6 +557,10 @@
           <input type="checkbox" id="chkGeral" onchange="atualizarRelatorio()">
           <span style="font-size: 13px; font-weight: 600;">Relatório Geral</span>
         </label>
+        <label style="display: flex; align-items: center; gap: 8px; margin: 0;">
+          <input type="checkbox" id="chkAteHoje" onchange="atualizarRelatorio()">
+          <span style="font-size: 13px; font-weight: 600;">📅 Até Hoje</span>
+        </label>
         <button onclick="window.history.back()">⬅ Voltar</button>
       </div>
     </div>
@@ -675,8 +679,12 @@
       const ano = document.getElementById('selectAno').value;
       const vendedor = document.getElementById('selectVendedor').value;
       const midia = document.getElementById('selectMidia').value;
-      const chkGeral = document.getElementById('chkGeral').checked;
+      const chkAteHoje = document.getElementById('chkAteHoje').checked;
       const parcelas = [];
+
+      // Se "Até Hoje" está marcado, ignorar mes/ano e usar data de hoje
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
 
       todosClientes.forEach(cliente => {
         // Validar se cliente tem dados básicos
@@ -706,8 +714,14 @@
           if (!venda.Parcelas || !Array.isArray(venda.Parcelas)) return;
           
           venda.Parcelas.forEach(parcela => {
-            // FILTRO DE DATA: Aplica em nível de parcela
-            if (mes || ano) {
+            // FILTRO DE DATA
+            if (chkAteHoje) {
+              // Se "Até Hoje" está marcado, pega tudo até hoje
+              const dataParcela = new Date(parcela.DataVencimento);
+              dataParcela.setHours(0, 0, 0, 0);
+              if (dataParcela > hoje) return; // Pula se é futuro
+            } else if (mes || ano) {
+              // Se não está "Até Hoje", usa os filtros normais de mês/ano
               const dataParcela = new Date(parcela.DataVencimento);
               if (mes && dataParcela.getMonth() + 1 !== parseInt(mes)) return;
               if (ano && dataParcela.getFullYear() !== parseInt(ano)) return;
@@ -731,9 +745,21 @@
     function extrairDespesasFiltradas() {
       const mes = document.getElementById('selectMes').value;
       const ano = document.getElementById('selectAno').value;
+      const chkAteHoje = document.getElementById('chkAteHoje').checked;
+      
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      
       return todasDespesas.filter(despesa => {
         if (!despesa.DataCadastro) return false;
-        if (mes || ano) {
+        
+        if (chkAteHoje) {
+          // Se "Até Hoje" está marcado, pega tudo até hoje
+          const dataDespesa = new Date(despesa.DataCadastro);
+          dataDespesa.setHours(0, 0, 0, 0);
+          return dataDespesa <= hoje;
+        } else if (mes || ano) {
+          // Caso contrário, usa os filtros normais
           const dataDespesa = new Date(despesa.DataCadastro);
           if (mes && dataDespesa.getMonth() + 1 !== parseInt(mes)) return false;
           if (ano && dataDespesa.getFullYear() !== parseInt(ano)) return false;
@@ -776,10 +802,15 @@
       const totalDespesas = despesas.reduce((sum, d) => sum + (d.Valor || 0), 0);
       const lucroLiquido = totalPago - totalDespesas;
       
-      // Taxa de adimplência: boletos pagos até hoje / todos os boletos com vencimento até hoje
-      const percentualAdimplencia = boletosAtrasados.length > 0 
-        ? (boletosAtrasadosPagos.length / boletosAtrasados.length * 100).toFixed(2) 
-        : 100;
+      // Taxa de Inadimplência: boletos NÃO pagos até hoje / todos os boletos até hoje
+      // Boletos não pagos = atrasados não pagos (o que realmente importa para inadimplência)
+      // Pendentes ainda não venceram, então não contam na inadimplência
+      const boletosNaoPagos = boletosAtrasadosNaoPagos.length;
+      const totalBoletosAteHoje = boletosAtrasados.length;
+      const percentualInadimplencia = totalBoletosAteHoje > 0 
+        ? (boletosNaoPagos / totalBoletosAteHoje * 100).toFixed(2) 
+        : 0;
+      const percentualAdimplencia = (100 - percentualInadimplencia).toFixed(2);
 
       // Clientes inadimplentes (com boletos atrasados não pagos)
       const clientesIndadimplentes = new Set();
@@ -799,6 +830,9 @@
         totalDespesas,
         lucroLiquido,
         percentualAdimplencia,
+        percentualInadimplencia,
+        boletosNaoPagos,
+        totalBoletosAteHoje,
         clientesIndadimplentes: Array.from(clientesIndadimplentes),
         boletosAtrasados,
         boletosAtrasadosPagos,
@@ -913,10 +947,10 @@
             <div class="metric-subtitle">${formatarMoeda(metricas.totalEmitido)}</div>
           </div>
 
-          <div class="metric-card ${parseFloat(metricas.percentualAdimplencia) >= 80 ? 'success' : parseFloat(metricas.percentualAdimplencia) >= 60 ? 'warning' : 'danger'}">
-            <div class="metric-label">📊 Taxa de Adimplência</div>
-            <div class="metric-value">${metricas.percentualAdimplencia}%</div>
-            <div class="metric-subtitle">${metricas.boletosAtrasadosPagos.length} de ${metricas.boletosAtrasados.length}</div>
+          <div class="metric-card ${parseFloat(metricas.percentualInadimplencia) <= 20 ? 'success' : parseFloat(metricas.percentualInadimplencia) <= 40 ? 'warning' : 'danger'}">
+            <div class="metric-label">❌ Taxa de Inadimplência</div>
+            <div class="metric-value">${metricas.percentualInadimplencia}%</div>
+            <div class="metric-subtitle">${metricas.boletosNaoPagos} de ${metricas.totalBoletosAteHoje} até hoje</div>
           </div>
 
           <div class="metric-card gold">
@@ -961,14 +995,14 @@
         <div class="strategic-section">
           <div class="section-title">🎯 Análise Estratégica Financeira</div>
           <div class="performance-grid">
-            <div class="performance-item ${metricas.percentualAdimplencia >= 80 ? 'positive' : metricas.percentualAdimplencia >= 60 ? 'warning' : 'negative'}">
-              <div class="performance-label">Taxa de Adimplência</div>
-              <div class="performance-value">${metricas.percentualAdimplencia}%</div>
+            <div class="performance-item ${parseFloat(metricas.percentualInadimplencia) <= 20 ? 'positive' : parseFloat(metricas.percentualInadimplencia) <= 40 ? 'warning' : 'negative'}">
+              <div class="performance-label">Taxa de Inadimplência</div>
+              <div class="performance-value">${metricas.percentualInadimplencia}%</div>
               <div class="performance-description">
-                ${parseFloat(metricas.percentualAdimplencia) >= 85 ? '✅ Excelente - Acima de 85%' : 
-                  parseFloat(metricas.percentualAdimplencia) >= 70 ? '⚠️ Bom - Entre 70-85%' : 
-                  parseFloat(metricas.percentualAdimplencia) >= 50 ? '❌ Crítico - Abaixo de 70%' : 
-                  '🚨 Emergência - Muito baixo'}
+                ${parseFloat(metricas.percentualInadimplencia) <= 15 ? '✅ Excelente - Abaixo de 15%' : 
+                  parseFloat(metricas.percentualInadimplencia) <= 30 ? '⚠️ Bom - Entre 15-30%' : 
+                  parseFloat(metricas.percentualInadimplencia) <= 50 ? '❌ Crítico - Acima de 30%' : 
+                  '🚨 Emergência - Muito alto'}
               </div>
             </div>
 
@@ -980,7 +1014,7 @@
               </div>
             </div>
 
-            <div class="performance-item ${metricas.percentualAdimplencia >= 80 ? 'positive' : 'warning'}">
+            <div class="performance-item ${parseFloat(metricas.percentualInadimplencia) <= 30 ? 'positive' : 'warning'}">
               <div class="performance-label">Fluxo de Caixa</div>
               <div class="performance-value">${formatarMoeda(metricas.totalPago)}</div>
               <div class="performance-description">
@@ -1217,7 +1251,7 @@
       const ctx4 = document.getElementById('chartComposicao')?.getContext('2d');
       if (ctx4) {
         const totalReceita = metricas.totalPago;
-        const taxaAdimplencia = parseFloat(metricas.percentualAdimplencia);
+        const taxaAdimplencia = parseFloat(metricas.percentualAdimplencia); // Agora é a % de PAGOS
         const margemLucro = parseFloat(metricas.margemLucro);
         const eficiencia = Math.min(100, (metricas.parcelas.length > 0 ? (metricas.pagos / metricas.parcelas.length * 100) : 0));
 
