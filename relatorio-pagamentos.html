@@ -792,10 +792,12 @@
       const boletosAtrasadosNaoPagos = boletosAtrasados.filter(p => !p.Pago);
       const boletosAtrasadosPagos = boletosAtrasados.filter(p => p.Pago);
 
-      // Boletos pendentes (sempre não pagos por definição, pois vencimento é futuro)
+      // Boletos pendentes não pagos
       const boletosPendentesNaoPagos = boletosPendentes.filter(p => !p.Pago);
 
-      // Métricas totais
+      // Métricas RESPEITANDO OS FILTROS
+      // Se está filtrando (mês/ano ou até hoje), usa apenas os filtrados
+      // Se não está filtrando, mostra TODOS
       const pagos = parcelas.filter(p => p.Pago).length;
       const totalEmitido = parcelas.reduce((sum, p) => sum + (p.Valor || 0), 0);
       const totalPago = parcelas.filter(p => p.Pago).reduce((sum, p) => sum + (p.Valor || 0), 0);
@@ -837,6 +839,7 @@
         boletosAtrasados,
         boletosAtrasadosPagos,
         boletosAtrasadosNaoPagos,
+        boletosPendentes,
         boletosPendentesNaoPagos,
         dados6meses,
         margemLucro: totalEmitido > 0 ? ((lucroLiquido / totalEmitido) * 100).toFixed(2) : 0
@@ -948,7 +951,7 @@
           </div>
 
           <div class="metric-card info">
-            <div class="metric-label">📄 Total Emitido</div>
+            <div class="metric-label">📄 Total Emitido (Filtrado)</div>
             <div class="metric-value">${metricas.parcelas.length}</div>
             <div class="metric-subtitle">${formatarMoeda(metricas.totalEmitido)}</div>
           </div>
@@ -1021,10 +1024,10 @@
             </div>
 
             <div class="performance-item ${parseFloat(metricas.percentualInadimplencia) <= 30 ? 'positive' : 'warning'}">
-              <div class="performance-label">Fluxo de Caixa</div>
+              <div class="performance-label">Fluxo de Caixa Realizado</div>
               <div class="performance-value">${formatarMoeda(metricas.totalPago)}</div>
               <div class="performance-description">
-                Entrada esperada: ${formatarMoeda(metricas.totalEmitido)}
+                Emitido: ${formatarMoeda(metricas.totalEmitido)}
               </div>
             </div>
 
@@ -1035,6 +1038,22 @@
                 ${metricas.clientesIndadimplentes.length > 0 ? 
                   metricas.clientesIndadimplentes.slice(0, 2).join(', ') + (metricas.clientesIndadimplentes.length > 2 ? '...' : '') : 
                   'Nenhum'}
+              </div>
+            </div>
+
+            <div class="performance-item ${metricas.boletosAtrasadosNaoPagos.length > 0 ? 'negative' : 'positive'}">
+              <div class="performance-label">Boletos em Atraso</div>
+              <div class="performance-value">${metricas.boletosAtrasadosNaoPagos.length}</div>
+              <div class="performance-description">
+                ${formatarMoeda(metricas.boletosAtrasadosNaoPagos.reduce((sum, p) => sum + (p.Valor || 0), 0))} a receber
+              </div>
+            </div>
+
+            <div class="performance-item ${metricas.boletosPendentes.length > 0 ? 'warning' : 'positive'}">
+              <div class="performance-label">Boletos em Abertos</div>
+              <div class="performance-value">${metricas.boletosPendentes.length}</div>
+              <div class="performance-description">
+                ${formatarMoeda(metricas.boletosPendentes.reduce((sum, p) => sum + (p.Valor || 0), 0))} previstos
               </div>
             </div>
           </div>
