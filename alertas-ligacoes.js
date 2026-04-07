@@ -79,37 +79,26 @@ class AlertaLigacaoSistema {
   verificarAgendamento(agendamento) {
     const agora = new Date();
     const dataHora = new Date(agendamento.DataHoraInicio);
-    const intervaloMs = agendamento.IntervalMinutos * 60 * 1000;
+    
+    // 🔍 VERIFICAR SE FOI ADIADO - Se tem DataHoraProximoAlerta, usar ela
+    let dataAlertaAtual = dataHora;
+    if (agendamento.DataHoraProximoAlerta) {
+      dataAlertaAtual = new Date(agendamento.DataHoraProximoAlerta);
+    }
 
     // ✅ Se ainda não chegou a hora (data no futuro), NÃO alertar
-    if (dataHora > agora) {
+    if (dataAlertaAtual > agora) {
       return;
     }
 
     // ✅ Se a data é do passado (já passou há mais de 5 minutos), NÃO alertar
-    const tempoDesdeAgendado = agora - dataHora;
-    if (tempoDesdeAgendado < 0) {
+    const tempoDesdeAlerta = agora - dataAlertaAtual;
+    if (tempoDesdeAlerta > 300000) { // 5 minutos em ms
       return;
     }
 
-    // Calcular qual ciclo de alerta é agora
-    const cicloAtual = Math.floor(tempoDesdeAgendado / intervaloMs);
-    const proximoAlerta = new Date(dataHora.getTime() + (cicloAtual * intervaloMs));
-
-    // ✅ IMPORTANTE: Alerta só pode ser mostrado se:
-    // - Passou da hora agendada (dataHora <= agora)
-    // - Está dentro da janela de 5 minutos (proximoAlerta + 300s >= agora)
-    // - NÃO está visível na tela agora
-    
-    const tempoAteAlerta = (proximoAlerta.getTime() + 300000) - agora.getTime();
-    
-    // Se está fora da janela de alerta, pular
-    if (tempoAteAlerta < 0 || tempoAteAlerta > 300000) {
-      return;
-    }
-
-    // ID ÚNICO para este alerta neste ciclo
-    const idAlertaUnico = `${agendamento.Id}-ciclo-${cicloAtual}`;
+    // ID ÚNICO para este alerta (baseado no agendamento e timestamp)
+    const idAlertaUnico = `${agendamento.Id}-${Math.floor(dataAlertaAtual.getTime() / 300000)}`;
     
     // Se já está visível na tela, pular
     if (this.alertasExibidosNoTela.has(idAlertaUnico)) {
@@ -117,7 +106,7 @@ class AlertaLigacaoSistema {
     }
 
     // MOSTRAR ALERTA!
-    console.log(`🔔 ALERTA DE LIGAÇÃO: ${agendamento.Numero} (ciclo ${cicloAtual})`);
+    console.log(`🔔 ALERTA DE LIGAÇÃO: ${agendamento.Numero}`);
     this.mostrarAlerta(agendamento, idAlertaUnico);
     this.alertasExibidosNoTela.add(idAlertaUnico);
   }
@@ -302,24 +291,35 @@ class AlertaLigacaoSistema {
   async marcarComoLigou(id, idAlertaUnico) {
     try {
       console.log(`✓ Marcado como LIGOU: ${id}`);
+      console.log(`✓ Tipo do ID: ${typeof id}`);
+      console.log(`✓ ID do Alerta: ${idAlertaUnico}`);
       
       // 1. Remover da tela
       this.fecharAlerta(idAlertaUnico);
       
       // 2. Apagar do JSON no servidor
-      await this.apagarAgendamento(id);
+      const resultado = await this.apagarAgendamento(id);
+      console.log(`✓ Resposta do servidor:`, resultado);
       
-      // 3. Mostrar confirmação
-      console.log(`✓ Agendamento ${id} removido do JSON`);
+      // 3. Remover da lista local
+      const agendamentoIndex = this.agendamentos.findIndex(a => String(a.Id) === String(id));
+      if (agendamentoIndex !== -1) {
+        this.agendamentos.splice(agendamentoIndex, 1);
+        console.log(`✓ Removido da memória (índice ${agendamentoIndex})`);
+      }
+      
+      // 4. Mostrar confirmação
+      console.log(`✓ Agendamento ${id} removido do JSON e da memória`);
       
     } catch (erro) {
       console.error('❌ Erro ao marcar como ligou:', erro);
+      console.error('❌ Stack:', erro.stack);
       alert('❌ Erro ao salvar! Tente novamente.');
     }
   }
 
   /**
-   * ✅ Adiar por 5 minutos - Remove do alerta E atualiza no JSON
+   * ✅ Adiar por 5 minutos - Remove do alerta E atualiza no JSON com DataHoraProximoAlerta
    */
   async adiar5Minutos(id, idAlertaUnico) {
     try {
@@ -328,22 +328,16 @@ class AlertaLigacaoSistema {
       // 1. Remover da tela (volta em 5 min)
       this.fecharAlerta(idAlertaUnico);
       
-      // 2. Atualizar data/hora no servidor (adiciona 5 minutos)
-      await this.adiarAgendamento(id, 5);
+      // 2. Atualizar data/hora no servidor (armazena próximo alerta = agora + 5 min)
+      const agora = new Date();
+      const proximoAlerta = new Date(agora.getTime() + 5 * 60 * 1000); // +5 minutos
+      
+      await this.adiarAgendamento(id, proximoAlerta);
       
       // 3. Remover do rastreamento para poder alertar de novo em 5 min
-      const agendamento = this.agendamentos.find(a => a.Id === id);
-      if (agendamento) {
-        const agora = new Date();
-        const dataHora = new Date(agendamento.DataHoraInicio);
-        const intervaloMs = agendamento.IntervalMinutos * 60 * 1000;
-        const tempoDesdeAgendado = agora - dataHora;
-        const cicloAtual = Math.floor(tempoDesdeAgendado / intervaloMs);
-        const idAlertaAtual = `${id}-ciclo-${cicloAtual}`;
-        this.alertasExibidosNoTela.delete(idAlertaAtual);
-      }
+      this.alertasExibidosNoTela.delete(idAlertaUnico);
       
-      console.log(`✓ Agendamento ${id} adiado por 5 minutos`);
+      console.log(`✓ Agendamento ${id} adiado até ${proximoAlerta.toLocaleTimeString('pt-BR')}`);
       
     } catch (erro) {
       console.error('❌ Erro ao adiar:', erro);
@@ -356,49 +350,66 @@ class AlertaLigacaoSistema {
    */
   async apagarAgendamento(id) {
     try {
-      // Usar FormData para enviar como POST com parâmetros
-      const formData = new FormData();
-      formData.append('acao', 'apagarAgendamentoLigacao');
-      formData.append('id', id);
+      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+      
+      console.log(`🔍 APAGAR - ID recebido: ${id} (tipo: ${typeof id})`);
+      console.log(`🔍 APAGAR - DeviceId: ${deviceId}`);
+      console.log(`🔍 APAGAR - URL: ${CONFIG.API_URL}`);
 
-      console.log(`🔍 Enviando POST para apagar:`, { acao: 'apagarAgendamentoLigacao', id });
-      console.log(`🔗 URL: ${CONFIG.API_URL}`);
+      const params = new URLSearchParams({
+        'acao': 'apagarAgendamentoLigacao',
+        'id': String(id),
+        'deviceId': deviceId
+      });
+      
+      console.log(`� APAGAR - Parâmetros:`, params.toString());
 
-      const response = await AuthManager.requisicaoSegura(CONFIG.API_URL, {
+      const response = await fetch(CONFIG.API_URL, {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
       });
 
       const texto = await response.text();
-      console.log(`📨 Resposta bruta:`, texto);
+      console.log(`📨 APAGAR - Resposta bruta: ${texto}`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${texto}`);
+      }
 
       const resultado = JSON.parse(texto);
+      console.log(`📨 APAGAR - Resultado parseado:`, resultado);
+      
       if (!resultado.sucesso) {
         throw new Error(resultado.mensagem || 'Erro ao apagar');
       }
 
-      console.log(`✅ Agendamento ${id} apagado com sucesso`);
+      console.log(`✅ APAGAR - Agendamento ${id} apagado com sucesso!`);
       return resultado;
     } catch (erro) {
-      console.error('❌ Erro ao apagar:', erro);
+      console.error('❌ APAGAR - Erro:', erro);
+      console.error('❌ APAGAR - Stack:', erro.stack);
       throw erro;
     }
   }
 
   /**
-   * Adiar agendamento (adiciona minutos)
+   * Adiar agendamento (armazena DataHoraProximoAlerta)
    */
-  async adiarAgendamento(id, minutos) {
+  async adiarAgendamento(id, proximoAlerta) {
     try {
-      // Usar FormData para enviar como POST com parâmetros
-      const formData = new FormData();
-      formData.append('acao', 'adiarAgendamentoLigacao');
-      formData.append('id', id);
-      formData.append('minutos', minutos);
-
-      const response = await AuthManager.requisicaoSegura(CONFIG.API_URL, {
+      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+      
+      // Usar URLSearchParams para enviar como POST com parâmetros
+      const response = await fetch(CONFIG.API_URL, {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          'acao': 'adiarAgendamentoLigacao',
+          'id': id,
+          'dataHoraProximoAlerta': proximoAlerta.toISOString(),
+          'deviceId': deviceId
+        })
       });
 
       const resultado = await response.json();
@@ -406,7 +417,7 @@ class AlertaLigacaoSistema {
         throw new Error(resultado.mensagem || 'Erro ao adiar');
       }
 
-      console.log(`✅ Agendamento ${id} adiado por ${minutos} minutos`);
+      console.log(`✅ Agendamento ${id} adiado até ${proximoAlerta.toLocaleTimeString('pt-BR')}`);
       return resultado;
     } catch (erro) {
       console.error('❌ Erro ao adiar:', erro);
