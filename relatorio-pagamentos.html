@@ -936,9 +936,15 @@
           </div>
 
           <div class="metric-card ${metricas.boletosPendentesNaoPagos.length > 0 ? 'info' : 'success'}">
-            <div class="metric-label">⏳ Boletos Pendentes</div>
+            <div class="metric-label">⏳ Boletos em Abertos</div>
             <div class="metric-value">${metricas.boletosPendentesNaoPagos.length}</div>
             <div class="metric-subtitle">${formatarMoeda(metricas.boletosPendentesNaoPagos.reduce((sum, p) => sum + (p.Valor || 0), 0))}</div>
+          </div>
+
+          <div class="metric-card ${metricas.boletosAtrasadosNaoPagos.length > 0 ? 'danger' : 'success'}">
+            <div class="metric-label">⚠️ Boletos em Atraso</div>
+            <div class="metric-value">${metricas.boletosAtrasadosNaoPagos.length}</div>
+            <div class="metric-subtitle">${formatarMoeda(metricas.boletosAtrasadosNaoPagos.reduce((sum, p) => sum + (p.Valor || 0), 0))}</div>
           </div>
 
           <div class="metric-card info">
