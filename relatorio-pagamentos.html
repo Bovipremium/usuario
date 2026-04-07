@@ -746,18 +746,44 @@
       const parcelas = extrairParcelasFiltradas();
       const despesas = extrairDespesasFiltradas();
 
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+
+      // Separar boletos por data
+      const boletosAtrasados = parcelas.filter(p => {
+        const dataVencimento = new Date(p.DataVencimento);
+        dataVencimento.setHours(0, 0, 0, 0);
+        return dataVencimento <= hoje; // Vencimento foi hoje ou antes
+      });
+
+      const boletosPendentes = parcelas.filter(p => {
+        const dataVencimento = new Date(p.DataVencimento);
+        dataVencimento.setHours(0, 0, 0, 0);
+        return dataVencimento > hoje; // Vencimento é no futuro
+      });
+
+      // Contar boletos atrasados não pagos (estes são os inadimplentes)
+      const boletosAtrasadosNaoPagos = boletosAtrasados.filter(p => !p.Pago);
+      const boletosAtrasadosPagos = boletosAtrasados.filter(p => p.Pago);
+
+      // Boletos pendentes (sempre não pagos por definição, pois vencimento é futuro)
+      const boletosPendentesNaoPagos = boletosPendentes.filter(p => !p.Pago);
+
+      // Métricas totais
       const pagos = parcelas.filter(p => p.Pago).length;
-      const nãoPagos = parcelas.filter(p => !p.Pago).length;
       const totalEmitido = parcelas.reduce((sum, p) => sum + (p.Valor || 0), 0);
       const totalPago = parcelas.filter(p => p.Pago).reduce((sum, p) => sum + (p.Valor || 0), 0);
-      const totalNãoPago = parcelas.filter(p => !p.Pago).reduce((sum, p) => sum + (p.Valor || 0), 0);
       const totalDespesas = despesas.reduce((sum, d) => sum + (d.Valor || 0), 0);
       const lucroLiquido = totalPago - totalDespesas;
-      const percentualAdimplencia = parcelas.length > 0 ? (pagos / parcelas.length * 100).toFixed(2) : 0;
+      
+      // Taxa de adimplência: boletos pagos até hoje / todos os boletos com vencimento até hoje
+      const percentualAdimplencia = boletosAtrasados.length > 0 
+        ? (boletosAtrasadosPagos.length / boletosAtrasados.length * 100).toFixed(2) 
+        : 100;
 
-      // Clientes inadimplentes
+      // Clientes inadimplentes (com boletos atrasados não pagos)
       const clientesIndadimplentes = new Set();
-      parcelas.filter(p => !p.Pago).forEach(p => {
+      boletosAtrasadosNaoPagos.forEach(p => {
         clientesIndadimplentes.add(p.nomeCliente);
       });
 
@@ -768,14 +794,14 @@
         parcelas,
         despesas,
         pagos,
-        nãoPagos,
         totalEmitido,
         totalPago,
-        totalNãoPago,
         totalDespesas,
         lucroLiquido,
         percentualAdimplencia,
         clientesIndadimplentes: Array.from(clientesIndadimplentes),
+        boletosAtrasadosNaoPagos,
+        boletosPendentesNaoPagos,
         dados6meses,
         margemLucro: totalEmitido > 0 ? ((lucroLiquido / totalEmitido) * 100).toFixed(2) : 0
       };
@@ -849,9 +875,9 @@
 
       let html = `
         <!-- ALERTAS ESTRATÉGICOS -->
-        ${metricas.nãoPagos > 0 ? `
+        ${metricas.boletosAtrasadosNaoPagos.length > 0 ? `
           <div class="strategic-alert" style="margin-bottom: 24px;">
-            ⚠️ <strong>Atenção:</strong> ${metricas.nãoPagos} boleto(s) pendente(s) totalizando ${formatarMoeda(metricas.totalNãoPago)}
+            ⚠️ <strong>Atenção:</strong> ${metricas.boletosAtrasadosNaoPagos.length} boleto(s) em atraso não pago(s) totalizando ${formatarMoeda(metricas.boletosAtrasadosNaoPagos.reduce((sum, p) => sum + (p.Valor || 0), 0))}
           </div>
         ` : `
           <div class="strategic-alert success" style="margin-bottom: 24px;">
@@ -873,10 +899,10 @@
             <div class="metric-subtitle">${formatarMoeda(metricas.totalPago)}</div>
           </div>
 
-          <div class="metric-card ${metricas.nãoPagos > 0 ? 'danger' : 'success'}">
+          <div class="metric-card ${metricas.boletosPendentesNaoPagos.length > 0 ? 'info' : 'success'}">
             <div class="metric-label">⏳ Boletos Pendentes</div>
-            <div class="metric-value">${metricas.nãoPagos}</div>
-            <div class="metric-subtitle">${formatarMoeda(metricas.totalNãoPago)}</div>
+            <div class="metric-value">${metricas.boletosPendentesNaoPagos.length}</div>
+            <div class="metric-subtitle">${formatarMoeda(metricas.boletosPendentesNaoPagos.reduce((sum, p) => sum + (p.Valor || 0), 0))}</div>
           </div>
 
           <div class="metric-card info">
@@ -1045,7 +1071,7 @@
           data: {
             labels: ['✅ Pagos', '⏳ Pendentes'],
             datasets: [{
-              data: [metricas.pagos, metricas.nãoPagos],
+              data: [metricas.pagos, metricas.boletosAtrasadosNaoPagos.length + metricas.boletosPendentesNaoPagos.length],
               backgroundColor: ['#32c832', '#ff6b6b'],
               borderColor: ['rgba(31, 163, 122, 0.3)', 'rgba(31, 163, 122, 0.3)'],
               borderWidth: 3
@@ -1083,7 +1109,7 @@
             labels: ['Pagos', 'Pendentes', 'Despesas'],
             datasets: [{
               label: 'R$',
-              data: [metricas.totalPago, metricas.totalNãoPago, metricas.totalDespesas],
+              data: [metricas.totalPago, metricas.boletosAtrasadosNaoPagos.reduce((sum, p) => sum + (p.Valor || 0), 0) + metricas.boletosPendentesNaoPagos.reduce((sum, p) => sum + (p.Valor || 0), 0), metricas.totalDespesas],
               backgroundColor: ['#32c832', '#ff6b6b', '#ffc107'],
               borderColor: ['rgba(50, 200, 50, 0.5)', 'rgba(255, 107, 107, 0.5)', 'rgba(255, 193, 7, 0.5)'],
               borderWidth: 2,
