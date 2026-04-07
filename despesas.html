@@ -530,24 +530,6 @@
             </table>
           </div>
 
-          <div class="form-group" style="margin-top: 20px;">
-            <label>📂 Categoria Padrão (para valores vazios):</label>
-            <select id="categoriaPadrao">
-              <option value="">-- Selecionar --</option>
-              <option value="BANCO">BANCO</option>
-              <option value="POSTO">POSTO</option>
-              <option value="TRANSPORTADORA">TRANSPORTADORA</option>
-              <option value="ENERGIA">ENERGIA</option>
-              <option value="AGUA">AGUA</option>
-              <option value="IMPOSTO">IMPOSTO</option>
-              <option value="MERCADO">MERCADO</option>
-              <option value="PESSOA">PESSOA</option>
-              <option value="FACEBOOK">FACEBOOK</option>
-              <option value="OUTRO">OUTRO</option>
-            </select>
-          </div>
-        </div>
-
         <div class="form-actions">
           <button class="btn-confirm" onclick="salvarDespesas()" id="btnSalvar" style="display: none;">✅ Salvar Despesas</button>
           <button class="btn-cancel" onclick="fecharModalAdicionar()">❌ Cancelar</button>
@@ -632,11 +614,53 @@
 
   let todasDespesas = [];
   const mesesNomes = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  let categoriasCustomizadas = {};  // Armazena descrição → categoria
 
   document.addEventListener('DOMContentLoaded', async () => {
+    await carregarCategoriasCustomizadas();  // Carregar antes das despesas
     await carregarDespesas();
     renderizarPorMes();
   });
+
+  async function carregarCategoriasCustomizadas() {
+    try {
+      console.log('📂 Carregando categorias customizadas...');
+      const dados = await buscarArquivo("categorias_customizadas.json");
+      categoriasCustomizadas = (typeof dados === 'object' && dados !== null) ? dados : {};
+      console.log('✅ Categorias customizadas carregadas:', Object.keys(categoriasCustomizadas).length);
+    } catch (erro) {
+      console.warn('⚠️ Arquivo categorias_customizadas.json não existe ainda (primeira vez)', erro.message);
+      categoriasCustomizadas = {};
+    }
+  }
+
+  async function salvarCategoriasCustomizadas() {
+    try {
+      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+      
+      const response = await fetch(CONFIG.API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          'acao': 'salvar',
+          'arquivo': 'categorias_customizadas.json',
+          'dados': JSON.stringify(categoriasCustomizadas),
+          'deviceId': deviceId
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (result.sucesso === true || result.status === 'success') {
+        console.log('✅ Categorias customizadas salvas');
+      }
+    } catch (erro) {
+      console.warn('⚠️ Erro ao salvar categorias customizadas:', erro.message);
+    }
+  }
 
   async function carregarDespesas() {
     try {
@@ -985,10 +1009,19 @@
     arquivoProcessado = [];
   }
 
-  // ✅ AUTO-CATEGORIZAÇÃO PELA DESCRIÇÃO
+  // ✅ AUTO-CATEGORIZAÇÃO PELA DESCRIÇÃO (com suporte a categorias customizadas)
   function autoCategorizar(descricao) {
     const desc = (descricao || '').toUpperCase().trim();
     
+    // 1️⃣ VERIFICAR PRIMEIRO SE TEM CATEGORIA CUSTOMIZADA PARA ESSA DESCRIÇÃO
+    for (const [descCustom, catCustom] of Object.entries(categoriasCustomizadas)) {
+      if (descCustom.toUpperCase() === desc) {
+        console.log(`✅ Categoria customizada encontrada: "${descricao}" → "${catCustom}"`);
+        return catCustom;
+      }
+    }
+    
+    // 2️⃣ SE NÃO TEM CUSTOMIZADA, USAR REGRAS DE AUTO-CATEGORIZAÇÃO
     // Limpar descrição - remover tudo entre parênteses (categoria entre parênteses)
     let descLimpa = desc.replace(/\s*\([^)]*\)/g, '').trim();
     
@@ -1018,7 +1051,9 @@
       }
     }
     
-    return 'OUTRO';
+    // 3️⃣ SE NENHUMA REGRA ENCAIXOU, RETORNA VAZIO (usuário escolhe manualmente)
+    console.log(`❓ Nenhuma categoria encontrada para: "${descricao}"`);
+    return '';
   }
 
   function selecionarAba(aba) {
@@ -1312,7 +1347,17 @@
     document.querySelectorAll('.categoria-input').forEach(input => {
       input.addEventListener('change', (e) => {
         const idx = parseInt(e.target.getAttribute('data-idx'));
-        arquivoProcessado[idx].Categoria = e.target.value;
+        const novaCategoria = e.target.value;
+        const descricao = arquivoProcessado[idx].Descricao;
+        
+        // Atualizar no array
+        arquivoProcessado[idx].Categoria = novaCategoria;
+        
+        // Atualizar na memória de categorias customizadas
+        if (novaCategoria.trim()) {
+          categoriasCustomizadas[descricao] = novaCategoria;
+          console.log(`💾 Categoria customizada salva: "${descricao}" → "${novaCategoria}"`);
+        }
       });
     });
   }
@@ -1325,9 +1370,6 @@
         mostrarAlerta('❌ Nenhum dado para salvar', 'error');
         return;
       }
-
-      // Obter categoria padrão
-      const categoriaPadrao = document.getElementById('categoriaPadrao').value;
 
       // Processar cada despesa
       const novasDespesas = [];
@@ -1344,7 +1386,7 @@
           data = new Date(ano, mes - 1, dia);
         }
 
-        const categoria = item.Categoria.trim() || categoriaPadrao || 'OUTRO';
+        const categoria = item.Categoria.trim() || 'OUTRO';
 
         const despesa = {
           Id: Date.now() + Math.random(),
@@ -1362,18 +1404,20 @@
         novasDespesas.push(despesa);
       }
 
-      // Salvar no arquivo usando FormData e POST (CORS compatível)
+      // Salvar no arquivo usando URLSearchParams (compatível com CORS)
       const todasAsDespesas = [...todasDespesas, ...novasDespesas];
       
-      const formData = new FormData();
-      formData.append('acao', 'salvarArquivo');
-      formData.append('arquivo', 'despesas.json');
-      formData.append('dados', JSON.stringify(todasAsDespesas));
-
-      console.log('📤 Enviando para:', API_URL);
-      const response = await AuthManager.requisicaoSegura(API_URL, {
+      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+      
+      const response = await fetch(API_URL, {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          'acao': 'salvar',
+          'arquivo': 'despesas.json',
+          'dados': JSON.stringify(todasAsDespesas),
+          'deviceId': deviceId
+        })
       });
       
       if (!response.ok) {
@@ -1384,6 +1428,9 @@
       console.log('💾 Resposta do servidor:', result);
 
       if (result.sucesso === true || result.status === 'success' || result.message === 'OK') {
+        // 💾 SALVAR CATEGORIAS CUSTOMIZADAS
+        await salvarCategoriasCustomizadas();
+        
         // Registrar auditoria
         const usuario = JSON.parse(localStorage.getItem('usuarioLogado') || '{}');
         const auditoria = {
