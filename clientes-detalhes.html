@@ -821,6 +821,15 @@
         `;
       }
 
+      // Calcular informações de parcelas
+      let infoParcelaHtml = '';
+      if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+        const totalParcelas = venda.Parcelas.length;
+        const parcelasPagas = venda.Parcelas.filter(p => p.Pago).length;
+        const valorParcela = totalParcelas > 0 ? (parseFloat(venda.ValorTotal || venda.Valor || 0) / totalParcelas).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00';
+        infoParcelaHtml = `<span style="color: #8fb9ac; margin-left: 15px;">💳 ${totalParcelas} parcelas: ${valorParcela} • <span style="color: #32c832; font-weight: bold;">${parcelasPagas}</span>/<span style="color: #ff6b6b; font-weight: bold;">${totalParcelas}</span></span>`;
+      }
+
       html += `
         <div style="background: rgba(31,163,122,.1); padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 3px solid #1fa37a;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -828,6 +837,7 @@
               <strong style="color: #1fa37a;">NF: ${venda.NumeroNF || '-'}</strong>
               <span style="color: #8fb9ac; margin-left: 15px;">📅 ${dataVenda}</span>
               <span style="color: #8fb9ac; margin-left: 15px;">💰 ${valor}</span>
+              ${infoParcelaHtml}
               ${venda.QuantidadeAnimais ? `<span style="color: #8fb9ac; margin-left: 15px;">🐄 ${venda.QuantidadeAnimais} animais</span>` : ''}
             </div>
             <div style="display: flex; gap: 8px;">
