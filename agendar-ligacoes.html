@@ -722,6 +722,36 @@
     const data = new Date(dataString);
     return data.toLocaleDateString('pt-BR') + ' às ' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   }
+
+  // ============================================
+  // PREENCHER DADOS DO AGENDAMENTO (VINDO DE REVISÃO DE CONTATOS)
+  // ============================================
+  window.addEventListener('load', () => {
+    const numero = localStorage.getItem('agendamento_numero');
+    const nome = localStorage.getItem('agendamento_nome');
+    const obs = localStorage.getItem('agendamento_obs');
+    
+    if (numero) {
+      console.log(`📅 Preenchendo agendamento: ${numero} | Nome: ${nome} | Obs: ${obs}`);
+      document.getElementById('numero').value = numero;
+      
+      // Limpar localStorage após usar
+      localStorage.removeItem('agendamento_numero');
+      localStorage.removeItem('agendamento_nome');
+      localStorage.removeItem('agendamento_obs');
+    }
+    
+    // Se tem nome ou obs, preencher descrição
+    if (nome || obs) {
+      let descricao = '';
+      if (nome) descricao += `Nome: ${nome}\n`;
+      if (obs) descricao += `Obs: ${obs}`;
+      
+      if (descricao) {
+        document.getElementById('descricao').value = descricao;
+      }
+    }
+  });
 </script>
 <script src="sidebar-dock.js"></script>
 </body>
