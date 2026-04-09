@@ -1,114 +1,168 @@
-/* ===============================
-   SIDEBAR GLOBAL - TODOS OS ARQUIVOS
-================================ */
+// SIDEBAR DOCK - Hidden by default
+// PC: appears on hover on left edge
+// Mobile: appears on click
+// Auto-hide after 10 seconds
 
-.sidebar {
-  position: fixed;
-  left: 0;
-  top: 0;
-  width: 60px;
-  height: 100vh;
-  background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
-  border-right: 2px solid #1fa37a;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 15px 0;
-  gap: 10px;
-  z-index: 999;
-  overflow-y: auto;
-  box-shadow: 4px 0 15px rgba(0,0,0,.3);
+const MODULOS_DOCK = [
+  { nome: 'Clientes', tipo: 'modulos', icon: '👥', url: 'index.html' },
+  { nome: 'Insumos', tipo: 'modulos', icon: '📦', url: 'index.html' },
+  { nome: 'Transporte', tipo: 'modulos', icon: '🚚', url: 'index.html' },
+  { nome: 'Pagamentos', tipo: 'modulos', icon: '💳', url: 'index.html' },
+  { nome: 'Receitas', tipo: 'modulos', icon: '📈', url: 'index.html' },
+  { nome: 'Despesas', tipo: 'modulos', icon: '💸', url: 'index.html' },
+  { nome: 'Análise', tipo: 'modulos', icon: '📊', url: 'analise-vendedor.html' },
+  { nome: 'WhatsApp', tipo: 'modulos', icon: '📞', url: 'agendar-ligacoes.html' },
+  { nome: 'Admin', tipo: 'modulos', icon: '⚙️', url: 'usuarios-admin.html' },
+  { nome: 'Auditoria', tipo: 'modulos', icon: '📋', url: 'auditoria.html' },
+];
+
+let hideTimeout = null;
+let isMobile = false;
+let dock = null;
+
+// Detect if mobile
+function detectMobile() {
+  isMobile = window.innerWidth <= 768;
 }
 
-.sidebar-item {
-  width: 45px;
-  height: 45px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.3s;
-  position: relative;
-  background: rgba(31,163,122,.1);
-  border: 2px solid rgba(31,163,122,.2);
-}
+// Initialize dock sidebar
+function renderizarSidebarDock() {
+  detectMobile();
 
-.sidebar-item:hover {
-  background: rgba(31,163,122,.3);
-  border-color: #1fa37a;
-  transform: scale(1.1);
-}
-
-.sidebar-item .tooltip {
-  position: absolute;
-  left: 75px;
-  background: rgba(31,163,122,.95);
-  color: #fff;
-  padding: 8px 15px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s;
-  z-index: 1000;
-  display: none;
-}
-
-.sidebar-item:hover .tooltip {
-  opacity: 0;
-}
-
-.sidebar-divider {
-  width: 30px;
-  height: 1px;
-  background: rgba(31,163,122,.3);
-  margin: 8px 0;
-}
-
-.with-sidebar {
-  margin-left: 60px;
-}
-
-@media (max-width: 768px) {
-  .sidebar {
-    width: 50px;
-    padding: 12px 0;
-    gap: 8px;
+  // Check if already exists
+  if (document.getElementById('sidebar-dock')) {
+    console.log('✓ Sidebar dock já existe');
+    return;
   }
 
-  .sidebar-item {
-    width: 40px;
-    height: 40px;
-    font-size: 10px;
+  console.log('🔧 Criando sidebar dock...');
+
+  // Create trigger zone first (before dock so CSS sibling selector works)
+  const trigger = document.createElement('div');
+  trigger.id = 'sidebar-trigger';
+  trigger.className = 'sidebar-trigger';
+  document.body.appendChild(trigger);
+
+  // Create dock container
+  dock = document.createElement('div');
+  dock.id = 'sidebar-dock';
+  dock.className = 'sidebar-dock';
+
+  // Add modules to dock
+  MODULOS_DOCK.forEach((modulo, index) => {
+    if (index === 6) {
+      // Add divider before Análise
+      const divider = document.createElement('div');
+      divider.className = 'sidebar-dock-divider';
+      dock.appendChild(divider);
+    }
+
+    const item = document.createElement('button');
+    item.className = 'sidebar-dock-item';
+    item.innerHTML = `
+      <div class="dock-icon">${modulo.icon}</div>
+      <div class="dock-label">${modulo.nome}</div>
+      <div class="dock-tooltip">${modulo.nome}</div>
+    `;
+    item.onclick = () => irParaModuloDock(modulo.nome, modulo.tipo, modulo.url);
+    dock.appendChild(item);
+  });
+
+  document.body.appendChild(dock);
+
+  console.log('✓ Sidebar dock criado com sucesso');
+
+  // Desktop: Show on hover
+  dock.addEventListener('mouseenter', () => {
+    console.log('🖱️ Mouse entering dock');
+    clearTimeout(hideTimeout);
+    dock.classList.add('visible');
+  });
+
+  // Desktop: Hide after mouse leave (auto-hide after 10s)
+  dock.addEventListener('mouseleave', () => {
+    console.log('🖱️ Mouse leaving dock');
+    scheduleHide(dock);
+  });
+
+  // Mobile: Show on click anywhere
+  if (isMobile) {
+    console.log('📱 Mobile device detected - using click trigger');
+    document.addEventListener('click', (e) => {
+      // Don't trigger if clicking the dock itself
+      if (dock.contains(e.target)) {
+        clearTimeout(hideTimeout);
+        scheduleHide(dock);
+        return;
+      }
+      
+      console.log('📱 Mobile tap detected');
+      dock.classList.add('visible');
+      clearTimeout(hideTimeout);
+      scheduleHide(dock);
+    });
+  } else {
+    console.log('🖥️ Desktop device detected - using hover trigger');
   }
 
-  .sidebar-item .tooltip {
-    display: none;
-  }
+  // Listen for window resize to detect orientation change
+  window.addEventListener('resize', () => {
+    const wasMobile = isMobile;
+    detectMobile();
+    
+    if (wasMobile !== isMobile) {
+      console.log('📐 Orientation changed');
+      clearTimeout(hideTimeout);
+      dock.classList.remove('visible');
+    }
+  });
+}
 
-  .with-sidebar {
-    margin-left: 50px;
+// Schedule hide after timeout (IMMEDIATE - no delay)
+function scheduleHide(dockElement) {
+  clearTimeout(hideTimeout);
+  hideTimeout = setTimeout(() => {
+    console.log('⏱️ Auto-hiding sidebar');
+    dockElement.classList.remove('visible');
+  }, 100); // 100ms - return immediately
+}
+
+// Navigate to module
+function irParaModuloDock(nome, tipo, url) {
+  console.log(`🔗 Navigating to module: ${nome}`);
+  
+  if (tipo === 'modulos') {
+    const paginaAtual = window.location.pathname.split('/').pop() || 'index.html';
+    
+    // Check if need to navigate to different page
+    if (!paginaAtual.includes(url.replace('.html', ''))) {
+      console.log(`📄 Navigating to: ${url}`);
+      window.location.href = url;
+      return;
+    }
+
+    // On same page, call module loading function
+    if (typeof carregarModulo === 'function') {
+      console.log(`📦 Loading module on same page: ${nome}`);
+      carregarModulo(nome, tipo);
+    } else {
+      console.log(`⚠️ carregarModulo function not found, trying to navigate to module`);
+      // If carregarModulo doesn't exist, navigate to index.html
+      if (paginaAtual !== 'index.html') {
+        window.location.href = url;
+      }
+    }
   }
 }
 
-@media (max-width: 480px) {
-  .sidebar {
-    width: 45px;
-    padding: 10px 0;
-    gap: 6px;
-  }
-
-  .sidebar-item {
-    width: 35px;
-    height: 35px;
-    font-size: 8px;
-  }
-
-  .with-sidebar {
-    margin-left: 45px;
-  }
+// Auto-render on page load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOM loaded - initializing sidebar dock');
+    renderizarSidebarDock();
+  });
+} else {
+  // Already loaded
+  console.log('📄 DOM already loaded - initializing sidebar dock immediately');
+  renderizarSidebarDock();
 }
