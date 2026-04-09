@@ -20,7 +20,8 @@ const CONFIG = {
     VENDAS: "vendas.json",
     CONTRATO_ATUAL: "contrato_atual.json",
     CONTAS: "contas.json",
-    CONFIG_METAS: "configMetas.json"
+    CONFIG_METAS: "configMetas.json",
+    REVISAO_CONTATOS: "revisao_contatos.json"
   },
   
   // Timeouts
@@ -52,3 +53,4 @@ function obterNomeArquivo(tipo) {
 }
 
 console.log("✅ Configurações carregadas de config.js");
+
