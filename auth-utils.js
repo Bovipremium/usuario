@@ -82,4 +82,3 @@ setInterval(() => {
 
 console.log('🔐 Autenticação carregada e ativa');
 
-
