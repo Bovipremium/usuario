@@ -326,26 +326,57 @@ async function carregarModulo(nome, tipo, arquivo) {
         // Verificar se é admin (por módulo)
         const isAdmin = usuarioLogado.modulos && usuarioLogado.modulos.includes('Administrador');
         
+        // ✅ BUSCAR DADOS ATUALIZADOS DO USUÁRIO DO DRIVE (como em calcular-meta-alvo.js)
+        try {
+          const usuarios = await buscarArquivo('usuarios.json');
+          const usuariosArray = Array.isArray(usuarios) ? usuarios : [];
+          const usuarioDadosAtualizados = usuariosArray.find(u => 
+            (u.Nome === usuarioLogado.nome || u.nome === usuarioLogado.nome)
+          );
+          
+          if (usuarioDadosAtualizados) {
+            console.log(`✅ Dados do usuário atualizados do Drive:`, usuarioDadosAtualizados);
+            // Atualizar com dados frescos do Drive
+            usuarioLogado.VendedoresVisualizacao = usuarioDadosAtualizados.VendedoresVisualizacao || [];
+            usuarioLogado.VendedoresPermitidos = usuarioDadosAtualizados.VendedoresPermitidos || [];
+          }
+        } catch (erro) {
+          console.warn('⚠️ Erro ao buscar dados atualizados do usuário do Drive:', erro);
+        }
+        
+        console.log(`📋 usuarioLogado (atualizado):`, usuarioLogado);
+        console.log(`📋 VendedoresVisualizacao:`, usuarioLogado.VendedoresVisualizacao);
+        
         if (!isAdmin) {
-          // Se não é admin, sempre mostra seus próprios clientes
-          const vendedorLogado = usuarioLogado.nome.trim().toLowerCase();
-          const vendedoresVisualizacao = (usuarioLogado.VendedoresVisualizacao || []).map(v => v.trim().toLowerCase());
+          // ✅ ADICIONADO: Verificar se tem permissão "Ver Todos"
+          const vendedoresVisualizacao = usuarioLogado.VendedoresVisualizacao || [];
           
-          // Vendedor VÊ SEMPRE seus clientes + clientes de vendedores que tem permissão
-          // ✅ NORMALIZADO: Comparação case-insensitive
-          lista = lista.filter(cliente => {
-            const vendedorCliente = (cliente.Vendedor || '').trim().toLowerCase();
-            // SEMPRE mostrar clientes do próprio vendedor
-            if (vendedorCliente === vendedorLogado) return true;
-            // ALÉM disso, mostrar clientes de vendedores em VendedoresVisualizacao
-            if (vendedoresVisualizacao.includes(vendedorCliente)) return true;
-            return false;
-          });
+          console.log(`🔍 Verificando __VER_TODOS__: ${vendedoresVisualizacao.includes('__VER_TODOS__')}`);
           
-          const detalhes = vendedoresVisualizacao.length > 0 
-            ? `${lista.length} clientes (seus + permitidos)`
-            : `${lista.length} clientes (apenas seus)`;
-          console.log(`✅ Filtrado: ${detalhes}`);
+          if (vendedoresVisualizacao.includes('__VER_TODOS__')) {
+            // Se marcou "Ver Todos", mostra todos os clientes de qualquer vendedor
+            console.log(`✅ Permissão "Ver Todos" ativa: Mostrando ${lista.length} clientes (TODOS)`);
+          } else {
+            // Caso normal: filtra por vendedor
+            const vendedorLogado = usuarioLogado.nome.trim().toLowerCase();
+            const vendedoresVisualizacaoNormalizados = vendedoresVisualizacao.map(v => v.trim().toLowerCase());
+            
+            // Vendedor VÊ SEMPRE seus clientes + clientes de vendedores que tem permissão
+            // ✅ NORMALIZADO: Comparação case-insensitive
+            lista = lista.filter(cliente => {
+              const vendedorCliente = (cliente.Vendedor || '').trim().toLowerCase();
+              // SEMPRE mostrar clientes do próprio vendedor
+              if (vendedorCliente === vendedorLogado) return true;
+              // ALÉM disso, mostrar clientes de vendedores em VendedoresVisualizacao
+              if (vendedoresVisualizacaoNormalizados.includes(vendedorCliente)) return true;
+              return false;
+            });
+            
+            const detalhes = vendedoresVisualizacao.length > 0 
+              ? `${lista.length} clientes (seus + permitidos)`
+              : `${lista.length} clientes (apenas seus)`;
+            console.log(`✅ Filtrado: ${detalhes}`);
+          }
         } else {
           // Admin vê todos os clientes
           console.log(`✅ Admin logado: vendo todos os ${lista.length} clientes`);
