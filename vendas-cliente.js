@@ -48,6 +48,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // NOVO: Carregar produtos disponíveis
   await carregarInsumos();
   
+  // ✅ NOVO: Carregar vendedores para o select
+  await carregarVendedoresVenda();
+  
   // Carregar dados do cliente (se ainda não foi carregado)
   if (!clienteDados) {
     await carregarClienteDados();
@@ -103,6 +106,75 @@ async function carregarInsumos() {
   } catch (erro) {
     console.error("❌ Erro ao carregar insumos:", erro);
     insumosDisponiveis = [];
+  }
+}
+
+// ===== ✅ CARREGAR VENDEDORES PARA SELECT =====
+async function carregarVendedoresVenda() {
+  try {
+    console.log("📥 Carregando vendedores...");
+    
+    const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+    
+    const response = await fetch(
+      `${CONFIG.API_URL}?acao=buscar&arquivo=${CONFIG.ARQUIVOS.USUARIOS}&deviceId=${deviceId}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    let dados = await response.json();
+
+    if (typeof dados === 'string') {
+      try {
+        dados = JSON.parse(dados);
+      } catch (e) {
+        dados = [];
+      }
+    }
+
+    const vendedores = Array.isArray(dados) ? dados : [];
+    const selectVendedor = document.getElementById('vendedorVenda');
+    
+    if (vendedores.length === 0) {
+      selectVendedor.innerHTML = '<option value="">Nenhum vendedor encontrado</option>';
+      return;
+    }
+
+    // Preencher o select
+    selectVendedor.innerHTML = '<option value="">-- Selecione um vendedor --</option>';
+    
+    vendedores.forEach(usuario => {
+      if (usuario.Nome) {
+        const option = document.createElement('option');
+        option.value = usuario.Nome;
+        option.textContent = usuario.Nome;
+        selectVendedor.appendChild(option);
+      }
+    });
+
+    // ✅ Pré-selecionar usuário logado
+    const usuarioLogado = localStorage.getItem('usuarioLogado');
+    if (usuarioLogado) {
+      try {
+        const user = JSON.parse(usuarioLogado);
+        const nomeUser = user.nome || user.Nome;
+        if (nomeUser) {
+          selectVendedor.value = nomeUser;
+          console.log(`✅ Vendedor pré-selecionado: ${nomeUser}`);
+        }
+      } catch (e) {
+        console.warn('Erro ao parsear usuário logado');
+      }
+    }
+
+    console.log(`✅ ${vendedores.length} vendedor(es) carregado(s)`);
+
+  } catch (erro) {
+    console.error("❌ Erro ao carregar vendedores:", erro);
+    const selectVendedor = document.getElementById('vendedorVenda');
+    selectVendedor.innerHTML = '<option value="">Erro ao carregar vendedores</option>';
   }
 }
 
@@ -491,6 +563,7 @@ function montarObjVenda() {
     QuantidadeAnimais: parseInt(formData.get('quantidadeAnimais')) || 0,
     Produtos: produtosArray,
     Vendedor: clienteDados?.Vendedor || clienteDados?.vendedor || 'Desconhecido',
+    VendedorVenda: formData.get('vendedorVenda').trim() || 'Desconhecido', // ✅ NOVO: Vendedor que efetua a venda
     ValorTotal: Math.round(valorTotal * 100) / 100,
     TipoVenda: formData.get('tipoVenda').trim() || '',
     NumeroParcelas: parcelas.length,
