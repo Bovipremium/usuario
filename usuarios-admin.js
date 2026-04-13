@@ -16,6 +16,7 @@ const MODULOS_SISTEMA = [
   "Despesas",
   "Análise Vendedor",
   "AutoWhatsApp",
+  "Revisão Contatos",
   "Administrador"
 ];
 
