@@ -378,33 +378,64 @@
       aplicarFiltros();
     });
 
-  async function carregarDados() {
-    try {
-      console.log('📥 Carregando clientes.json...');
-      let clientes = await buscarArquivo("clientes.json");
-      clientes = Array.isArray(clientes) ? clientes : (clientes.dados || []);
-      
-      // ✅ FILTRO: Aplicar permissões de vendedor
-      const usuarioLogado = JSON.parse(localStorage.getItem('usuario') || '{}');
-      const isAdmin = usuarioLogado.modulos && usuarioLogado.modulos.includes('Administrador');
-      
-      if (!isAdmin && usuarioLogado.nome) {
-        const vendedorLogado = usuarioLogado.nome;
-        const vendedoresVisualizacao = usuarioLogado.VendedoresVisualizacao || [];
+    async function carregarDados() {
+      try {
+        console.log('📥 Carregando clientes.json...');
+        let clientes = await buscarArquivo("clientes.json");
+        clientes = Array.isArray(clientes) ? clientes : (clientes.dados || []);
         
-        // Usuário SEMPRE vê seus clientes + clientes que tem permissão
-        clientes = clientes.filter(cliente => {
-          // SEMPRE mostrar clientes do próprio vendedor
-          if (cliente.Vendedor === vendedorLogado) return true;
-          // ALÉM disso, mostrar clientes de vendedores em VendedoresVisualizacao
-          if (vendedoresVisualizacao.includes(cliente.Vendedor)) return true;
-          return false;
-        });
+        // ✅ FILTRO: Aplicar permissões de vendedor
+        const usuarioLogado = JSON.parse(localStorage.getItem('usuario') || '{}');
+        const isAdmin = usuarioLogado.modulos && usuarioLogado.modulos.includes('Administrador');
         
-        console.log(`✅ Filtrado análise: ${clientes.length} clientes (seus + permitidos)`);
-      }
-      
-      todosClientes = clientes;        // ✅ CORRIGIDO: Extrair vendas usando VendedorVenda quando disponível (novo fluxo)
+        // ✅ BUSCAR DADOS ATUALIZADOS DO USUÁRIO DO DRIVE
+        if (!isAdmin && usuarioLogado.nome) {
+          try {
+            const usuarios = await buscarArquivo('usuarios.json');
+            const usuariosArray = Array.isArray(usuarios) ? usuarios : [];
+            const usuarioDadosAtualizados = usuariosArray.find(u => 
+              (u.Nome === usuarioLogado.nome || u.nome === usuarioLogado.nome)
+            );
+            
+            if (usuarioDadosAtualizados) {
+              usuarioLogado.VendedoresVisualizacao = usuarioDadosAtualizados.VendedoresVisualizacao || [];
+              usuarioLogado.VendedoresPermitidos = usuarioDadosAtualizados.VendedoresPermitidos || [];
+            }
+          } catch (erro) {
+            console.warn('⚠️ Erro ao buscar dados atualizados:', erro);
+          }
+        }
+        
+        if (!isAdmin && usuarioLogado.nome) {
+          // ✅ ADICIONADO: Verificar se tem permissão "Ver Todos"
+          const vendedoresVisualizacao = usuarioLogado.VendedoresVisualizacao || [];
+          
+          if (!vendedoresVisualizacao.includes('__VER_TODOS__')) {
+            // Caso normal: filtra por vendedor
+            const vendedorLogado = usuarioLogado.nome.trim().toLowerCase();
+            const vendedoresVisualizacaoNormalizados = vendedoresVisualizacao.map(v => v.trim().toLowerCase());
+            
+            // Usuário SEMPRE vê seus clientes + clientes que tem permissão
+            // ✅ NORMALIZADO: Comparação case-insensitive
+            clientes = clientes.filter(cliente => {
+              const vendedorCliente = (cliente.Vendedor || '').trim().toLowerCase();
+              // SEMPRE mostrar clientes do próprio vendedor
+              if (vendedorCliente === vendedorLogado) return true;
+              // ALÉM disso, mostrar clientes de vendedores em VendedoresVisualizacao
+              if (vendedoresVisualizacaoNormalizados.includes(vendedorCliente)) return true;
+              return false;
+            });
+            
+            console.log(`✅ Filtrado análise: ${clientes.length} clientes (seus + permitidos)`);
+          } else {
+            // Se marcou "Ver Todos", mostra todos os clientes de qualquer vendedor
+            console.log(`✅ Permissão "Ver Todos" ativa: Mostrando ${clientes.length} clientes (TODOS)`);
+          }
+        }
+        
+        todosClientes = clientes;
+
+        // ✅ CORRIGIDO: Extrair vendas usando VendedorVenda quando disponível (novo fluxo)
         // Fallback para VendedorId (cliente.Vendedor) se não tiver VendedorVenda (compatibilidade)
         todasVendas = [];
         todosClientes.forEach(cliente => {
