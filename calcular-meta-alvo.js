@@ -556,7 +556,8 @@ async function calcularComissaoMesAtual() {
       );
       
       if (usuarioDados && Array.isArray(usuarioDados.VendedoresPermitidos)) {
-        vendedoresPermitidos = usuarioDados.VendedoresPermitidos;
+        // ✅ NORMALIZADO: Normalizar todos os vendedores permitidos para comparação
+        vendedoresPermitidos = usuarioDados.VendedoresPermitidos.map(v => v.trim().toLowerCase());
         console.log(`VendedoresPermitidos para ${nomeUsuarioLogado}: ${vendedoresPermitidos.join(', ') || 'Nenhum'}\n`);
       }
     } catch (erro) {
@@ -578,13 +579,14 @@ async function calcularComissaoMesAtual() {
       
       // Processar cada venda do cliente
       cliente.Vendas.forEach((venda) => {
-        // Determinar vendedor da venda (prioridade: VendedorVenda > Vendedor > cliente.Vendedor)
-        const vendedorDaVenda = venda.VendedorVenda || venda.Vendedor || cliente.Vendedor || 'Desconhecido';
+        // ✅ NORMALIZADO: Determinar vendedor da venda (prioridade: VendedorVenda > Vendedor > cliente.Vendedor)
+        const vendedorDaVenda = (venda.VendedorVenda || venda.Vendedor || cliente.Vendedor || 'Desconhecido').trim().toLowerCase();
+        const vendedorDisplay = (venda.VendedorVenda || venda.Vendedor || cliente.Vendedor || 'Desconhecido').trim(); // Para exibição
         
         // Inicializar vendedor se nao existe
         if (!comissoes[vendedorDaVenda]) {
           comissoes[vendedorDaVenda] = {
-            vendedor: vendedorDaVenda,
+            vendedor: vendedorDisplay,
             vendidoMesAtual: 0,
             qtdVendas: 0,
             comissao: 0
@@ -672,9 +674,10 @@ async function calcularComissaoMesAtual() {
         };
         
         // Somar vendas do usuario
-        if (comissoes[nomeUsuarioLogado]) {
-          vendedoresTotalizados.vendidoMesAtual += comissoes[nomeUsuarioLogado].vendidoMesAtual;
-          vendedoresTotalizados.qtdVendas += comissoes[nomeUsuarioLogado].qtdVendas;
+        const nomeUsuarioNormalizado = nomeUsuarioLogado.trim().toLowerCase();
+        if (comissoes[nomeUsuarioNormalizado]) {
+          vendedoresTotalizados.vendidoMesAtual += comissoes[nomeUsuarioNormalizado].vendidoMesAtual;
+          vendedoresTotalizados.qtdVendas += comissoes[nomeUsuarioNormalizado].qtdVendas;
         }
         
         // Somar vendas dos permitidos
