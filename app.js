@@ -328,20 +328,22 @@ async function carregarModulo(nome, tipo, arquivo) {
         
         if (!isAdmin) {
           // Se não é admin, sempre mostra seus próprios clientes
-          const vendedorLogado = usuarioLogado.nome;
-          const vendedoresVisualizacao = usuarioLogado.VendedoresVisualizacao || [];
+          const vendedorLogado = usuarioLogado.nome.trim().toLowerCase();
+          const vendedoresVisualizacao = (usuarioLogado.VendedoresVisualizacao || []).map(v => v.trim().toLowerCase());
           
           // Vendedor VÊ SEMPRE seus clientes + clientes de vendedores que tem permissão
+          // ✅ NORMALIZADO: Comparação case-insensitive
           lista = lista.filter(cliente => {
+            const vendedorCliente = (cliente.Vendedor || '').trim().toLowerCase();
             // SEMPRE mostrar clientes do próprio vendedor
-            if (cliente.Vendedor === vendedorLogado) return true;
+            if (vendedorCliente === vendedorLogado) return true;
             // ALÉM disso, mostrar clientes de vendedores em VendedoresVisualizacao
-            if (vendedoresVisualizacao.includes(cliente.Vendedor)) return true;
+            if (vendedoresVisualizacao.includes(vendedorCliente)) return true;
             return false;
           });
           
           const detalhes = vendedoresVisualizacao.length > 0 
-            ? `${lista.length} clientes (seus + de ${vendedoresVisualizacao.join(', ')})`
+            ? `${lista.length} clientes (seus + permitidos)`
             : `${lista.length} clientes (apenas seus)`;
           console.log(`✅ Filtrado: ${detalhes}`);
         } else {
