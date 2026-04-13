@@ -323,19 +323,22 @@ async function carregarModulo(nome, tipo, arquivo) {
       
       // ✅ FILTRO: Mostrar apenas clientes do usuário logado (com permissões)
       if (tipo === "clientes" && usuarioLogado && usuarioLogado.nome) {
-        // Verificar se é admin
+        // Verificar se é admin (por módulo)
         const isAdmin = usuarioLogado.modulos && usuarioLogado.modulos.includes('Administrador');
         
         if (!isAdmin) {
-          // Se não é admin, filtrar clientes autorizado
+          // Se não é admin, sempre mostra seus próprios clientes
           const vendedorLogado = usuarioLogado.nome;
           const vendedoresVisualizacao = usuarioLogado.VendedoresVisualizacao || [];
           
-          // Vendedor vê: seus próprios clientes + clientes de vendedores que tem permissão
-          lista = lista.filter(cliente => 
-            cliente.Vendedor === vendedorLogado || 
-            vendedoresVisualizacao.includes(cliente.Vendedor)
-          );
+          // Vendedor VÊ SEMPRE seus clientes + clientes de vendedores que tem permissão
+          lista = lista.filter(cliente => {
+            // SEMPRE mostrar clientes do próprio vendedor
+            if (cliente.Vendedor === vendedorLogado) return true;
+            // ALÉM disso, mostrar clientes de vendedores em VendedoresVisualizacao
+            if (vendedoresVisualizacao.includes(cliente.Vendedor)) return true;
+            return false;
+          });
           
           const detalhes = vendedoresVisualizacao.length > 0 
             ? `${lista.length} clientes (seus + de ${vendedoresVisualizacao.join(', ')})`
