@@ -107,6 +107,12 @@ async function carregarMenu() {
       descricao: "Visualizar log de alterações",
       arquivo: "auditoria.html",
       tipo: "auditoria"
+    },
+    "Revisão Contatos": {
+      icone: "📱",
+      descricao: "Revisar e organizar contatos",
+      arquivo: "revisao-contatos.html",
+      tipo: "revisao-contatos"
     }
   };
 
@@ -295,6 +301,11 @@ async function carregarModulo(nome, tipo, arquivo) {
       window.location.href = "agendar-ligacoes.html";
       return;
     }
+    // PÁGINA ESPECIAL DE REVISÃO DE CONTATOS
+    else if (tipo === "revisao-contatos") {
+      window.location.href = "revisao-contatos.html";
+      return;
+    }
     // PÁGINA ESPECIAL DE ANÁLISE DE VENDEDOR
     else if (tipo === "analise-vendedor") {
       window.location.href = "analise-vendedor.html";
@@ -308,7 +319,33 @@ async function carregarModulo(nome, tipo, arquivo) {
       const dados = await buscarArquivo(arquivo);
       
       // Verificar se é um array ou objeto
-      const lista = Array.isArray(dados) ? dados : (dados.dados || []);
+      let lista = Array.isArray(dados) ? dados : (dados.dados || []);
+      
+      // ✅ FILTRO: Mostrar apenas clientes do usuário logado (com permissões)
+      if (tipo === "clientes" && usuarioLogado && usuarioLogado.nome) {
+        // Verificar se é admin
+        const isAdmin = usuarioLogado.modulos && usuarioLogado.modulos.includes('Administrador');
+        
+        if (!isAdmin) {
+          // Se não é admin, filtrar clientes autorizado
+          const vendedorLogado = usuarioLogado.nome;
+          const vendedoresVisualizacao = usuarioLogado.VendedoresVisualizacao || [];
+          
+          // Vendedor vê: seus próprios clientes + clientes de vendedores que tem permissão
+          lista = lista.filter(cliente => 
+            cliente.Vendedor === vendedorLogado || 
+            vendedoresVisualizacao.includes(cliente.Vendedor)
+          );
+          
+          const detalhes = vendedoresVisualizacao.length > 0 
+            ? `${lista.length} clientes (seus + de ${vendedoresVisualizacao.join(', ')})`
+            : `${lista.length} clientes (apenas seus)`;
+          console.log(`✅ Filtrado: ${detalhes}`);
+        } else {
+          // Admin vê todos os clientes
+          console.log(`✅ Admin logado: vendo todos os ${lista.length} clientes`);
+        }
+      }
       
       tipoAtivo = tipo;
       dadosAtivos = lista;
