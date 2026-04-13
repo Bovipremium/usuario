@@ -241,49 +241,58 @@ async function carregarVendedoresCheckboxes() {
     const clientes = await buscarArquivo('clientes.json');
     const clientesList = Array.isArray(clientes) ? clientes : [];
     
-    // Extrair vendedores únicos
-    const vendedoresSet = new Set();
+    // ✅ MELHORADO: Extrair vendedores NORMALIZANDO (minúsculas, sem espaços extras)
+    const vendedoresMap = new Map(); // Usa Map para rastrear: nome normalizado -> nome original
     clientesList.forEach(cliente => {
-      if (cliente.Vendedor) {
-        vendedoresSet.add(cliente.Vendedor);
+      if (cliente.Vendedor && cliente.Vendedor.trim()) {
+        const vendedorNormalizado = cliente.Vendedor.trim().toLowerCase();
+        // Se ainda não existe, adiciona com o nome original
+        if (!vendedoresMap.has(vendedorNormalizado)) {
+          vendedoresMap.set(vendedorNormalizado, cliente.Vendedor.trim());
+        }
       }
     });
     
-    const vendedores = Array.from(vendedoresSet).sort();
+    // Converter Map para array com os nomes originais, depois ordenar
+    const vendedores = Array.from(vendedoresMap.values()).sort();
     console.log(`📊 Vendedores únicos encontrados: ${vendedores.length}`, vendedores);
     
     // Renderizar checkboxes de comissão
     const gridComissao = document.getElementById('vendedoresComissaoGrid');
     gridComissao.innerHTML = vendedores.length > 0 
-      ? vendedores.map(vendedor => `
+      ? vendedores.map(vendedor => {
+        const safeId = vendedor.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
+        return `
         <div style="display: flex; align-items: center; margin-bottom: 8px;">
           <input 
             type="checkbox" 
             name="vendedor-comissao" 
             value="${vendedor}" 
-            id="comissao-${vendedor}"
+            id="comissao-${safeId}"
             style="margin-right: 8px; cursor: pointer;"
           >
-          <label for="comissao-${vendedor}" style="cursor: pointer; flex: 1; margin: 0;">${vendedor}</label>
+          <label for="comissao-${safeId}" style="cursor: pointer; flex: 1; margin: 0;">${vendedor}</label>
         </div>
-      `).join('')
+      `}).join('')
       : '<p style="color: #999; font-size: 11px;">Nenhum vendedor encontrado</p>';
     
     // Renderizar checkboxes de visualização
     const gridVisualizacao = document.getElementById('vendedoresVisualizacaoGrid');
     gridVisualizacao.innerHTML = vendedores.length > 0
-      ? vendedores.map(vendedor => `
+      ? vendedores.map(vendedor => {
+        const safeId = vendedor.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
+        return `
         <div style="display: flex; align-items: center; margin-bottom: 8px;">
           <input 
             type="checkbox" 
             name="vendedor-visualizacao" 
             value="${vendedor}" 
-            id="visual-${vendedor}"
+            id="visual-${safeId}"
             style="margin-right: 8px; cursor: pointer;"
           >
-          <label for="visual-${vendedor}" style="cursor: pointer; flex: 1; margin: 0;">${vendedor}</label>
+          <label for="visual-${safeId}" style="cursor: pointer; flex: 1; margin: 0;">${vendedor}</label>
         </div>
-      `).join('')
+      `}).join('')
       : '<p style="color: #999; font-size: 11px;">Nenhum vendedor encontrado</p>';
       
   } catch (erro) {
