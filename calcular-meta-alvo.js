@@ -662,8 +662,34 @@ async function calcularComissaoMesAtual() {
           comissaoTotalFinal = 0;
         }
         
+      } else if (vendedoresPermitidos.includes('__VER_TODOS__')) {
+        // ✅ ADICIONADO: Se marcou "__VER_TODOS__" -> soma TODAS as comissoes
+        console.log(`\nMODO USUARIO (Ver Todos): ${nomeUsuarioLogado} ve TODAS as vendas\n`);
+        
+        let vendedoresTotalizados = {
+          vendedor: nomeUsuarioLogado,
+          vendidoMesAtual: 0,
+          qtdVendas: 0,
+          comissao: 0
+        };
+        
+        // Somar TODAS as comissoes
+        Object.values(comissoes).forEach(comissao => {
+          vendedoresTotalizados.vendidoMesAtual += comissao.vendidoMesAtual;
+          vendedoresTotalizados.qtdVendas += comissao.qtdVendas;
+        });
+        
+        // Recalcular comissao do total
+        vendedoresTotalizados.comissao = Math.round(
+          vendedoresTotalizados.vendidoMesAtual * (percentualComissao / 100) * 100
+        ) / 100;
+        
+        comissoesArray = [vendedoresTotalizados];
+        comissaoTotalFinal = vendedoresTotalizados.comissao;
+        
+        console.log(`\nTotal (Ver Todos): R$ ${vendedoresTotalizados.vendidoMesAtual.toLocaleString('pt-BR', {minimumFractionDigits: 2})} -> Comissao: R$ ${comissaoTotalFinal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}\n`);
       } else {
-        // Se marcou vendedores -> ve suas vendas + dos marcados, SOMADOS
+        // Se marcou vendedores específicos -> ve suas vendas + dos marcados, SOMADOS
         console.log(`\nMODO USUARIO (com permissoes): ${nomeUsuarioLogado} ve suas vendas + permissoes\n`);
         
         let vendedoresTotalizados = {
