@@ -352,11 +352,14 @@
         const vendedorLogado = usuarioLogado.nome;
         const vendedoresVisualizacao = usuarioLogado.VendedoresVisualizacao || [];
         
-        // Usuário vê seus próprios clientes + clientes de vendedores que tem permissão
-        clientesData_Raw = clientesData_Raw.filter(cliente => 
-          cliente.Vendedor === vendedorLogado || 
-          vendedoresVisualizacao.includes(cliente.Vendedor)
-        );
+        // Usuário SEMPRE vê seus próprios clientes + clientes de vendedores que tem permissão
+        clientesData_Raw = clientesData_Raw.filter(cliente => {
+          // SEMPRE mostrar clientes do próprio vendedor
+          if (cliente.Vendedor === vendedorLogado) return true;
+          // ALÉM disso, mostrar clientes de vendedores em VendedoresVisualizacao
+          if (vendedoresVisualizacao.includes(cliente.Vendedor)) return true;
+          return false;
+        });
         
         const detalhes = vendedoresVisualizacao.length > 0 
           ? `${clientesData_Raw.length} clientes (seus + de ${vendedoresVisualizacao.join(', ')})`
