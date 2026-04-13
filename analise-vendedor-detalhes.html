@@ -5,10 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <link rel="icon" type="image/png" href="assets/img/logo.png">
   <link rel="stylesheet" href="sidebar-dock.css">
-  <title>Relatório de Rentabilidade - Vendedor</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-  
-  <style>
+  <title>Análise de Vendedor - Bovi Premium</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.0.0/dist/chart.min.js"></script>  <style>
     * {
       margin: 0;
       padding: 0;
@@ -17,9 +15,9 @@
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
-      min-height: 100vh;
+      background: linear-gradient(135deg, #0f1b18 0%, #1a3a32 50%, #0f2620 100%);
       color: #e5f3ee;
+      min-height: 100vh;
       padding: 20px;
     }
 
@@ -28,30 +26,211 @@
       margin: 0 auto;
     }
 
-    .header {
-      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
-      border: 1px solid rgba(31,163,122,.25);
-      border-radius: 20px;
+    header {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
       padding: 30px;
-      margin-bottom: 30px;
       backdrop-filter: blur(14px);
+      margin-bottom: 30px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
-    .header h1 {
+    h1 {
+      font-size: 28px;
+      color: #1fa37a;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .back-btn {
+      background: rgba(31,163,122,.15);
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+      text-decoration: none;
+    }
+
+    .back-btn:hover {
+      background: rgba(31,163,122,.25);
+      transform: translateX(-4px);
+    }
+
+    /* FILTROS */
+    .filtros-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(14px);
+      margin-bottom: 30px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+    }
+
+    .filtro-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .filtro-label {
+      color: #7cf0c2;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    select, input {
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(31,163,122,.3);
+      color: #e5f3ee;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: rgba(31,163,122,.6);
+      background: rgba(255,255,255,.12);
+    }
+
+    /* KPI CARDS */
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .kpi-card {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(14px);
+      text-align: center;
+    }
+
+    .kpi-label {
+      color: #8fb9ac;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .kpi-valor {
       color: #1fa37a;
       font-size: 28px;
       font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .kpi-subtext {
+      color: #5fa39c;
+      font-size: 12px;
+    }
+
+    /* TABELA */
+    .tabela-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(14px);
+      margin-bottom: 30px;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th {
+      text-align: left;
+      padding: 15px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      color: #7cf0c2;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+
+    td {
+      padding: 15px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+
+    tr {
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    tr:hover {
+      background: rgba(31,163,122,.1);
+    }
+
+    .vendedor-name {
+      color: #7cf0c2;
+      font-weight: 600;
+    }
+
+    .valor {
+      text-align: right;
+      color: #d4af37;
+      font-weight: 600;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #8fb9ac;
+      font-style: italic;
+    }
+
+    /* GRÁFICOS */
+    .graficos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .chart-container {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(14px);
+      position: relative;
+      height: 300px;
+    }
+
+    .chart-title {
+      color: #7cf0c2;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      text-transform: uppercase;
     }
 
     .btn {
-      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+      background: rgba(31,163,122,.2);
+      border: 1px solid rgba(31,163,122,.4);
       color: #7cf0c2;
-      border: 1px solid rgba(31,163,122,.3);
-      padding: 12px 24px;
-      border-radius: 12px;
+      padding: 10px 16px;
+      border-radius: 8px;
       cursor: pointer;
       font-size: 14px;
       font-weight: 600;
@@ -64,552 +243,512 @@
       box-shadow: 0 10px 20px rgba(31,163,122,.2);
     }
 
-    /* RELATÓRIO */
-    .relatorio-section {
-      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 16px;
-      padding: 24px;
-      backdrop-filter: blur(14px);
-      margin-bottom: 30px;
-    }
-
-    .relatorio-section h2 {
-      color: #d4af37;
-      margin-bottom: 20px;
-      font-size: 18px;
-    }
-
-    /* TABELA COMPARATIVA */
-    .tabela-comparativa {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 20px;
-    }
-
-    .tabela-comparativa thead {
-      background: rgba(31,163,122,.15);
-      border-bottom: 2px solid rgba(31,163,122,.3);
-    }
-
-    .tabela-comparativa th {
-      color: #1fa37a;
-      padding: 15px;
-      text-align: left;
-      font-weight: 600;
-      border: 1px solid rgba(31,163,122,.2);
-    }
-
-    .tabela-comparativa td {
-      padding: 12px 15px;
-      border: 1px solid rgba(255,255,255,.1);
-    }
-
-    .tabela-comparativa tbody tr:hover {
-      background: rgba(31,163,122,.1);
-    }
-
-    .valor {
-      text-align: right;
-      font-weight: 600;
-    }
-
-    .positivo {
+    .status-pago {
+      background: rgba(31,163,122,.3);
       color: #7cf0c2;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
     }
 
-    .negativo {
-      color: #ff6b6b;
-    }
-
-    .alerta {
-      color: #ffa500;
-    }
-
-    /* LAUDO */
-    .laudo {
-      background: rgba(31,163,122,.1);
-      border-left: 4px solid #1fa37a;
-      padding: 20px;
-      border-radius: 8px;
-      margin-top: 20px;
-      line-height: 1.8;
-    }
-
-    .laudo-titulo {
+    .status-pendente {
+      background: rgba(212,175,55,.3);
       color: #d4af37;
-      font-size: 16px;
-      font-weight: 700;
-      margin-bottom: 10px;
-    }
-
-    .laudo-item {
-      margin: 10px 0;
-      padding-left: 20px;
-    }
-
-    .chart-container {
-      position: relative;
-      height: 300px;
-      margin-bottom: 30px;
-    }
-
-    @media (max-width: 768px) {
-      .header {
-        flex-direction: column;
-        gap: 20px;
-      }
-
-      .tabela-comparativa {
-        font-size: 12px;
-      }
-
-      .tabela-comparativa th, .tabela-comparativa td {
-        padding: 8px;
-      }
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
+  <div class="container">
+    <header>
+      <h1>📊 Análise de Vendedores</h1>
+      <a href="dashboard.html" class="back-btn">← Voltar</a>
+    </header>
 
-<div class="container">
-  <div class="header">
-    <h1 id="headerTitle">📊 Relatório de Rentabilidade</h1>
-    <button class="btn" onclick="window.history.back()">← Voltar</button>
-  </div>
-
-  <!-- FILTROS -->
-  <div class="relatorio-section">
-    <h2>🔍 Filtros</h2>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
-      <div>
-        <label style="color: #8fb9ac; font-size: 12px; display: block; margin-bottom: 5px;">Mês:</label>
-        <select id="filtroMes" style="width: 100%; padding: 8px; background: rgba(31,163,122,.15); color: #7cf0c2; border: 1px solid rgba(31,163,122,.3); border-radius: 6px;">
-          <option value="">-- Todos os meses --</option>
-          <option value="1">Janeiro</option>
-          <option value="2">Fevereiro</option>
-          <option value="3">Março</option>
-          <option value="4">Abril</option>
-          <option value="5">Maio</option>
-          <option value="6">Junho</option>
-          <option value="7">Julho</option>
-          <option value="8">Agosto</option>
-          <option value="9">Setembro</option>
-          <option value="10">Outubro</option>
-          <option value="11">Novembro</option>
-          <option value="12">Dezembro</option>
+    <!-- FILTROS -->
+    <div class="filtros-section">
+      <div class="filtro-item">
+        <label class="filtro-label">Vendedor</label>
+        <select id="filtroVendedor" onchange="aplicarFiltros()">
+          <option value="todos">Todos</option>
         </select>
       </div>
-      <div>
-        <label style="color: #8fb9ac; font-size: 12px; display: block; margin-bottom: 5px;">Ano:</label>
-        <select id="filtroAno" style="width: 100%; padding: 8px; background: rgba(31,163,122,.15); color: #7cf0c2; border: 1px solid rgba(31,163,122,.3); border-radius: 6px;">
-          <option value="">-- Todos os anos --</option>
-          <option value="2023">2023</option>
-          <option value="2024">2024</option>
-          <option value="2025">2025</option>
-          <option value="2026">2026</option>
+
+      <div class="filtro-item">
+        <label class="filtro-label">Cliente</label>
+        <select id="filtroCliente" onchange="aplicarFiltros()">
+          <option value="todos">Todos</option>
         </select>
       </div>
-      <div style="display: flex; align-items: flex-end;">
-        <button class="btn" onclick="aplicarFiltros()" style="width: 100%;">🔍 Filtrar</button>
+
+      <div class="filtro-item">
+        <label class="filtro-label">Mídia</label>
+        <select id="filtroMidia" onchange="aplicarFiltros()">
+          <option value="todos">Todos</option>
+        </select>
+      </div>
+
+      <div class="filtro-item">
+        <label class="filtro-label">Comissão (%)</label>
+        <input type="number" id="filtroComissao" value="5" min="0" max="100" onchange="aplicarFiltros()" />
+      </div>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="kpis">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Vendido</div>
+        <div class="kpi-valor" id="totalVendido">R$ 0,00</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Comissão Recebida</div>
+        <div class="kpi-valor" id="comissaoRecebida">R$ 0,00</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Total Recebido</div>
+        <div class="kpi-valor" id="totalRecebido">R$ 0,00</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Clientes Pendentes</div>
+        <div class="kpi-valor" id="clientesPendentes">0 cliente(s)</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Eficiência</div>
+        <div class="kpi-valor" id="eficienciaKPI">0% 🔴</div>
+      </div>
+    </div>
+
+    <!-- TABELA -->
+    <div class="tabela-section">
+      <table>
+        <thead>
+          <tr>
+            <th>Vendedor</th>
+            <th style="text-align: center;">Vendas</th>
+            <th style="text-align: right;">Total Vendido</th>
+            <th style="text-align: right;">Total Recebido</th>
+            <th style="text-align: right;">Comissão Recebida</th>
+            <th style="text-align: center;">Clientes Pendentes</th>
+            <th style="text-align: center;">Eficiência</th>
+            <th style="text-align: center;">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="corpoTabela">
+          <tr><td colspan="8" class="empty-state">Carregando dados...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- GRÁFICOS -->
+    <div class="graficos">
+      <div class="chart-container">
+        <div class="chart-title">Vendas por Vendedor</div>
+        <canvas id="chartVendedor"></canvas>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">Comissão Recebida por Vendedor</div>
+        <canvas id="chartComissao"></canvas>
       </div>
     </div>
   </div>
-    <h2>📈 Rentabilidade por Venda</h2>
-    <div class="chart-container">
-      <canvas id="chartRentabilidade"></canvas>
-    </div>
-  </div>
 
-  <!-- TABELA COMPARATIVA -->
-  <div class="relatorio-section">
-    <h2>📋 Detalhamento de Vendas</h2>
-    <div style="margin-bottom: 15px;">
-      <label style="color: #8fb9ac;">Imposto (Simples Nacional %):</label>
-      <input type="number" id="impostoPercentual" value="10" min="0" max="100" style="width: 100px; padding: 8px; background: rgba(31,163,122,.15); color: #7cf0c2; border: 1px solid rgba(31,163,122,.3); border-radius: 6px; margin-left: 10px;">
-    </div>
-    <table class="tabela-comparativa">
-      <thead>
-        <tr>
-          <th>Data</th>
-          <th>Cliente</th>
-          <th style="text-align: right;">Venda</th>
-          <th style="text-align: right;">Imposto</th>
-          <th style="text-align: right;">Frete</th>
-          <th style="text-align: right;">Custo</th>
-          <th style="text-align: right;">Lucro</th>
-          <th style="text-align: right;">Recebido</th>
-          <th style="text-align: right;">Falta</th>
-          <th style="text-align: center;">Dias Atraso</th>
-          <th style="text-align: center;">Status</th>
-        </tr>
-      </thead>
-      <tbody id="corpoRelatorio">
-        <tr><td colspan="11" style="text-align: center; padding: 30px;">Carregando...</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- LAUDO FINAL -->
-  <div class="relatorio-section">
-    <h2>🎯 Laudo Analítico</h2>
-    <div id="laudoFinal" class="laudo">
-      <p>Análise em andamento...</p>
-    </div>
-  </div>
-
-  <!-- RECOMENDAÇÃO -->
-  <div class="relatorio-section">
-    <h2>💡 Recomendação</h2>
-    <div id="recomendacao" class="laudo">
-      <p>Aguardando análise...</p>
-    </div>
-  </div>
-</div>
-
-<script src="config.js"></script>
+  <script src="config.js"></script>
 <script src="auth-utils.js"></script>
-<script src="auth.js"></script>
-<script>
-  let vendedorSelecionado = '';
-  let chartRentabilidade = null;
-  let todasVendas = [];
-  let receitas = {};
-  let transportes = [];
+  <script src="auth.js"></script>
 
-  function getUrlParameter(name) {
-    const params = new URLSearchParams(window.location.search);
-    return params.get(name);
-  }
+  <script>
+    let todasVendas = [];
+    let todosClientes = [];
+    let despesasVendedores = {};
+    let chartVendedor = null;
+    let chartComissao = null;
 
-  document.addEventListener('DOMContentLoaded', async () => {
-    vendedorSelecionado = getUrlParameter('vendedor') || 'DESCONHECIDO';
-    document.getElementById('headerTitle').textContent = `📊 Relatório de Rentabilidade - ${vendedorSelecionado}`;
-    
-    await carregarDados();
-    aplicarFiltros();
-  });
+    document.addEventListener('DOMContentLoaded', async () => {
+      await carregarDados();
+      renderizarFiltros();
+      aplicarFiltros();
+    });
 
-  // Função para extrair custo real de um produto
-  function calcularCustoProduto(nomeProduto, receitas) {
-    if (!receitas[nomeProduto]) return 0;
-    
-    const receita = receitas[nomeProduto];
-    let custoTotal = 0;
-    
-    if (receita.Ingredientes && Array.isArray(receita.Ingredientes)) {
-      receita.Ingredientes.forEach(ingrediente => {
-        const custoPorUnidade = (ingrediente.CustoPorKg || 0) * (ingrediente.Quantidade || 0);
-        custoTotal += custoPorUnidade;
-      });
-    }
-    
-    return custoTotal;
-  }
+    async function carregarDados() {
+      try {
+        console.log('📥 Carregando clientes.json...');
+        let clientes = await buscarArquivo("clientes.json");
+        clientes = Array.isArray(clientes) ? clientes : (clientes.dados || []);
+        
+        // ✅ FILTRO: Aplicar permissões de vendedor
+        const usuarioLogado = JSON.parse(localStorage.getItem('usuario') || '{}');
+        const isAdmin = usuarioLogado.modulos && usuarioLogado.modulos.includes('Administrador');
+        
+        if (!isAdmin && usuarioLogado.nome) {
+          const vendedorLogado = usuarioLogado.nome.trim().toLowerCase();
+          const vendedoresVisualizacao = (usuarioLogado.VendedoresVisualizacao || []).map(v => v.trim().toLowerCase());
+          
+          // Usuário SEMPRE vê seus clientes + clientes que tem permissão
+          // ✅ NORMALIZADO: Comparação case-insensitive
+          clientes = clientes.filter(cliente => {
+            const vendedorCliente = (cliente.Vendedor || '').trim().toLowerCase();
+            // SEMPRE mostrar clientes do próprio vendedor
+            if (vendedorCliente === vendedorLogado) return true;
+            // ALÉM disso, mostrar clientes de vendedores em VendedoresVisualizacao
+            if (vendedoresVisualizacao.includes(vendedorCliente)) return true;
+            return false;
+          });
+          
+          console.log(`✅ Filtrado análise: ${clientes.length} clientes (seus + permitidos)`);
+        }
+        
+        todosClientes = clientes;
 
-  // Função para buscar frete do cliente
-  function buscarFreteCliente(nomeCliente, nf, transportes) {
-    const transporte = transportes.find(t => 
-      (t.NomeCliente || '').toUpperCase().includes(nomeCliente.toUpperCase()) && 
-      t.NumeroNF === nf
-    );
-    return transporte ? transporte.ValorFrete : 0;
-  }
-
-  async function carregarDados() {
-    try {
-      console.log('📥 Carregando dados completos...');
-      
-      // Carregar clientes
-      const clientes = await buscarArquivo("clientes.json");
-      const todosClientes = Array.isArray(clientes) ? clientes : (clientes.dados || []);
-
-      // Carregar receitas (custos dos produtos)
-      const receitasData = await buscarArquivo("receitas.json");
-      const receitasArray = Array.isArray(receitasData) ? receitasData : (receitasData.dados || []);
-      receitas = {};
-      receitasArray.forEach(r => {
-        receitas[r.Nome] = r;
-      });
-
-      // Carregar transportes (fretes)
-      const transportesData = await buscarArquivo("transporte.json");
-      transportes = Array.isArray(transportesData) ? transportesData : (transportesData.dados || []);
-
-      // Extrair vendas do vendedor
-      todasVendas = [];
-      todosClientes.forEach(cliente => {
-        if (cliente.Vendedor === vendedorSelecionado && cliente.Vendas) {
-          cliente.Vendas.forEach(venda => {
-            // Calcular custo real dos produtos
-            let custoRealProdutos = 0;
-            if (venda.Produtos && Array.isArray(venda.Produtos)) {
-              venda.Produtos.forEach(produto => {
-                custoRealProdutos += calcularCustoProduto(produto.Nome, receitas);
+        // ✅ CORRIGIDO: Extrair vendas usando VendedorVenda quando disponível (novo fluxo)
+        // Fallback para VendedorId (cliente.Vendedor) se não tiver VendedorVenda (compatibilidade)
+        todasVendas = [];
+        todosClientes.forEach(cliente => {
+          if (cliente.Vendas && Array.isArray(cliente.Vendas)) {
+            cliente.Vendas.forEach(venda => {
+              todasVendas.push({
+                ...venda,
+                NomeCliente: cliente.Nome,
+                CPFCliente: cliente.CPF,
+                Midia: cliente.Midia || venda.Midia || 'Sem mídia',
+                VendedorId: venda.VendedorVenda || venda.Vendedor || cliente.Vendedor || 'Desconhecido', // ✅ NOVO: Usa VendedorVenda se tiver!
+                Parcelas: venda.Parcelas || [],
+                ValorTotal: venda.ValorTotal || 0,
+                DataVenda: venda.DataVenda || new Date().toISOString()
               });
-            }
-
-            // Buscar frete
-            const frete = buscarFreteCliente(cliente.Nome, venda.NumeroNF, transportes);
-
-            // Calcular totais de Parcelas
-            let totalPago = 0;
-            let totalPendente = 0;
-            const parcelas = venda.Parcelas || [];
-            let diasAtraso = 0;
-            let dataUltimaPendente = null;
-
-            parcelas.forEach(parcela => {
-              if (parcela.Pago === true) {
-                totalPago += parcela.Valor || 0;
-              } else {
-                totalPendente += parcela.Valor || 0;
-                if (!dataUltimaPendente || new Date(parcela.DataVencimento) > new Date(dataUltimaPendente)) {
-                  dataUltimaPendente = parcela.DataVencimento;
-                }
-              }
             });
+          }
+        });
 
-            // Calcular dias em atraso
-            if (dataUltimaPendente) {
-              const hoje = new Date();
-              const vencimento = new Date(dataUltimaPendente);
-              diasAtraso = Math.max(0, Math.floor((hoje - vencimento) / (1000 * 60 * 60 * 24)));
+        console.log(`✅ Carregadas ${todasVendas.length} vendas de ${todosClientes.length} clientes`);
+
+        // Carregar despesas para buscar comissões pagas
+        console.log('📥 Carregando despesas.json...');
+        const despesas = await buscarArquivo("despesas.json");
+        const todasDespesas = Array.isArray(despesas) ? despesas : (despesas.dados || []);
+        
+        // Agrupar despesas por vendedor (case insensitive)
+        despesasVendedores = {};
+        todasDespesas.forEach(desp => {
+          const descricaoLower = (desp.Descricao || '').toLowerCase().trim();
+          if (!despesasVendedores[descricaoLower]) {
+            despesasVendedores[descricaoLower] = 0;
+          }
+          despesasVendedores[descricaoLower] += desp.Valor || 0;
+        });
+
+        console.log('✅ Despesas carregadas para', Object.keys(despesasVendedores).length, 'vendedores');
+      } catch (erro) {
+        console.error('❌ Erro ao carregar:', erro);
+        const msg = traduzirErro(erro);
+        document.getElementById('corpoTabela').innerHTML = `
+          <tr><td colspan="8" class="empty-state">⚠️ ${msg}</td></tr>
+        `;
+      }
+    }
+
+    function traduzirErro(erro) {
+      if (!erro.message) return 'Erro desconhecido';
+      const msg = erro.message.toLowerCase();
+      if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('timeout')) {
+        return 'Falta de conexão com a internet. Verifique sua conexão.';
+      }
+      return `Erro ao carregar dados: ${erro.message}`;
+    }
+
+    function renderizarFiltros() {
+      // Vendedores únicos
+      const vendedores = [...new Set(todasVendas.map(v => v.VendedorId))].sort();
+      const selectVendedor = document.getElementById('filtroVendedor');
+      selectVendedor.innerHTML = '<option value="todos">Todos</option>' +
+        vendedores.map(v => `<option value="${v}">${v}</option>`).join('');
+
+      // Clientes únicos
+      const clientes = [...new Set(todasVendas.map(v => v.NomeCliente))].sort();
+      const selectCliente = document.getElementById('filtroCliente');
+      selectCliente.innerHTML = '<option value="todos">Todos</option>' +
+        clientes.map(c => `<option value="${c}">${c}</option>`).join('');
+
+      // Mídias únicas
+      const midias = [...new Set(todasVendas.map(v => v.Midia))].sort();
+      const selectMidia = document.getElementById('filtroMidia');
+      selectMidia.innerHTML = '<option value="todos">Todos</option>' +
+        midias.map(m => `<option value="${m}">${m}</option>`).join('');
+    }
+
+    function aplicarFiltros() {
+      const vendedorSelecionado = document.getElementById('filtroVendedor').value;
+      const clienteSelecionado = document.getElementById('filtroCliente').value;
+      const percentualComissao = parseFloat(document.getElementById('filtroComissao').value) / 100 || 0.05;
+      const midiaSelecionada = document.getElementById('filtroMidia').value;
+
+      let vendsFiltradas = todasVendas;
+
+      // Aplicar filtros
+      if (vendedorSelecionado !== 'todos') {
+        vendsFiltradas = vendsFiltradas.filter(v => v.VendedorId === vendedorSelecionado);
+      }
+
+      if (clienteSelecionado !== 'todos') {
+        vendsFiltradas = vendsFiltradas.filter(v => v.NomeCliente === clienteSelecionado);
+      }
+
+      if (midiaSelecionada !== 'todos') {
+        vendsFiltradas = vendsFiltradas.filter(v => v.Midia === midiaSelecionada);
+      }
+
+      // CALCULAR VALORES REAIS
+      const totalVendido = vendsFiltradas.reduce((acc, v) => acc + (v.ValorTotal || 0), 0);
+      
+      // Calcular Total Recebido = soma de Parcelas com Pago: true
+      let totalRecebido = 0;
+      let clientesPagos = new Set();
+      let clientesPendentes = new Set();
+
+      vendsFiltradas.forEach(venda => {
+        if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+          venda.Parcelas.forEach(parcela => {
+            if (parcela.Pago === true) {
+              totalRecebido += (parcela.Valor || 0);
+              clientesPagos.add(venda.NomeCliente);
+            } else {
+              clientesPendentes.add(venda.NomeCliente);
             }
-
-            todasVendas.push({
-              nomeCliente: cliente.Nome,
-              dataVenda: venda.DataVenda,
-              nf: venda.NumeroNF,
-              valorVenda: venda.ValorTotal || 0,
-              custoRealProdutos: custoRealProdutos,
-              frete: frete,
-              totalPago: totalPago,
-              totalPendente: totalPendente,
-              diasAtraso: diasAtraso,
-              dataUltimaPendente: dataUltimaPendente,
-              parcelas: parcelas
-            });
           });
         }
       });
 
-      console.log(`✅ Carregadas ${todasVendas.length} vendas com dados reais`);
-    } catch (erro) {
-      console.error('❌ Erro:', erro);
-      document.getElementById('corpoRelatorio').innerHTML = `<tr><td colspan="11">❌ Erro ao carregar dados</td></tr>`;
-    }
-  }
-
-  function aplicarFiltros() {
-    const mes = document.getElementById('filtroMes').value;
-    const ano = document.getElementById('filtroAno').value;
-    const impostoPercentual = parseFloat(document.getElementById('impostoPercentual').value) || 10;
-
-    let vendasFiltradas = todasVendas.filter(v => {
-      const data = new Date(v.dataVenda);
-      const mesVenda = data.getMonth() + 1;
-      const anoVenda = data.getFullYear();
-
-      const filtroMes = !mes || mesVenda === parseInt(mes);
-      const filtroAno = !ano || anoVenda === parseInt(ano);
-
-      return filtroMes && filtroAno;
-    });
-
-    renderizarRelatorio(vendasFiltradas, impostoPercentual);
-    renderizarLaudo(vendasFiltradas, impostoPercentual);
-  }
-
-  function renderizarRelatorio(vendas, impostoPercentual) {
-    const corpoRelatorio = document.getElementById('corpoRelatorio');
-    
-    if (vendas.length === 0) {
-      corpoRelatorio.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 30px;">Nenhuma venda encontrada</td></tr>';
-      return;
-    }
-
-    corpoRelatorio.innerHTML = vendas.map(v => {
-      const imposto = (v.valorVenda * impostoPercentual) / 100;
-      const custoTotal = v.custoRealProdutos + imposto + v.frete;
-      const lucroLiquido = v.valorVenda - custoTotal;
-      const statusClass = v.totalPendente === 0 ? 'positivo' : (v.diasAtraso > 0 ? 'negativo' : 'alerta');
-      const statusTexto = v.totalPendente === 0 ? '✅ Completo' : (v.diasAtraso > 0 ? `🔴 ${v.diasAtraso}d atraso` : '⏳ Pendente');
-
-      return `
-        <tr>
-          <td>${new Date(v.dataVenda).toLocaleDateString('pt-BR')}</td>
-          <td>${v.nomeCliente.substring(0, 30)}</td>
-          <td class="valor positivo">R$ ${v.valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-          <td class="valor">R$ ${imposto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-          <td class="valor">R$ ${v.frete.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-          <td class="valor">R$ ${v.custoRealProdutos.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-          <td class="valor ${lucroLiquido > 0 ? 'positivo' : 'negativo'}">R$ ${lucroLiquido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-          <td class="valor positivo">R$ ${v.totalPago.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-          <td class="valor ${v.totalPendente > 0 ? 'negativo' : 'positivo'}">R$ ${v.totalPendente.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-          <td style="text-align: center;" class="${v.diasAtraso > 0 ? 'negativo' : 'positivo'}">${v.diasAtraso} dias</td>
-          <td style="text-align: center;" class="${statusClass}">${statusTexto}</td>
-        </tr>
-      `;
-    }).join('');
-
-    // Renderizar gráfico
-    renderizarGrafico(vendas, impostoPercentual);
-  }
-
-  function renderizarGrafico(vendas, impostoPercentual) {
-    const labels = vendas.map(v => `${v.nomeCliente.substring(0, 12)}...`);
-    const lucros = vendas.map(v => {
-      const imposto = (v.valorVenda * impostoPercentual) / 100;
-      const custoTotal = v.custoRealProdutos + imposto + v.frete;
-      return v.valorVenda - custoTotal;
-    });
-
-    const ctx = document.getElementById('chartRentabilidade').getContext('2d');
-    if (chartRentabilidade) chartRentabilidade.destroy();
-
-    chartRentabilidade = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Lucro Líquido',
-          data: lucros,
-          backgroundColor: lucros.map(l => l > 0 ? 'rgba(31,163,122,0.6)' : 'rgba(255,107,107,0.6)'),
-          borderColor: lucros.map(l => l > 0 ? '#1fa37a' : '#ff6b6b'),
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { labels: { color: '#7cf0c2' } }
-        },
-        scales: {
-          y: {
-            ticks: { color: '#7cf0c2' },
-            grid: { color: 'rgba(31,163,122,0.1)' }
-          },
-          x: {
-            ticks: { color: '#7cf0c2' },
-            grid: { color: 'rgba(31,163,122,0.1)' }
+      // Comissão Recebida = buscar em despesas pelo nome do vendedor
+      let comissaoRecebida = 0;
+      if (vendedorSelecionado !== 'todos') {
+        const vendedorLower = vendedorSelecionado.toLowerCase().trim();
+        // Procurar em despesas por correspondência exata (case-insensitive)
+        for (const [chave, valor] of Object.entries(despesasVendedores)) {
+          if (chave.includes(vendedorLower) || vendedorLower.includes(chave.split(' ')[0])) {
+            comissaoRecebida += valor;
           }
         }
+      } else {
+        // Se não filtrar por vendedor, somar tudo
+        comissaoRecebida = Object.values(despesasVendedores).reduce((a, b) => a + b, 0);
       }
-    });
-  }
 
-  function renderizarLaudo(vendas, impostoPercentual) {
-    if (vendas.length === 0) return;
+      // Eficiência Real = (Total Recebido / Total Vendido) * 100
+      const eficiencia = totalVendido > 0 ? (totalRecebido / totalVendido * 100) : 0;
 
-    // Calcular totais com dados REAIS
-    const totalVendas = vendas.reduce((sum, v) => sum + v.valorVenda, 0);
-    const totalImposto = vendas.reduce((sum, v) => sum + ((v.valorVenda * impostoPercentual) / 100), 0);
-    const totalFrete = vendas.reduce((sum, v) => sum + v.frete, 0);
-    const totalCustoProdutos = vendas.reduce((sum, v) => sum + v.custoRealProdutos, 0);
-    const totalCustos = totalCustoProdutos + totalImposto + totalFrete;
-    const totalLucroLiquido = totalVendas - totalCustos;
-    const totalRecebido = vendas.reduce((sum, v) => sum + v.totalPago, 0);
-    const totalPendente = vendas.reduce((sum, v) => sum + v.totalPendente, 0);
-    const margemLucro = (totalLucroLiquido / totalVendas) * 100;
-    const percentualRecebimento = (totalRecebido / totalVendas) * 100;
+      // Atualizar cards KPI
+      document.getElementById('totalVendido').textContent = 'R$ ' + formatarMoeda(totalVendido);
+      document.getElementById('comissaoRecebida').textContent = 'R$ ' + formatarMoeda(comissaoRecebida);
+      document.getElementById('totalRecebido').textContent = 'R$ ' + formatarMoeda(totalRecebido);
+      document.getElementById('clientesPendentes').textContent = clientesPendentes.size + ' cliente(s)';
+      
+      const eficienciaStatus = eficiencia >= 70 ? '🟢 Ótimo' : (eficiencia >= 50 ? '🟡 Bom' : '🔴 Precisa Melhorar');
+      document.getElementById('eficienciaKPI').textContent = Math.round(eficiencia) + '% ' + eficienciaStatus;
 
-    // Vendas com atraso
-    const vendasAtraso = vendas.filter(v => v.diasAtraso > 0);
-    const diasMedioAtraso = vendasAtraso.length > 0 ? Math.round(vendasAtraso.reduce((sum, v) => sum + v.diasAtraso, 0) / vendasAtraso.length) : 0;
+      // Renderizar por vendedor
+      const vendedoresAgrupados = agruparPorVendedor(vendsFiltradas);
 
-    // Melhor e pior venda
-    const melhorVenda = vendas.reduce((max, v) => {
-      const lucroMax = (max.valorVenda * (100 - impostoPercentual)) / 100 - max.custoRealProdutos - max.frete;
-      const lucroV = (v.valorVenda * (100 - impostoPercentual)) / 100 - v.custoRealProdutos - v.frete;
-      return lucroV > lucroMax ? v : max;
-    });
-    
-    const piorVenda = vendas.reduce((min, v) => {
-      const lucroMin = (min.valorVenda * (100 - impostoPercentual)) / 100 - min.custoRealProdutos - min.frete;
-      const lucroV = (v.valorVenda * (100 - impostoPercentual)) / 100 - v.custoRealProdutos - v.frete;
-      return lucroV < lucroMin ? v : min;
-    });
+      // Renderizar tabela
+      renderizarTabela(vendedoresAgrupados, percentualComissao);
 
-    const laudoHTML = `
-      <div class="laudo-titulo">📊 ANÁLISE DETALHADA COM DADOS REAIS</div>
-      <div class="laudo-item">
-        <strong>Total de Vendas:</strong> ${vendas.length} transações | R$ ${totalVendas.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-      </div>
-      <div class="laudo-item">
-        <strong>Custo de Produtos:</strong> R$ ${totalCustoProdutos.toLocaleString('pt-BR', {minimumFractionDigits: 2})} (extraído de receitas.json)
-      </div>
-      <div class="laudo-item">
-        <strong>Impostos (${impostoPercentual}%):</strong> R$ ${totalImposto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-      </div>
-      <div class="laudo-item">
-        <strong>Fretes:</strong> R$ ${totalFrete.toLocaleString('pt-BR', {minimumFractionDigits: 2})} (extraído de transporte.json)
-      </div>
-      <div class="laudo-item">
-        <strong>Total de Custos:</strong> R$ ${totalCustos.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-      </div>
-      <div class="laudo-item">
-        <strong>Lucro Líquido Total:</strong> <span class="${totalLucroLiquido > 0 ? 'positivo' : 'negativo'}">R$ ${totalLucroLiquido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span> | Margem: ${margemLucro.toFixed(1)}%
-      </div>
-      <div class="laudo-item">
-        <strong>Total Recebido:</strong> <span class="positivo">R$ ${totalRecebido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span> | ${percentualRecebimento.toFixed(1)}% do faturado
-      </div>
-      <div class="laudo-item">
-        <strong>Total Pendente:</strong> <span class="negativo">R$ ${totalPendente.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span> | ${(100 - percentualRecebimento).toFixed(1)}% em aberto
-      </div>
-
-      <div style="margin-top: 20px; border-top: 1px solid rgba(31,163,122,.3); padding-top: 20px;">
-        <div class="laudo-titulo">🎯 MELHORES E PIORES DESEMPENHOS</div>
-        <div class="laudo-item">
-          <strong>✅ Melhor Venda:</strong> ${melhorVenda.nomeCliente} (NF ${melhorVenda.nf}) - Lucro: R$ ${((melhorVenda.valorVenda * (100 - impostoPercentual)) / 100 - melhorVenda.custoRealProdutos - melhorVenda.frete).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-        </div>
-        <div class="laudo-item">
-          <strong>❌ Pior Venda:</strong> ${piorVenda.nomeCliente} (NF ${piorVenda.nf}) - Lucro: R$ ${((piorVenda.valorVenda * (100 - impostoPercentual)) / 100 - piorVenda.custoRealProdutos - piorVenda.frete).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-        </div>
-      </div>
-
-      ${vendasAtraso.length > 0 ? `
-        <div style="margin-top: 20px; border-top: 1px solid rgba(31,163,122,.3); padding-top: 20px;">
-          <div class="laudo-titulo">⚠️ VENDAS EM ATRASO (${impostoPercentual}% de imposto)</div>
-          <div class="laudo-item">
-            <strong>Quantidade em Atraso:</strong> ${vendasAtraso.length} venda(s) | Média de atraso: ${diasMedioAtraso} dias
-          </div>
-          <div class="laudo-item">
-            <strong>Valor Bloqueado:</strong> R$ ${vendasAtraso.reduce((sum, v) => sum + v.totalPendente, 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-          </div>
-        </div>
-      ` : ''}
-    `;
-
-    document.getElementById('laudoFinal').innerHTML = laudoHTML;
-
-    // Recomendação
-    let recomendacao = '<div class="laudo-titulo">💡 RECOMENDAÇÃO ESTRATÉGICA</div>';
-    
-    if (percentualRecebimento < 70) {
-      recomendacao += '<div class="laudo-item negativo"><strong>⚠️ ALERTA DE CRÉDITO:</strong> Taxa de recebimento abaixo de 70%. Recomenda-se revisar a política de crédito e intensificar cobrança.</div>';
-    }
-    
-    if (vendasAtraso.length > 0) {
-      recomendacao += `<div class="laudo-item negativo"><strong>🔴 ${vendasAtraso.length} VENDA(S) VENCIDA(S):</strong> Total de R$ ${vendasAtraso.reduce((sum, v) => sum + v.totalPendente, 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})} em atraso há média de ${diasMedioAtraso} dias. Ação imediata recomendada.</div>`;
+      // Renderizar gráficos
+      renderizarGraficos(vendedoresAgrupados);
     }
 
-    if (margemLucro < 15) {
-      recomendacao += '<div class="laudo-item negativo"><strong>📊 MARGEM CRÍTICA:</strong> Margem de lucro abaixo de 15%. Revisar urgentemente preços, custos ou composição de vendas.</div>';
-    } else if (margemLucro < 30) {
-      recomendacao += '<div class="laudo-item alerta"><strong>📊 MARGEM BAIXA:</strong> Margem entre 15-30%. Considere rever preços ou reduzir custos operacionais.</div>';
-    } else if (margemLucro >= 40) {
-      recomendacao += '<div class="laudo-item positivo"><strong>✅ EXCELENTE MARGEM:</strong> Margem de lucro acima de 40%. Continue mantendo essa performance!</div>';
+    function agruparPorVendedor(vendas) {
+      const grupos = {};
+
+      vendas.forEach(venda => {
+        const vendedor = venda.VendedorId;
+        if (!grupos[vendedor]) {
+          grupos[vendedor] = [];
+        }
+        grupos[vendedor].push(venda);
+      });
+
+      const resultado = [];
+      for (const [vendedor, vendasVendedor] of Object.entries(grupos)) {
+        const totalVendido = vendasVendedor.reduce((sum, v) => sum + (v.ValorTotal || 0), 0);
+        
+        let totalRecebido = 0;
+        let clientesUnicos = new Set();
+        let clientesPagos = new Set();
+        let clientesPendentes = new Set();
+
+        vendasVendedor.forEach(venda => {
+          clientesUnicos.add(venda.NomeCliente);
+          
+          if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+            venda.Parcelas.forEach(parcela => {
+              if (parcela.Pago === true) {
+                totalRecebido += (parcela.Valor || 0);
+                clientesPagos.add(venda.NomeCliente);
+              } else {
+                clientesPendentes.add(venda.NomeCliente);
+              }
+            });
+          }
+        });
+
+        // Buscar comissão paga em despesas
+        let comissaoPaga = 0;
+        const vendedorLower = vendedor.toLowerCase().trim();
+        for (const [chave, valor] of Object.entries(despesasVendedores)) {
+          if (chave.includes(vendedorLower) || vendedorLower.includes(chave.split(' ')[0])) {
+            comissaoPaga += valor;
+          }
+        }
+
+        const eficiencia = totalVendido > 0 ? (totalRecebido / totalVendido * 100) : 0;
+
+        resultado.push({
+          nome: vendedor,
+          totalVendido: totalVendido,
+          totalRecebido: totalRecebido,
+          comissaoPaga: comissaoPaga,
+          qtdVendas: vendasVendedor.length,
+          qtdClientes: clientesUnicos.size,
+          clientesPendentes: clientesPendentes.size,
+          eficiencia: eficiencia,
+          vendas: vendasVendedor
+        });
+      }
+
+      return resultado.sort((a, b) => b.totalVendido - a.totalVendido);
     }
 
-    if (percentualRecebimento >= 90 && margemLucro >= 35) {
-      recomendacao += '<div class="laudo-item positivo"><strong>🏆 DESEMPENHO PREMIUM:</strong> Alto recebimento (${percentualRecebimento.toFixed(1)}%) + excelente margem (${margemLucro.toFixed(1)}%). Ótimo trabalho!</div>';
+    function renderizarTabela(vendedores, comissaoPercentual) {
+      const corpoTabela = document.getElementById('corpoTabela');
+
+      if (vendedores.length === 0) {
+        corpoTabela.innerHTML = '<tr><td colspan="8" class="empty-state">Nenhum registro encontrado</td></tr>';
+        return;
+      }
+
+      corpoTabela.innerHTML = vendedores.map(v => {
+        const eficienciaLabel = v.eficiencia >= 70 ? '🟢 Ótimo' : v.eficiencia >= 50 ? '🟡 Bom' : '🔴 Precisa Melhorar';
+        const eficienciaColor = v.eficiencia >= 70 ? '#7cf0c2' : v.eficiencia >= 50 ? '#d4af37' : '#ff6b6b';
+        
+        return `
+          <tr onclick="abrirDetalhesVendedor('${v.nome}')">
+            <td class="vendedor-name">👤 ${v.nome}</td>
+            <td style="text-align: center; color: #d4af37; font-weight: 600;">${v.qtdVendas}</td>
+            <td class="valor">${formatarMoeda(v.totalVendido)}</td>
+            <td class="valor">${formatarMoeda(v.totalRecebido)}</td>
+            <td class="valor">${formatarMoeda(v.comissaoPaga)}</td>
+            <td style="text-align: center;">
+              <span class="status-pendente">${v.clientesPendentes} cliente(s)</span>
+            </td>
+            <td style="text-align: center; color: ${eficienciaColor}; font-weight: 600;">
+              ${eficienciaLabel} ${v.eficiencia.toFixed(1)}%
+            </td>
+            <td style="text-align: center;">
+              <button class="btn" style="padding: 6px 12px; font-size: 12px;" onclick="abrirDetalhesVendedor('${v.nome}'); return false;">👁️</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
-    document.getElementById('recomendacao').innerHTML = recomendacao;
-  }
-</script>
+    function renderizarGraficos(vendedores) {
+      const labels = vendedores.map(v => v.nome);
+      const vendidoData = vendedores.map(v => v.totalVendido);
+      const comissaoData = vendedores.map(v => v.comissaoPaga);
+
+      // Gráfico 1: Vendas
+      const ctx1 = document.getElementById('chartVendedor').getContext('2d');
+      if (chartVendedor) chartVendedor.destroy();
+
+      chartVendedor = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Total Vendido',
+            data: vendidoData,
+            backgroundColor: 'rgba(31,163,122,0.6)',
+            borderColor: '#1fa37a',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#7cf0c2' } }
+          },
+          scales: {
+            y: {
+              ticks: { color: '#7cf0c2' },
+              grid: { color: 'rgba(31,163,122,0.1)' }
+            },
+            x: {
+              ticks: { color: '#7cf0c2' },
+              grid: { color: 'rgba(31,163,122,0.1)' }
+            }
+          }
+        }
+      });
+
+      // Gráfico 2: Comissões
+      const ctx2 = document.getElementById('chartComissao').getContext('2d');
+      if (chartComissao) chartComissao.destroy();
+
+      chartComissao = new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Comissão Recebida',
+            data: comissaoData,
+            borderColor: '#d4af37',
+            backgroundColor: 'rgba(212,175,55,0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#1fa37a',
+            pointBorderColor: '#d4af37',
+            pointRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#7cf0c2' } }
+          },
+          scales: {
+            y: {
+              ticks: { color: '#7cf0c2' },
+              grid: { color: 'rgba(31,163,122,0.1)' }
+            },
+            x: {
+              ticks: { color: '#7cf0c2' },
+              grid: { color: 'rgba(31,163,122,0.1)' }
+            }
+          }
+        }
+      });
+    }
+
+    function abrirDetalhesVendedor(vendedorNome) {
+      window.vendedorSelecionado = vendedorNome;
+      console.log(`🔍 Abrindo análise do vendedor: ${vendedorNome}`);
+      window.location.href = 'analise-vendedor-detalhes.html';
+    }
+
+    function formatarMoeda(valor) {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor || 0);
+    }
+  </script>
 <script src="alertas-ligacoes.js"></script>
 <script src="sidebar-dock.js"></script>
 </body>
