@@ -39,22 +39,22 @@ async function calcularComissaoSimples() {
     clientesList.forEach(cliente => {
       if (!cliente.Vendas || !Array.isArray(cliente.Vendas)) return;
       
-      // Vendedor do cliente
-      const vendedorDoCliente = cliente.Vendedor || 'Desconhecido';
-      
-      // Inicializar vendedor se não existe
-      if (!vendedoresComissao[vendedorDoCliente]) {
-        vendedoresComissao[vendedorDoCliente] = {
-          vendedor: vendedorDoCliente,
-          totalVendido: 0,
-          qtdVendas: 0,
-          comissao: 0,
-          vendas: []
-        };
-      }
-      
       // Processar cada venda do cliente
       cliente.Vendas.forEach((venda, idx) => {
+        // Determinar vendedor da venda (prioridade: VendedorVenda > Vendedor > cliente.Vendedor)
+        const vendedorDaVenda = venda.VendedorVenda || venda.Vendedor || cliente.Vendedor || 'Desconhecido';
+        
+        // Inicializar vendedor se não existe
+        if (!vendedoresComissao[vendedorDaVenda]) {
+          vendedoresComissao[vendedorDaVenda] = {
+            vendedor: vendedorDaVenda,
+            totalVendido: 0,
+            qtdVendas: 0,
+            comissao: 0,
+            vendas: []
+          };
+        }
+        
         // Parsear data corretamente (mesma lógica que app.js usa)
         let dataVenda;
         if (venda.DataVenda && venda.DataVenda.includes('T')) {
@@ -72,15 +72,15 @@ async function calcularComissaoSimples() {
         if (mVenda === mesAtual && aVenda === anoAtual) {
           const valorVenda = venda.ValorTotal || venda.Valor || 0;
           
-          vendedoresComissao[vendedorDoCliente].totalVendido += valorVenda;
-          vendedoresComissao[vendedorDoCliente].qtdVendas += 1;
-          vendedoresComissao[vendedorDoCliente].vendas.push({
+          vendedoresComissao[vendedorDaVenda].totalVendido += valorVenda;
+          vendedoresComissao[vendedorDaVenda].qtdVendas += 1;
+          vendedoresComissao[vendedorDaVenda].vendas.push({
             cliente: cliente.Nome,
             valor: valorVenda,
             data: dataVenda.toLocaleDateString('pt-BR')
           });
           
-          console.log(`   ✅ ${cliente.Nome} (${vendedorDoCliente}): R$ ${valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
+          console.log(`   ✅ ${cliente.Nome} (${vendedorDaVenda}): R$ ${valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
         }
       });
     });
@@ -576,20 +576,21 @@ async function calcularComissaoMesAtual() {
     clientesList.forEach(cliente => {
       if (!cliente.Vendas || !Array.isArray(cliente.Vendas)) return;
       
-      const vendedorDoCliente = cliente.Vendedor || 'Desconhecido';
-      
-      // Inicializar vendedor se nao existe
-      if (!comissoes[vendedorDoCliente]) {
-        comissoes[vendedorDoCliente] = {
-          vendedor: vendedorDoCliente,
-          vendidoMesAtual: 0,
-          qtdVendas: 0,
-          comissao: 0
-        };
-      }
-      
       // Processar cada venda do cliente
       cliente.Vendas.forEach((venda) => {
+        // Determinar vendedor da venda (prioridade: VendedorVenda > Vendedor > cliente.Vendedor)
+        const vendedorDaVenda = venda.VendedorVenda || venda.Vendedor || cliente.Vendedor || 'Desconhecido';
+        
+        // Inicializar vendedor se nao existe
+        if (!comissoes[vendedorDaVenda]) {
+          comissoes[vendedorDaVenda] = {
+            vendedor: vendedorDaVenda,
+            vendidoMesAtual: 0,
+            qtdVendas: 0,
+            comissao: 0
+          };
+        }
+        
         // Parsear data corretamente
         let dataVenda;
         if (venda.DataVenda && venda.DataVenda.includes('T')) {
@@ -607,8 +608,8 @@ async function calcularComissaoMesAtual() {
         if (mVenda === mesAtual && aVenda === anoAtual) {
           const valorVenda = venda.ValorTotal || venda.Valor || 0;
           
-          comissoes[vendedorDoCliente].vendidoMesAtual += valorVenda;
-          comissoes[vendedorDoCliente].qtdVendas += 1;
+          comissoes[vendedorDaVenda].vendidoMesAtual += valorVenda;
+          comissoes[vendedorDaVenda].qtdVendas += 1;
         }
       });
     });
