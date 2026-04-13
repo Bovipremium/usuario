@@ -378,32 +378,33 @@
       aplicarFiltros();
     });
 
-    async function carregarDados() {
-      try {
-        console.log('📥 Carregando clientes.json...');
-        let clientes = await buscarArquivo("clientes.json");
-        clientes = Array.isArray(clientes) ? clientes : (clientes.dados || []);
+  async function carregarDados() {
+    try {
+      console.log('📥 Carregando clientes.json...');
+      let clientes = await buscarArquivo("clientes.json");
+      clientes = Array.isArray(clientes) ? clientes : (clientes.dados || []);
+      
+      // ✅ FILTRO: Aplicar permissões de vendedor
+      const usuarioLogado = JSON.parse(localStorage.getItem('usuario') || '{}');
+      const isAdmin = usuarioLogado.modulos && usuarioLogado.modulos.includes('Administrador');
+      
+      if (!isAdmin && usuarioLogado.nome) {
+        const vendedorLogado = usuarioLogado.nome;
+        const vendedoresVisualizacao = usuarioLogado.VendedoresVisualizacao || [];
         
-        // ✅ FILTRO: Aplicar permissões de vendedor
-        const usuarioLogado = JSON.parse(localStorage.getItem('usuario') || '{}');
-        const isAdmin = usuarioLogado.modulos && usuarioLogado.modulos.includes('Administrador');
+        // Usuário SEMPRE vê seus clientes + clientes que tem permissão
+        clientes = clientes.filter(cliente => {
+          // SEMPRE mostrar clientes do próprio vendedor
+          if (cliente.Vendedor === vendedorLogado) return true;
+          // ALÉM disso, mostrar clientes de vendedores em VendedoresVisualizacao
+          if (vendedoresVisualizacao.includes(cliente.Vendedor)) return true;
+          return false;
+        });
         
-        if (!isAdmin && usuarioLogado.nome) {
-          const vendedorLogado = usuarioLogado.nome;
-          const vendedoresVisualizacao = usuarioLogado.VendedoresVisualizacao || [];
-          
-          // Usuário vê seus clientes + clientes que tem permissão
-          clientes = clientes.filter(cliente => 
-            cliente.Vendedor === vendedorLogado || 
-            vendedoresVisualizacao.includes(cliente.Vendedor)
-          );
-          
-          console.log(`✅ Filtrado análise: ${clientes.length} clientes (seus + permitidos)`);
-        }
-        
-        todosClientes = clientes;
-
-        // ✅ CORRIGIDO: Extrair vendas usando VendedorVenda quando disponível (novo fluxo)
+        console.log(`✅ Filtrado análise: ${clientes.length} clientes (seus + permitidos)`);
+      }
+      
+      todosClientes = clientes;        // ✅ CORRIGIDO: Extrair vendas usando VendedorVenda quando disponível (novo fluxo)
         // Fallback para VendedorId (cliente.Vendedor) se não tiver VendedorVenda (compatibilidade)
         todasVendas = [];
         todosClientes.forEach(cliente => {
