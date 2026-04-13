@@ -1,754 +1,779 @@
-// ============================================================================
-// 🎯 FUNÇÃO SIMPLES: Calcular Comissão Mensal por Vendedor (como ANALISE-VENDEDOR)
-// ============================================================================
-async function calcularComissaoSimples() {
-  try {
-    console.log("🚀 Calculando Comissão Mensal (Padrão ANALISE-VENDEDOR)...");
-    
-    const hoje = new Date();
-    const mesAtual = hoje.getMonth() + 1;
-    const anoAtual = hoje.getFullYear();
-    
-    console.log(`📅 Mês/Ano: ${mesAtual}/${anoAtual}\n`);
-    
-    // PASSO 1: Carregar clientes
-    console.log('📥 Carregando clientes.json...');
-    const clientes = await buscarArquivo('clientes.json');
-    const clientesList = Array.isArray(clientes) ? clientes : (clientes.dados || []);
-    console.log(`✅ ${clientesList.length} clientes carregados\n`);
-    
-    // PASSO 2: Carregar configuração de comissão
-    console.log('📥 Carregando configMetas.json...');
-    let config = {};
-    try {
-      config = await buscarArquivo('configMetas.json');
-      console.log(`✅ Configuração carregada\n`);
-    } catch (erro) {
-      console.log(`⚠️ Erro ao carregar configMetas.json, usando padrão (5%)\n`);
-      config = { comissao: 5 };
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="sidebar-dock.css">
+  <title>Pagamentos - Bovi Premium</title>
+   <link rel="icon" type="image/png" href="assets/img/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
-    
-    const percentualComissao = config.comissao || 5;
-    console.log(`💰 Percentual de Comissão: ${percentualComissao}%\n`);
-    
-    // PASSO 3: Agrupar vendas por vendedor (como faz ANALISE-VENDEDOR)
-    console.log('📊 Processando vendas por vendedor:\n');
-    
-    const vendedoresComissao = {};
-    
-    clientesList.forEach(cliente => {
-      if (!cliente.Vendas || !Array.isArray(cliente.Vendas)) return;
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
+      min-height: 100vh;
+      color: #e5f3ee;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      color: #1fa37a;
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    .btn {
+      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 12px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
+      transform: translateY(-2px);
+    }
+
+    .btn.danger {
+      background: linear-gradient(145deg, rgba(220,53,69,.3), rgba(220,53,69,.15));
+      color: #ff9999;
+      border-color: rgba(220,53,69,.3);
+    }
+
+    .btn.danger:hover {
+      background: linear-gradient(145deg, rgba(220,53,69,.4), rgba(220,53,69,.25));
+    }
+
+    .content-card {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 30px;
+      backdrop-filter: blur(14px);
+      margin-bottom: 30px;
+    }
+
+    .section-title {
+      color: #1fa37a;
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      border-bottom: 2px solid rgba(31,163,122,.3);
+      padding-bottom: 15px;
+    }
+
+    .filtros {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .filtro-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .filtro-item label {
+      color: #8fb9ac;
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .filtro-item input,
+    .filtro-item select {
+      background: rgba(31,163,122,.1);
+      border: 1px solid rgba(31,163,122,.3);
+      border-radius: 8px;
+      color: #7cf0c2;
+      padding: 10px;
+      font-family: inherit;
+    }
+
+    .parcelasGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .parcelaCard {
+      border-radius: 12px;
+      padding: 20px;
+      border: 2px solid rgba(31,163,122,.3);
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .parcelaCard:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(31,163,122,.2);
+    }
+
+    .parcelaCard.pago {
+      background: linear-gradient(135deg, rgba(40,167,69,.2), rgba(40,167,69,.1));
+      border-color: rgba(40,167,69,.4);
+    }
+
+    .parcelaCard.pendente {
+      background: linear-gradient(135deg, rgba(255,150,150,.2), rgba(255,150,150,.1));
+      border-color: rgba(255,150,150,.4);
+    }
+
+    .parcelaCard.vencido {
+      background: linear-gradient(135deg, rgba(220,53,69,.2), rgba(220,53,69,.1));
+      border-color: rgba(220,53,69,.4);
+    }
+
+    .parcelaHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .parcelaCliente {
+      color: #7cf0c2;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .parcelaStatus {
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .parcelaStatus.pago {
+      background: rgba(40,167,69,.3);
+      color: #7cf0c2;
+    }
+
+    .parcelaStatus.pendente {
+      background: rgba(255,150,150,.3);
+      color: #ffc0c0;
+    }
+
+    .parcelaStatus.vencido {
+      background: rgba(220,53,69,.3);
+      color: #ff9999;
+    }
+
+    .parcelaInfo {
+      margin-bottom: 12px;
+    }
+
+    .parcelaInfo-label {
+      color: #8fb9ac;
+      font-size: 11px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .parcelaInfo-valor {
+      color: #7cf0c2;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .parcelaInfo-data {
+      color: #8fb9ac;
+      font-size: 13px;
+    }
+
+    .parcelaBotoes {
+      display: flex;
+      gap: 8px;
+      margin-top: 15px;
+    }
+
+    .parcelaBotoes button {
+      flex: 1;
+      padding: 8px;
+      font-size: 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 600;
+    }
+
+    .btnTogglePago {
+      background: rgba(40,167,69,.3);
+      color: #7cf0c2;
+      border: 1px solid rgba(40,167,69,.4);
+    }
+
+    .btnTogglePago:hover {
+      background: rgba(40,167,69,.4);
+    }
+
+    .btnEditar {
+      background: rgba(31,163,122,.3);
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.4);
+    }
+
+    .btnEditar:hover {
+      background: rgba(31,163,122,.4);
+    }
+
+    .empty-message {
+      text-align: center;
+      padding: 40px;
+      color: #8fb9ac;
+      font-style: italic;
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+      }
+
+      .filtros {
+        grid-template-columns: 1fr;
+      }
+
+      .parcelasGrid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <h1>💳 Gerenciamento de Pagamentos</h1>
+    </div>
+    <button class="btn" onclick="voltarParaDashboard()">← Voltar</button>
+  </div>
+
+  <!-- FILTROS -->
+  <div class="content-card">
+    <div class="section-title">🔍 Filtros</div>
+    <div class="filtros">
+      <div class="filtro-item">
+        <label>Pesquisar Cliente</label>
+        <input type="text" id="filtroCliente" placeholder="Nome ou Email..." onchange="aplicarFiltros()">
+      </div>
+      <div class="filtro-item">
+        <label>Data De</label>
+        <input type="date" id="filtroDataDe" onchange="aplicarFiltros()">
+      </div>
+      <div class="filtro-item">
+        <label>Data Até</label>
+        <input type="date" id="filtroDataAte" onchange="aplicarFiltros()">
+      </div>
+      <div class="filtro-item">
+        <label>Status</label>
+        <select id="filtroStatus" onchange="aplicarFiltros()">
+          <option value="">Todos</option>
+          <option value="pago">Pagos</option>
+          <option value="pendente">Pendentes</option>
+          <option value="vencido">Vencidos</option>
+        </select>
+      </div>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <button class="btn" onclick="aplicarFiltros()">🔍 Pesquisar</button>
+      <button class="btn" onclick="limparFiltros()">✕ Limpar</button>
+    </div>
+  </div>
+
+  <!-- PARCELAS -->
+  <div class="content-card">
+    <div class="section-title">📅 Parcelas de Pagamento</div>
+    <div id="parcelasContainer" class="parcelasGrid">
+      <p class="empty-message">Carregando parcelas...</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="config.js"></script>
+<script src="auth-utils.js"></script>
+<script src="auth.js"></script>
+<script src="auditoria.js"></script>
+
+<script>
+  // 🔐 Definir deviceId para autenticação
+  const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+  
+  let todasParcelas = [];
+  let clientesData = [];
+
+  async function carregarDados() {
+    try {
+      let clientesData_Raw = await buscarArquivo('clientes.json');
       
-      // Processar cada venda do cliente
-      cliente.Vendas.forEach((venda, idx) => {
-        // Determinar vendedor da venda (prioridade: VendedorVenda > Vendedor > cliente.Vendedor)
-        const vendedorDaVenda = venda.VendedorVenda || venda.Vendedor || cliente.Vendedor || 'Desconhecido';
-        
-        // Inicializar vendedor se não existe
-        if (!vendedoresComissao[vendedorDaVenda]) {
-          vendedoresComissao[vendedorDaVenda] = {
-            vendedor: vendedorDaVenda,
-            totalVendido: 0,
-            qtdVendas: 0,
-            comissao: 0,
-            vendas: []
-          };
-        }
-        
-        // Parsear data corretamente (mesma lógica que app.js usa)
-        let dataVenda;
-        if (venda.DataVenda && venda.DataVenda.includes('T')) {
-          const datePart = venda.DataVenda.split('T')[0];
-          const [ano, mes, dia] = datePart.split('-');
-          dataVenda = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
-        } else {
-          dataVenda = new Date(venda.DataVenda || venda.data);
-        }
-        
-        const mVenda = dataVenda.getMonth() + 1;
-        const aVenda = dataVenda.getFullYear();
-        
-        // Verificar se venda é do mês atual
-        if (mVenda === mesAtual && aVenda === anoAtual) {
-          const valorVenda = venda.ValorTotal || venda.Valor || 0;
+      // Verificar se usuário é admin
+      const usuarioLogado = JSON.parse(localStorage.getItem('usuario') || '{}');
+      const isAdmin = usuarioLogado.modulos && usuarioLogado.modulos.includes('Administrador');
+      
+      // ✅ BUSCAR DADOS ATUALIZADOS DO USUÁRIO DO DRIVE
+      if (!isAdmin && usuarioLogado.nome) {
+        try {
+          const usuarios = await buscarArquivo('usuarios.json');
+          const usuariosArray = Array.isArray(usuarios) ? usuarios : [];
+          const usuarioDadosAtualizados = usuariosArray.find(u => 
+            (u.Nome === usuarioLogado.nome || u.nome === usuarioLogado.nome)
+          );
           
-          vendedoresComissao[vendedorDaVenda].totalVendido += valorVenda;
-          vendedoresComissao[vendedorDaVenda].qtdVendas += 1;
-          vendedoresComissao[vendedorDaVenda].vendas.push({
-            cliente: cliente.Nome,
-            valor: valorVenda,
-            data: dataVenda.toLocaleDateString('pt-BR')
+          if (usuarioDadosAtualizados) {
+            usuarioLogado.VendedoresVisualizacao = usuarioDadosAtualizados.VendedoresVisualizacao || [];
+            usuarioLogado.VendedoresPermitidos = usuarioDadosAtualizados.VendedoresPermitidos || [];
+          }
+        } catch (erro) {
+          console.warn('⚠️ Erro ao buscar dados atualizados:', erro);
+        }
+      }
+      
+      // Aplicar filtro de vendedor se não for admin
+      if (!isAdmin && usuarioLogado.nome) {
+        // ✅ ADICIONADO: Verificar se tem permissão "Ver Todos"
+        const vendedoresVisualizacao = usuarioLogado.VendedoresVisualizacao || [];
+        
+        if (vendedoresVisualizacao.includes('__VER_TODOS__')) {
+          // Se marcou "Ver Todos", mostra todos os clientes de qualquer vendedor
+          console.log(`✅ Permissão "Ver Todos" ativa: Mostrando ${clientesData_Raw.length} clientes (TODOS)`);
+        } else {
+          // Caso normal: filtra por vendedor
+          const vendedorLogado = usuarioLogado.nome.trim().toLowerCase();
+          const vendedoresVisualizacaoNormalizados = vendedoresVisualizacao.map(v => v.trim().toLowerCase());
+          
+          // Usuário SEMPRE vê seus próprios clientes + clientes de vendedores que tem permissão
+          // ✅ NORMALIZADO: Comparação case-insensitive
+          clientesData_Raw = clientesData_Raw.filter(cliente => {
+            const vendedorCliente = (cliente.Vendedor || '').trim().toLowerCase();
+            // SEMPRE mostrar clientes do próprio vendedor
+            if (vendedorCliente === vendedorLogado) return true;
+            // ALÉM disso, mostrar clientes de vendedores em VendedoresVisualizacao
+            if (vendedoresVisualizacaoNormalizados.includes(vendedorCliente)) return true;
+            return false;
           });
           
-          console.log(`   ✅ ${cliente.Nome} (${vendedorDaVenda}): R$ ${valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
+          const detalhes = vendedoresVisualizacao.length > 0 
+            ? `${clientesData_Raw.length} clientes (seus + permitidos)`
+            : `${clientesData_Raw.length} clientes (apenas seus)`;
+          console.log(`✅ Filtrado: ${detalhes}`);
         }
-      });
-    });
-    
-    // PASSO 4: Calcular comissão por vendedor
-    console.log(`\n💰 COMISSÕES CALCULADAS (${mesAtual}/${anoAtual}):\n`);
-    
-    Object.keys(vendedoresComissao).forEach(vendedor => {
-      const vendedorData = vendedoresComissao[vendedor];
-      vendedorData.comissao = Math.round(
-        vendedorData.totalVendido * (percentualComissao / 100) * 100
-      ) / 100;
-      
-      if (vendedorData.totalVendido > 0) {
-        console.log(`   ${vendedor}:`);
-        console.log(`      Total Vendido: R$ ${vendedorData.totalVendido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-        console.log(`      Quantidade: ${vendedorData.qtdVendas} venda(s)`);
-        console.log(`      Comissão (${percentualComissao}%): R$ ${vendedorData.comissao.toLocaleString('pt-BR', {minimumFractionDigits: 2})}\n`);
+      } else if (isAdmin) {
+        console.log(`✅ Admin logado: vendo todos os ${clientesData_Raw.length} clientes`);
       }
-    });
-    
-    // PASSO 5: Retornar resultado
-    const comissoesArray = Object.values(vendedoresComissao)
-      .filter(v => v.totalVendido > 0)
-      .sort((a, b) => b.totalVendido - a.totalVendido);
-    
-    const totalComissoes = comissoesArray.reduce((sum, v) => sum + v.comissao, 0);
-    
-    console.log(`\n📊 RESUMO TOTAL:`);
-    console.log(`   Vendedores com vendas: ${comissoesArray.length}`);
-    console.log(`   Total de Comissões: R$ ${totalComissoes.toLocaleString('pt-BR', {minimumFractionDigits: 2})}\n`);
-    
-    return {
-      comissoes: comissoesArray,
-      totalComissoes: totalComissoes,
-      mes: mesAtual,
-      ano: anoAtual,
-      percentualComissao: percentualComissao
-    };
-    
-  } catch (erro) {
-    console.error('❌ Erro ao calcular comissão:', erro);
-    throw erro;
-  }
-}
-
-// ============================================================================
-
-async function calcularMetaAlvoInteligente() {
-  try {
-    console.log("🚀 Iniciando cálculo de Meta Alvo Inteligente (Documento Técnico)...");
-    
-    const hoje = new Date();
-    const mesAtual = hoje.getMonth() + 1;
-    const anoAtual = hoje.getFullYear();
-    
-    console.log(`📅 Data atual do servidor: ${hoje.toLocaleDateString('pt-BR')} (${mesAtual}/${anoAtual})`);
-    
-    console.log("\n📊 PASSO 1: Calculando Taxa de Inadimplência Histórica (90 dias)...");
-    
-    const clientes = await buscarArquivo('clientes.json');
-    const clientesList = Array.isArray(clientes) ? clientes : [];
-    
-    const dataAtras90 = new Date();
-    dataAtras90.setDate(dataAtras90.getDate() - 90);
-    
-    let boletos_totais_emitidos = 0;
-    let boletos_pagos = 0;
-    let boletos_atrasados = 0;
-    let boletos_pendentes = 0;
-    
-    clientesList.forEach(cliente => {
-      if (!cliente.Vendas || !Array.isArray(cliente.Vendas)) return;
       
-      cliente.Vendas.forEach(venda => {
-        if (!venda.Parcelas || !Array.isArray(venda.Parcelas)) return;
-        
-        const dataVenda = new Date(venda.DataVenda || venda.data);
-        if (dataVenda < dataAtras90) return;
-        
-        venda.Parcelas.forEach(parcela => {
-          boletos_totais_emitidos += parcela.Valor || 0;
-          
-          if (parcela.Pago === true) {
-            boletos_pagos += parcela.Valor || 0;
-          } else if (parcela.Pago === false) {
-            const dataVencimento = new Date(parcela.DataVencimento);
-            if (new Date() > dataVencimento) {
-              boletos_atrasados += parcela.Valor || 0;
-            } else {
-              boletos_pendentes += parcela.Valor || 0;
+      clientesData = clientesData_Raw;
+      
+      // Extrair todas as parcelas de todos os clientes
+      todasParcelas = [];
+      clientesData.forEach(cliente => {
+        if (cliente.Vendas && Array.isArray(cliente.Vendas)) {
+          cliente.Vendas.forEach(venda => {
+            if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+              venda.Parcelas.forEach(parcela => {
+                todasParcelas.push({
+                  id: parcela.Id || venda.Id + '_' + parcela.DataVencimento,
+                  clienteId: cliente.Id,
+                  clienteNome: cliente.Nome,
+                  clienteEmail: cliente.Email,
+                  vendaId: venda.Id,
+                  vendaNumeroNF: venda.NumeroNF,
+                  dataVencimento: parcela.DataVencimento,
+                  dataPagamento: parcela.DataPagamento,
+                  valor: parcela.Valor,
+                  pago: parcela.Pago,
+                  numero: parcela.Numero || 1,
+                  parcela: parcela,
+                  venda: venda,
+                  cliente: cliente
+                });
+              });
             }
-          }
-        });
-      });
-    });
-    
-    const taxaRecebimento = boletos_totais_emitidos > 0 ? boletos_pagos / boletos_totais_emitidos : 0.7;
-    const taxaInadimplencia = 1 - taxaRecebimento;
-    
-    console.log(`   📋 Boletos Totais (90 dias): R$ ${boletos_totais_emitidos.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`   ✅ Boletos Pagos: R$ ${boletos_pagos.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`   ❌ Boletos Atrasados: R$ ${boletos_atrasados.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`   ⏳ Boletos Pendentes: R$ ${boletos_pendentes.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`   📊 Taxa de Recebimento: ${(taxaRecebimento * 100).toFixed(1)}%`);
-    console.log(`   📊 Taxa de Inadimplência: ${(taxaInadimplencia * 100).toFixed(1)}%`);
-    
-    console.log("\n📊 PASSO 2: Calculando Despesas Fixas do Mês Atual (Contas a Pagar)...");
-    
-    const contas = await buscarArquivo('contas.json');
-    const contasList = Array.isArray(contas) ? contas : [];
-    
-    console.log(`   📋 Total de contas carregadas: ${contasList.length}`);
-    
-    // Diagnóstico: mostrar primeiras 3 contas para verificar estrutura
-    if (contasList.length > 0) {
-      console.log(`   🔍 Primeiras contas carregadas:`, contasList.slice(0, 3).map(c => ({
-        Descricao: c.Descricao || c.descricao,
-        Valor: c.Valor || c.valor,
-        DataPagamento: c.DataPagamento || c.dataPagamento
-      })));
-    }
-    
-    let despesasFixasMesAtual = 0;
-    let despesasFixasProximoMes = 0;
-    
-    const proximoMes = mesAtual === 12 ? 1 : mesAtual + 1;
-    const proximoAno = mesAtual === 12 ? anoAtual + 1 : anoAtual;
-    
-    contasList.forEach(conta => {
-      const dataPagamento = new Date(conta.DataPagamento);
-      const mesContaAno = dataPagamento.getMonth() + 1;
-      const anoContaAno = dataPagamento.getFullYear();
-      
-      if (mesContaAno === mesAtual && anoContaAno === anoAtual) {
-        despesasFixasMesAtual += conta.Valor || 0;
-      }
-      
-      if (mesContaAno === proximoMes && anoContaAno === proximoAno) {
-        despesasFixasProximoMes += conta.Valor || 0;
-      }
-    });
-    
-    // Diagnóstico
-    const contasMesAtual = contasList.filter(c => {
-      const d = new Date(c.DataPagamento);
-      return (d.getMonth() + 1) === mesAtual && d.getFullYear() === anoAtual;
-    });
-    const contasProximoMes = contasList.filter(c => {
-      const d = new Date(c.DataPagamento);
-      return (d.getMonth() + 1) === proximoMes && d.getFullYear() === proximoAno;
-    });
-    
-    console.log(`   💸 Despesas Fixas (Mês Atual ${mesAtual}/${anoAtual}): R$ ${despesasFixasMesAtual.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`       � Total de contas encontradas para este mês: ${contasMesAtual.length}`);
-    console.log(`    Despesas Fixas (Próximo Mês ${proximoMes}/${proximoAno}): R$ ${despesasFixasProximoMes.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`       🔍 Total de contas encontradas para próximo mês: ${contasProximoMes.length}`);
-    
-    console.log("\n📊 PASSO 3: Calculando Boletos a Receber (Mês Atual e Próximo)...");
-    
-    let boletosAReceberMesAtual = 0;
-    let boletosAReceberProximoMes = 0;
-    
-    clientesList.forEach(cliente => {
-      if (!cliente.Vendas || !Array.isArray(cliente.Vendas)) return;
-      
-      cliente.Vendas.forEach(venda => {
-        if (!venda.Parcelas || !Array.isArray(venda.Parcelas)) return;
-        
-        venda.Parcelas.forEach(parcela => {
-          if (parcela.Pago === false) {
-            const dataVencimento = new Date(parcela.DataVencimento);
-            const mesVencimento = dataVencimento.getMonth() + 1;
-            const anoVencimento = dataVencimento.getFullYear();
-            
-            if (mesVencimento === mesAtual && anoVencimento === anoAtual) {
-              boletosAReceberMesAtual += parcela.Valor || 0;
-            }
-            
-            const proximoMes = mesAtual === 12 ? 1 : mesAtual + 1;
-            const proximoAno = mesAtual === 12 ? anoAtual + 1 : anoAtual;
-            
-            if (mesVencimento === proximoMes && anoVencimento === proximoAno) {
-              boletosAReceberProximoMes += parcela.Valor || 0;
-            }
-          }
-        });
-      });
-    });
-    
-    const receitaLiquidaMesAtual = boletosAReceberMesAtual * (1 - taxaInadimplencia);
-    const receitaLiquidaProximoMes = boletosAReceberProximoMes * (1 - taxaInadimplencia);
-    
-    console.log(`   📋 Boletos a Receber (Mês Atual): R$ ${boletosAReceberMesAtual.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`   💵 Receita Líquida (após inadimplência): R$ ${receitaLiquidaMesAtual.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`   📋 Boletos a Receber (Próximo Mês): R$ ${boletosAReceberProximoMes.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`   💵 Receita Líquida (após inadimplência): R$ ${receitaLiquidaProximoMes.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    
-    console.log("\n📊 PASSO 4: Obtendo Configurações (Margem, Pro-Labore, Comissão)...");
-    
-    // 🔧 CORRIGIDO: Tenta buscar do arquivo, depois localStorage, depois usa valores padrão
-    let config = {};
-    
-    try {
-      config = await buscarArquivo('configMetas.json');
-      console.log(`   ✅ Carregado de configMetas.json`);
-    } catch (erro) {
-      console.log(`   ⚠️ Erro ao buscar configMetas.json:`, erro.message);
-      try {
-        const cached = localStorage.getItem('configMetas');
-        if (cached) {
-          config = JSON.parse(cached);
-          if (Object.keys(config).length > 0) {
-            console.log(`   ✅ Carregado de localStorage`);
-          }
-        }
-      } catch (e) {
-        console.log(`   ⚠️ localStorage também vazio`);
-      }
-    }
-    
-    // Se ainda está vazio, use valores padrão CORRETOS
-    if (!config.proLabore && !config.proLaboreMinima) {
-      config = {
-        proLabore: 10,
-        proLaboreMinima: 9,
-        comissao: 5,
-        custoProdutoPercentual: 0.40
-      };
-      console.log(`   ⚠️ Usando valores padrão (arquivo/cache não carregado)`);
-    }
-    
-    console.log(`   📄 Config carregado:`, config);
-    
-    const custoProdutoPercentual = config.custoProdutoPercentual || 0.40;
-    const margemContribuicaoPercentual = 1 - custoProdutoPercentual;
-    
-    // Aceita vários nomes para ProLabore Mínimo
-    const proLaboreMinimo = config.proLaboreMinima || config.metaMinima || 9;
-    // Aceita vários nomes para ProLabore Alvo
-    const proLaboreAlvo = config.proLabore || config.metaAlvo || 10;
-    const percentualComissao = config.comissao || 5;
-    
-    console.log(`   📊 Custo do Produto: ${(custoProdutoPercentual * 100).toFixed(0)}%`);
-    console.log(`   📈 Margem de Contribuição: ${(margemContribuicaoPercentual * 100).toFixed(0)}%`);
-    console.log(`   💰 Pro-Labore Mínimo (config.proLaboreMinima=${config.proLaboreMinima}, config.metaMinima=${config.metaMinima}): R$ ${proLaboreMinimo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`   🎯 Pro-Labore Alvo (config.proLabore=${config.proLabore}, config.metaAlvo=${config.metaAlvo}): R$ ${proLaboreAlvo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`   📊 Comissão: ${percentualComissao}%`);
-    
-    console.log("\n📊 PASSO 5: Calculando META MÍNIMA e META ALVO (Fórmulas do Documento)...");
-    
-    // Fórmula: Meta = ProLabore + Despesas - ReceitaRecebida
-    // Sem dividir por margem de contribuição
-    const metaMinimaVendas = Math.max(
-      proLaboreMinimo,
-      proLaboreMinimo + despesasFixasMesAtual - receitaLiquidaMesAtual
-    );
-    
-    const metaAlvoVendas = Math.max(
-      proLaboreAlvo,
-      proLaboreAlvo + despesasFixasProximoMes - receitaLiquidaProximoMes
-    );
-    
-    console.log(`   Meta Mínima = MAX(${proLaboreMinimo}, ${proLaboreMinimo} + ${despesasFixasMesAtual.toFixed(2)} - ${receitaLiquidaMesAtual.toFixed(2)})`);
-    console.log(`   Meta Mínima = MAX(${proLaboreMinimo}, ${(proLaboreMinimo + despesasFixasMesAtual - receitaLiquidaMesAtual).toFixed(2)})`);
-    console.log(`   Meta Alvo = MAX(${proLaboreAlvo}, ${proLaboreAlvo} + ${despesasFixasProximoMes.toFixed(2)} - ${receitaLiquidaProximoMes.toFixed(2)})`);
-    console.log(`   Meta Alvo = MAX(${proLaboreAlvo}, ${(proLaboreAlvo + despesasFixasProximoMes - receitaLiquidaProximoMes).toFixed(2)})`);
-    
-    console.log(`\n✅ Meta Mínima de Vendas: R$ ${metaMinimaVendas.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`✅ Meta Alvo de Vendas: R$ ${metaAlvoVendas.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    
-    return {
-      metaAlvo: Math.round(metaAlvoVendas * 100) / 100,
-      metaMinima: Math.round(metaMinimaVendas * 100) / 100,
-      mesAtual: mesAtual,
-      anoAtual: anoAtual,
-      boletosAReceberMesAtual: Math.round(boletosAReceberMesAtual * 100) / 100,
-      receitaLiquidaMesAtual: Math.round(receitaLiquidaMesAtual * 100) / 100,
-      boletosAReceberProximoMes: Math.round(boletosAReceberProximoMes * 100) / 100,
-      receitaLiquidaProximoMes: Math.round(receitaLiquidaProximoMes * 100) / 100,
-      despesasFixasMesAtual: Math.round(despesasFixasMesAtual * 100) / 100,
-      despesasFixasProximoMes: Math.round(despesasFixasProximoMes * 100) / 100,
-      custoProdutoPercentual: (custoProdutoPercentual * 100).toFixed(0),
-      margemContribuicao: (margemContribuicaoPercentual * 100).toFixed(0),
-      proLaboreMinimo: proLaboreMinimo,
-      proLaboreAlvo: proLaboreAlvo,
-      percentualComissao: percentualComissao,
-      taxaRecebimento: (taxaRecebimento * 100).toFixed(1),
-      taxaInadimplencia: (taxaInadimplencia * 100).toFixed(1),
-      totalBoletosEmitidos: Math.round(boletos_totais_emitidos * 100) / 100,
-      totalBoletosPagos: Math.round(boletos_pagos * 100) / 100,
-      totalBoletosAtrasados: Math.round(boletos_atrasados * 100) / 100,
-      dataDaProximaReavaliacao: new Date(anoAtual, mesAtual + 1, 1).toLocaleDateString('pt-BR'),
-      dataSalva: new Date().toISOString()
-    };
-  } catch (erro) {
-    console.error("❌ Erro ao calcular Meta Alvo:", erro);
-    return null;
-  }
-}
-
-
-
-/**
- * Atualizar as metas no localStorage e na interface
- * Sistema Híbrido: Salva metas em metas.json uma vez por mês, reutiliza durante o mês
- */
-async function atualizarMetasInteligentes() {
-  console.log("🔄 Verificando sistema de metas inteligentes (híbrido)...");
-  
-  const hoje = new Date();
-  const mesAtual = hoje.getMonth() + 1;
-  const anoAtual = hoje.getFullYear();
-  
-  // 1️⃣ VERIFICAR SE EXISTE metas.json NO DRIVE
-  console.log(`📅 Mês atual: ${mesAtual}/${anoAtual}`);
-  
-  try {
-    const metasDoMes = await buscarArquivo('metas.json');
-    
-    if (metasDoMes && metasDoMes.mesAtual === mesAtual && metasDoMes.anoAtual === anoAtual) {
-      console.log(`✅ Metas do mês ${mesAtual}/${anoAtual} encontradas em metas.json!`);
-      console.log(`   📊 Meta Mínima: R$ ${metasDoMes.metaMinima.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-      console.log(`   🎯 Meta Alvo: R$ ${metasDoMes.metaAlvo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-      console.log(`   📅 Salva em: ${new Date(metasDoMes.dataSalva).toLocaleDateString('pt-BR')}`);
-      
-      // Guardar no localStorage para uso na exibição
-      localStorage.setItem('metasCalculadas', JSON.stringify({
-        ...metasDoMes,
-        dataCalculo: new Date().toISOString(),
-        origem: 'metas.json (reutilizado)'
-      }));
-      
-      return metasDoMes;
-    } else {
-      console.log(`⚠️ Metas do mês anterior encontradas, mas mês mudou! Recalculando...`);
-    }
-  } catch (erro) {
-    console.log(`📭 metas.json não encontrado (primeiro cálculo do mês). Calculando...`);
-  }
-  
-  // 2️⃣ CALCULAR NOVAS METAS (se não encontrou ou é novo mês)
-  console.log(`🔢 Calculando novas metas para ${mesAtual}/${anoAtual}...`);
-  
-  const resultado = await calcularMetaAlvoInteligente();
-  
-  if (resultado) {
-    // Guardar no localStorage
-    localStorage.setItem('metasCalculadas', JSON.stringify({
-      ...resultado,
-      dataCalculo: new Date().toISOString(),
-      origem: 'cálculo novo'
-    }));
-    
-    console.log("✅ Metas calculadas e salvas com sucesso!");
-    
-    // Aqui você salvaria em metas.json no Drive
-    // (seria feito via uma função de salvar que chama a API)
-    console.log("💾 Nota: Metas precisam ser salvas em metas.json no Drive para próximas consultas");
-    
-    return resultado;
-  }
-  
-  return null;
-}
-
-/**
- * Obter as metas calculadas (do cache)
- */
-function obterMetasCalculadas() {
-  try {
-    const metasJson = localStorage.getItem('metasCalculadas');
-    return metasJson ? JSON.parse(metasJson) : null;
-  } catch (erro) {
-    console.error("Erro ao obter metas calculadas:", erro);
-    return null;
-  }
-}
-
-/**
- * FUNÇÃO AUXILIAR: Resumo do Sistema Híbrido
- * Útil para debugging e entender o fluxo
- */
-function resumoSistemaHibrido() {
-  console.log(`
-╔════════════════════════════════════════════════════════════════╗
-║        SISTEMA HÍBRIDO DE METAS E COMISSÕES - RESUMO          ║
-╚════════════════════════════════════════════════════════════════╝
-
-📊 METAS (Salvo em metas.json - NÃO oscila)
-  └─ Cálculo: Uma vez por mês (primeiro acesso)
-  └─ Reuso: Durante todo mês (cache em localStorage)
-  └─ Recalcula: Quando muda o mês
-  
-💰 COMISSÃO (Calculado em tempo real - OSCILA)
-  └─ Cálculo: Sempre que página carrega
-  └─ Baseado em: Vendas do mês atual
-  └─ Atualiza: Diariamente conforme vendas
-  
-📁 ARQUIVOS NECESSÁRIOS:
-  ✅ metas.json (cache de metas - criado automaticamente)
-  ✅ usuarios.json (permissões dos usuários)
-  ✅ clientes.json (dados de clientes e vendas)
-  ✅ configMetas.json (porcentagens e valores)
-  ✅ contas.json (despesas fixas)
-
-⚠️  IMPORTANTE - VENDAS DE MARÇO/2026:
-  Os dados atuais têm vendas apenas de 2025
-  Para testar comissão, adicione vendas em 03/2026 aos clientes
-  
-🔍 Para debugar, procure no Console do navegador (F12) por:
-  "✅ Metas do mês" = Usando cache
-  "🔢 Calculando novas metas" = Recalculando (novo mês)
-  "✅ INCLUÍDA:" = Venda foi contabilizada
-  "📅 Venda em X/Y" = Venda de outro mês (ignorada)
-  "⚠️ AVISO IMPORTANTE" = Sem vendas no mês atual
-  
-═══════════════════════════════════════════════════════════════════
-  `);
-}
-
-
-async function calcularComissaoMesAtual() {
-  try {
-    console.log("Calculando comissao do mes atual (Com VendedoresPermitidos)...");
-    
-    const hoje = new Date();
-    const mesAtual = hoje.getMonth() + 1;
-    const anoAtual = hoje.getFullYear();
-    
-    console.log(`Data do navegador: ${hoje.toLocaleDateString('pt-BR')} (Mes: ${mesAtual}, Ano: ${anoAtual})\n`);
-    
-    // LER USUARIO LOGADO
-    let usuario = obterUsuario();
-    let nomeUsuarioLogado = null;
-    
-    if (!usuario || !usuario.nome) {
-      const usuarioLogadoStorage = localStorage.getItem('usuarioLogado');
-      if (usuarioLogadoStorage) {
-        usuario = JSON.parse(usuarioLogadoStorage);
-      }
-    }
-    
-    nomeUsuarioLogado = usuario?.nome || usuario?.Nome || usuario?.login || usuario?.Login;
-    console.log(`Usuario logado: ${nomeUsuarioLogado || 'Nao detectado'}`);
-    
-    // CARREGAR CONFIGURACAO
-    let config = {};
-    try {
-      config = await buscarArquivo('configMetas.json');
-      console.log(`Configuracao carregada`);
-    } catch (erro) {
-      console.log(`Usando configuracao padrao`);
-      config = { comissao: 5 };
-    }
-    
-    const percentualComissao = config.comissao || 5;
-    console.log(`Percentual de Comissao: ${percentualComissao}%\n`);
-    
-    // CARREGAR CLIENTES
-    console.log('Carregando clientes.json...');
-    const clientes = await buscarArquivo('clientes.json');
-    const clientesList = Array.isArray(clientes) ? clientes : [];
-    console.log(`${clientesList.length} clientes carregados\n`);
-    
-    // CARREGAR usuarios.json PARA OBTER VendedoresPermitidos
-    let vendedoresPermitidos = [];
-    try {
-      const usuarios = await buscarArquivo('usuarios.json');
-      const usuariosArray = Array.isArray(usuarios) ? usuarios : [];
-      const usuarioDados = usuariosArray.find(u => 
-        (u.Nome === nomeUsuarioLogado || u.nome === nomeUsuarioLogado)
-      );
-      
-      if (usuarioDados && Array.isArray(usuarioDados.VendedoresPermitidos)) {
-        // ✅ NORMALIZADO: Normalizar todos os vendedores permitidos para comparação
-        vendedoresPermitidos = usuarioDados.VendedoresPermitidos.map(v => v.trim().toLowerCase());
-        console.log(`VendedoresPermitidos para ${nomeUsuarioLogado}: ${vendedoresPermitidos.join(', ') || 'Nenhum'}\n`);
-      }
-    } catch (erro) {
-      console.log(`Erro ao carregar usuarios.json: ${erro.message}\n`);
-    }
-    
-    // VERIFICAR SE E ADMIN
-    const isAdmin = (usuario && usuario.modulos && usuario.modulos.includes('Administrador')) || 
-                    (usuario && usuario.ModulosPermitidos && usuario.ModulosPermitidos.includes('Administrador')) ||
-                    !usuario;
-    
-    console.log(`Modo: ${isAdmin ? 'ADMINISTRADOR (Ver todos)' : 'USUARIO NORMAL'}\n`);
-    
-    // PROCESSAR VENDAS POR VENDEDOR
-    const comissoes = {};
-    
-    clientesList.forEach(cliente => {
-      if (!cliente.Vendas || !Array.isArray(cliente.Vendas)) return;
-      
-      // Processar cada venda do cliente
-      cliente.Vendas.forEach((venda) => {
-        // ✅ NORMALIZADO: Determinar vendedor da venda (prioridade: VendedorVenda > Vendedor > cliente.Vendedor)
-        const vendedorDaVenda = (venda.VendedorVenda || venda.Vendedor || cliente.Vendedor || 'Desconhecido').trim().toLowerCase();
-        const vendedorDisplay = (venda.VendedorVenda || venda.Vendedor || cliente.Vendedor || 'Desconhecido').trim(); // Para exibição
-        
-        // Inicializar vendedor se nao existe
-        if (!comissoes[vendedorDaVenda]) {
-          comissoes[vendedorDaVenda] = {
-            vendedor: vendedorDisplay,
-            vendidoMesAtual: 0,
-            qtdVendas: 0,
-            comissao: 0
-          };
-        }
-        
-        // Parsear data corretamente
-        let dataVenda;
-        if (venda.DataVenda && venda.DataVenda.includes('T')) {
-          const datePart = venda.DataVenda.split('T')[0];
-          const [ano, mes, dia] = datePart.split('-');
-          dataVenda = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
-        } else {
-          dataVenda = new Date(venda.DataVenda || venda.data);
-        }
-        
-        const mVenda = dataVenda.getMonth() + 1;
-        const aVenda = dataVenda.getFullYear();
-        
-        // Verificar se venda e do mes atual
-        if (mVenda === mesAtual && aVenda === anoAtual) {
-          const valorVenda = venda.ValorTotal || venda.Valor || 0;
-          
-          comissoes[vendedorDaVenda].vendidoMesAtual += valorVenda;
-          comissoes[vendedorDaVenda].qtdVendas += 1;
+          });
         }
       });
+
+      renderizarParcelas(todasParcelas);
+    } catch (erro) {
+      console.error('Erro ao carregar dados:', erro);
+      alert('❌ Erro ao carregar pagamentos: ' + erro.message);
+    }
+  }
+
+  function renderizarParcelas(parcelas) {
+    const container = document.getElementById('parcelasContainer');
+    
+    // ✅ Limpar container completamente
+    container.innerHTML = '';
+
+    if (!parcelas || parcelas.length === 0) {
+      container.innerHTML = '<p class="empty-message">Nenhuma parcela encontrada</p>';
+      return;
+    }
+
+    let html = '';
+    parcelas.forEach((item) => {
+      const dataVenc = new Date(item.dataVencimento).toLocaleDateString('pt-BR');
+      const dataPag = item.dataPagamento ? new Date(item.dataPagamento).toLocaleDateString('pt-BR') : '-';
+      const valor = parseFloat(item.valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      
+      // Determinar status
+      const hoje = new Date();
+      const dataVencObj = new Date(item.dataVencimento);
+      dataVencObj.setHours(0, 0, 0, 0);
+      hoje.setHours(0, 0, 0, 0);
+      
+      let status = 'pendente';
+      let statusLabel = '⏰ Pendente';
+      let statusClass = 'pendente';
+
+      if (item.pago) {
+        status = 'pago';
+        statusLabel = '✅ Pago';
+        statusClass = 'pago';
+      } else if (dataVencObj < hoje) {
+        status = 'vencido';
+        statusLabel = '❌ Vencido';
+        statusClass = 'vencido';
+      }
+
+      html += `
+        <div class="parcelaCard ${statusClass}">
+          <div class="parcelaHeader">
+            <span class="parcelaCliente">${item.clienteNome}</span>
+            <span class="parcelaStatus ${statusClass}">${statusLabel}</span>
+          </div>
+
+          <div class="parcelaInfo">
+            <div class="parcelaInfo-label">Número NF</div>
+            <div class="parcelaInfo-data">${item.vendaNumeroNF || '-'}</div>
+          </div>
+
+          <div class="parcelaInfo">
+            <div class="parcelaInfo-label">Parcela</div>
+            <div class="parcelaInfo-data">${item.numero}</div>
+          </div>
+
+          <div class="parcelaInfo">
+            <div class="parcelaInfo-label">Valor</div>
+            <div class="parcelaInfo-valor">${valor}</div>
+          </div>
+
+          <div class="parcelaInfo">
+            <div class="parcelaInfo-label">Vencimento</div>
+            <div class="parcelaInfo-data">${dataVenc}</div>
+          </div>
+
+          ${item.pago ? `
+            <div class="parcelaInfo">
+              <div class="parcelaInfo-label">Data do Pagamento</div>
+              <div class="parcelaInfo-data">${dataPag}</div>
+            </div>
+          ` : ''}
+
+          <div class="parcelaBotoes">
+            <button class="btnTogglePago" onclick="marcarPago('${item.id}')">${item.pago ? '🔄 Desfazer Pagamento' : '✅ Marcar como Pago'}</button>
+            <button class="btnEditar" onclick="editarDataParcela('${item.id}')">📝 Editar Data</button>
+          </div>
+        </div>
+      `;
     });
-    
-    // CALCULAR COMISSAO
-    Object.keys(comissoes).forEach(vendedor => {
-      comissoes[vendedor].comissao = Math.round(
-        comissoes[vendedor].vendidoMesAtual * (percentualComissao / 100) * 100
-      ) / 100;
+
+    container.innerHTML = html;
+  }
+
+  function aplicarFiltros() {
+    const nomeCliente = document.getElementById('filtroCliente').value.toLowerCase();
+    const dataDe = document.getElementById('filtroDataDe').value;
+    const dataAte = document.getElementById('filtroDataAte').value;
+    const status = document.getElementById('filtroStatus').value;
+
+    let parcelasFiltradas = todasParcelas.filter(item => {
+      // Filtro por cliente
+      if (nomeCliente && !item.clienteNome.toLowerCase().includes(nomeCliente) && !item.clienteEmail.toLowerCase().includes(nomeCliente)) {
+        return false;
+      }
+
+      // Filtro por data
+      if (dataDe) {
+        const dataVenc = new Date(item.dataVencimento);
+        const filtroData = new Date(dataDe);
+        if (dataVenc < filtroData) return false;
+      }
+
+      if (dataAte) {
+        const dataVenc = new Date(item.dataVencimento);
+        const filtroData = new Date(dataAte);
+        if (dataVenc > filtroData) return false;
+      }
+
+      // Filtro por status
+      if (status) {
+        const hoje = new Date();
+        const dataVencObj = new Date(item.dataVencimento);
+        dataVencObj.setHours(0, 0, 0, 0);
+        hoje.setHours(0, 0, 0, 0);
+
+        if (status === 'pago' && !item.pago) return false;
+        if (status === 'pendente' && (item.pago || dataVencObj < hoje)) return false;
+        if (status === 'vencido' && (item.pago || dataVencObj >= hoje)) return false;
+      }
+
+      return true;
     });
-    
-    console.log(`COMISSOES DO MES ${mesAtual}/${anoAtual}:\n`);
-    Object.keys(comissoes).forEach(vendedor => {
-      console.log(`   ${vendedor}: R$ ${comissoes[vendedor].vendidoMesAtual.toLocaleString('pt-BR', {minimumFractionDigits: 2})} -> Comissao: R$ ${comissoes[vendedor].comissao.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    });
-    
-    // PREPARAR RESULTADO PARA EXIBICAO
-    let comissoesArray = [];
-    let comissaoTotalFinal = 0;
-    
-    if (isAdmin) {
-      // ===== ADMIN: MOSTRA TODOS OS VENDEDORES SEPARADOS =====
-      console.log(`\nMODO ADMIN: Mostrando TODOS os vendedores separados\n`);
-      
-      comissoesArray = Object.values(comissoes)
-        .sort((a, b) => b.vendidoMesAtual - a.vendidoMesAtual);
-      
-      // Na caixa grande, mostra APENAS a comissao do Admin
-      const comissaoDoAdmin = comissoes[nomeUsuarioLogado];
-      comissaoTotalFinal = (comissaoDoAdmin && comissaoDoAdmin.comissao) || 0;
-      
-      console.log(`ADMIN ${nomeUsuarioLogado} - Comissao propria: R$ ${comissaoTotalFinal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-      console.log(`Tabela mostrara TODOS (${comissoesArray.length} vendedores)\n`);
-      
-    } else if (nomeUsuarioLogado) {
-      // ===== USUARIO NORMAL: LOGICA COM VendedoresPermitidos =====
-      
-      if (vendedoresPermitidos.length === 0) {
-        // Se NAO marcou nenhum vendedor -> ve APENAS suas vendas
-        console.log(`\nMODO USUARIO (sem permissoes extras): ${nomeUsuarioLogado} ve apenas suas vendas\n`);
-        
-        const comissaoUser = comissoes[nomeUsuarioLogado];
-        if (comissaoUser) {
-          comissoesArray = [comissaoUser];
-          comissaoTotalFinal = comissaoUser.comissao;
-        } else {
-          comissoesArray = [];
-          comissaoTotalFinal = 0;
-        }
-        
-      } else if (vendedoresPermitidos.includes('__VER_TODOS__')) {
-        // ✅ ADICIONADO: Se marcou "__VER_TODOS__" -> soma TODAS as comissoes
-        console.log(`\nMODO USUARIO (Ver Todos): ${nomeUsuarioLogado} ve TODAS as vendas\n`);
-        
-        let vendedoresTotalizados = {
-          vendedor: nomeUsuarioLogado,
-          vendidoMesAtual: 0,
-          qtdVendas: 0,
-          comissao: 0
-        };
-        
-        // Somar TODAS as comissoes
-        Object.values(comissoes).forEach(comissao => {
-          vendedoresTotalizados.vendidoMesAtual += comissao.vendidoMesAtual;
-          vendedoresTotalizados.qtdVendas += comissao.qtdVendas;
-        });
-        
-        // Recalcular comissao do total
-        vendedoresTotalizados.comissao = Math.round(
-          vendedoresTotalizados.vendidoMesAtual * (percentualComissao / 100) * 100
-        ) / 100;
-        
-        comissoesArray = [vendedoresTotalizados];
-        comissaoTotalFinal = vendedoresTotalizados.comissao;
-        
-        console.log(`\nTotal (Ver Todos): R$ ${vendedoresTotalizados.vendidoMesAtual.toLocaleString('pt-BR', {minimumFractionDigits: 2})} -> Comissao: R$ ${comissaoTotalFinal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}\n`);
+
+    renderizarParcelas(parcelasFiltradas);
+  }
+
+  function limparFiltros() {
+    document.getElementById('filtroCliente').value = '';
+    document.getElementById('filtroDataDe').value = '';
+    document.getElementById('filtroDataAte').value = '';
+    document.getElementById('filtroStatus').value = '';
+    renderizarParcelas(todasParcelas);
+  }
+
+  async function marcarPago(parcelaId) {
+    const item = todasParcelas.find(p => p.id === parcelaId);
+    if (!item) return;
+
+    try {
+      item.pago = !item.pago;
+      if (item.pago) {
+        item.dataPagamento = new Date().toISOString().split('T')[0];
       } else {
-        // Se marcou vendedores específicos -> ve suas vendas + dos marcados, SOMADOS
-        console.log(`\nMODO USUARIO (com permissoes): ${nomeUsuarioLogado} ve suas vendas + permissoes\n`);
-        
-        let vendedoresTotalizados = {
-          vendedor: nomeUsuarioLogado,
-          vendidoMesAtual: 0,
-          qtdVendas: 0,
-          comissao: 0
-        };
-        
-        // Somar vendas do usuario
-        const nomeUsuarioNormalizado = nomeUsuarioLogado.trim().toLowerCase();
-        if (comissoes[nomeUsuarioNormalizado]) {
-          vendedoresTotalizados.vendidoMesAtual += comissoes[nomeUsuarioNormalizado].vendidoMesAtual;
-          vendedoresTotalizados.qtdVendas += comissoes[nomeUsuarioNormalizado].qtdVendas;
-        }
-        
-        // Somar vendas dos permitidos
-        vendedoresPermitidos.forEach(vendedor => {
-          if (comissoes[vendedor]) {
-            vendedoresTotalizados.vendidoMesAtual += comissoes[vendedor].vendidoMesAtual;
-            vendedoresTotalizados.qtdVendas += comissoes[vendedor].qtdVendas;
-            console.log(`   + Adicionando ${vendedor}: R$ ${comissoes[vendedor].vendidoMesAtual.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-          }
-        });
-        
-        // Recalcular comissao do total
-        vendedoresTotalizados.comissao = Math.round(
-          vendedoresTotalizados.vendidoMesAtual * (percentualComissao / 100) * 100
-        ) / 100;
-        
-        comissoesArray = [vendedoresTotalizados];
-        comissaoTotalFinal = vendedoresTotalizados.comissao;
-        
-        console.log(`\nTotal ${nomeUsuarioLogado}: R$ ${vendedoresTotalizados.vendidoMesAtual.toLocaleString('pt-BR', {minimumFractionDigits: 2})} -> Comissao: R$ ${comissaoTotalFinal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}\n`);
+        item.dataPagamento = null;
       }
+
+      // Atualizar no cliente
+      item.parcela.Pago = item.pago;
+      item.parcela.DataPagamento = item.dataPagamento;
+
+      // Salvar no JSON
+      const clienteIdx = clientesData.findIndex(c => c.Id === item.clienteId);
+      if (clienteIdx >= 0) {
+        clientesData[clienteIdx] = item.cliente;
+      }
+
+      // ✅ SALVAR NO GOOGLE DRIVE
+      await salvarArquivo('clientes.json', clientesData);
+
+      // ✅ Registrar auditoria
+      salvarDadosComAuditoria(
+        'Parcela',
+        item.pago ? 'Atualizar' : 'Atualizar',
+        item.id,
+        `Parcela - ${item.clienteNome}`,
+        `Parcela marcada como ${item.pago ? 'PAGO' : 'NÃO PAGO'} - NF: ${item.vendaNumeroNF}`,
+        JSON.stringify({Pago: !item.pago}),
+        JSON.stringify(item.parcela)
+      );
+
+      renderizarParcelas(todasParcelas);
+      alert(item.pago ? '✅ Pagamento registrado!' : '✅ Pagamento removido!');
+    } catch (erro) {
+      console.error('Erro ao marcar como pago:', erro);
+      alert('❌ Erro: ' + erro.message);
     }
-    
-    console.log(`\nTOTAL A EXIBIR: R$ ${comissaoTotalFinal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}\n`);
-    
-    return {
-      comissaoTotal: comissaoTotalFinal,
-      comissoesArray: comissoesArray,
-      usuarioLogado: nomeUsuarioLogado,
-      isAdmin: isAdmin,
-      percentualComissao: percentualComissao,
-      mes: mesAtual,
-      ano: anoAtual
-    };
-    
-  } catch (erro) {
-    console.error('Erro ao calcular comissao:', erro);
-    return {
-      comissaoTotal: 0,
-      comissoesArray: [],
-      usuarioLogado: null,
-      isAdmin: false,
-      percentualComissao: 5,
-      mes: 0,
-      ano: 0
+  }
+
+  async function editarDataParcela(parcelaId) {
+    const item = todasParcelas.find(p => p.id === parcelaId);
+    if (!item) return;
+
+    // Criar modal
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+      backdrop-filter: blur(5px);
+    `;
+
+    const form = document.createElement('div');
+    form.style.cssText = `
+      background: linear-gradient(180deg, rgba(14,31,26,.95), rgba(5,11,9,.95));
+      border: 2px solid rgba(31,163,122,.5);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 10px 60px rgba(31,163,122,.3);
+    `;
+
+    const dataVencAtual = new Date(item.dataVencimento).toISOString().split('T')[0];
+    const dataPagAtual = item.dataPagamento ? new Date(item.dataPagamento).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+    form.innerHTML = `
+      <h2 style="color: #1fa37a; margin-bottom: 20px; text-align: center;">📝 Editar Data de Pagamento</h2>
+
+      <div style="background: rgba(31,163,122,.1); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        <p style="color: #8fb9ac; margin-bottom: 10px;"><strong>Cliente:</strong> ${item.clienteNome}</p>
+        <p style="color: #8fb9ac; margin-bottom: 10px;"><strong>NF:</strong> ${item.vendaNumeroNF}</p>
+        <p style="color: #8fb9ac; margin-bottom: 0;"><strong>Valor:</strong> ${parseFloat(item.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase; display: block; margin-bottom: 8px;">Data de Vencimento</label>
+        <input type="date" id="editDataVenc" value="${dataVencAtual}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase; display: block; margin-bottom: 8px;">Data de Pagamento</label>
+        <input type="date" id="editDataPag" value="${dataPagAtual}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 20px; background: rgba(31,163,122,.1); padding: 15px; border-radius: 8px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase; display: block; margin-bottom: 10px;">
+          <input type="checkbox" id="chkContarMesAtual" style="margin-right: 10px; cursor: pointer;">
+          Contar no mês atual?
+        </label>
+        <p style="color: #8fb9ac; font-size: 11px; margin: 0;">Se marcado, a data de vencimento será alterada para hoje em vez da data informada acima.</p>
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: center;">
+        <button id="btnSalvar" class="btn" style="padding: 12px 30px;">💾 Salvar</button>
+        <button id="btnCancelar" class="btn danger" style="padding: 12px 30px;">✕ Cancelar</button>
+      </div>
+    `;
+
+    modal.appendChild(form);
+    document.body.appendChild(modal);
+
+    document.getElementById('btnCancelar').onclick = () => modal.remove();
+
+    document.getElementById('btnSalvar').onclick = async () => {
+      try {
+        const dataVencNova = document.getElementById('editDataVenc').value;
+        const dataPagNova = document.getElementById('editDataPag').value;
+        const contarMesAtual = document.getElementById('chkContarMesAtual').checked;
+
+        // Guardar dados antigos para auditoria
+        const parcelaAnterior = JSON.parse(JSON.stringify(item.parcela));
+
+        // Atualizar parcela
+        item.parcela.DataVencimento = contarMesAtual ? new Date().toISOString().split('T')[0] : dataVencNova;
+        item.parcela.DataPagamento = dataPagNova;
+
+        // Atualizar no array
+        item.dataVencimento = item.parcela.DataVencimento;
+        item.dataPagamento = item.parcela.DataPagamento;
+
+        // Salvar no cliente
+        item.cliente.Vendas = item.cliente.Vendas.map(v => 
+          v.Id === item.vendaId ? {
+            ...v,
+            Parcelas: v.Parcelas.map(p => 
+              p.DataVencimento === parcelaAnterior.DataVencimento && p.Valor === parcelaAnterior.Valor 
+                ? item.parcela 
+                : p
+            )
+          } : v
+        );
+
+        // Atualizar lista geral
+        const clienteIdx = clientesData.findIndex(c => c.Id === item.clienteId);
+        if (clienteIdx >= 0) {
+          clientesData[clienteIdx] = item.cliente;
+        }
+
+        // ✅ OTIMIZAÇÃO: Salvar em background
+        salvarDadosComAuditoria(
+          'clientes.json',
+          clientesData,
+          'auditoria',
+          'Atualizar',
+          'Parcela',
+          item.id,
+          `Parcela - ${item.clienteNome}`,
+          `Data de vencimento alterada de ${new Date(parcelaAnterior.DataVencimento).toLocaleDateString('pt-BR')} para ${new Date(item.parcela.DataVencimento).toLocaleDateString('pt-BR')} - NF: ${item.vendaNumeroNF}`,
+          JSON.stringify(parcelaAnterior),
+          JSON.stringify(item.parcela)
+        );
+
+        modal.remove();
+        renderizarParcelas(todasParcelas);
+        alert('✅ Data de pagamento atualizada com sucesso!');
+      } catch (erro) {
+        console.error('Erro ao salvar data:', erro);
+        alert('❌ Erro: ' + erro.message);
+      }
     };
   }
-}
+
+  function voltarParaDashboard() {
+    window.location.href = 'index.html?modulo=dashboard';
+  }
+
+  // ✅ FUNÇÃO PARA SALVAR ARQUIVOS NO GOOGLE DRIVE
+  async function salvarArquivo(nomeArquivo, dados) {
+    try {
+      const dadosJson = JSON.stringify(dados, null, 2);
+      const response = await fetch(CONFIG.API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `acao=salvarClientes&deviceId=${deviceId}&dados=${encodeURIComponent(dadosJson)}`
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      console.log(`✅ ${nomeArquivo} salvo com sucesso`);
+      return { sucesso: true, mensagem: 'Salvo com sucesso' };
+    } catch (erro) {
+      console.error(`❌ Erro ao salvar ${nomeArquivo}:`, erro);
+      throw erro;
+    }
+  }
+
+  // Carregar dados ao abrir
+  carregarDados();
+</script>
+
+<script src="sidebar-dock.js"></script>
+</body>
+</html>
