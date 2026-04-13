@@ -23,6 +23,18 @@
       padding: 20px;
     }
 
+    @media (max-width: 768px) {
+      body {
+        padding: 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 8px;
+      }
+    }
+
     .container {
       max-width: 1400px;
       margin: 0 auto;
@@ -40,6 +52,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 20px;
     }
 
     .header h1 {
@@ -51,6 +64,50 @@
     .header-actions {
       display: flex;
       gap: 12px;
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        padding: 20px;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .header h1 {
+        font-size: 24px;
+        text-align: center;
+        width: 100%;
+      }
+
+      .header-actions {
+        width: 100%;
+      }
+
+      .header-actions .btn {
+        flex: 1;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header {
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 15px;
+      }
+
+      .header h1 {
+        font-size: 20px;
+      }
+
+      .header-actions {
+        width: 100%;
+      }
+
+      .header-actions .btn {
+        flex: 1;
+        padding: 10px 16px;
+        font-size: 12px;
+      }
     }
 
     /* ABAS */
@@ -89,6 +146,33 @@
       border-bottom: 2px solid rgba(31,163,122,.6);
       color: #fff;
       box-shadow: 0 5px 15px rgba(31,163,122,.2);
+    }
+
+    @media (max-width: 768px) {
+      .abas-nav {
+        gap: 6px;
+        margin-bottom: 15px;
+      }
+
+      .aba-botao {
+        padding: 10px 16px;
+        font-size: 12px;
+        border-radius: 8px 8px 0 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .abas-nav {
+        gap: 4px;
+        margin-bottom: 12px;
+      }
+
+      .aba-botao {
+        padding: 8px 12px;
+        font-size: 11px;
+        flex: 1;
+        text-align: center;
+      }
     }
 
     .btn {
@@ -143,6 +227,21 @@
       box-shadow: 0 10px 20px rgba(100,100,100,.2);
     }
 
+    @media (max-width: 768px) {
+      .btn {
+        padding: 10px 16px;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .btn {
+        padding: 10px 12px;
+        font-size: 11px;
+        width: 100%;
+      }
+    }
+
     /* CONTEÚDO DE ABAS */
     .aba-conteudo {
       display: none;
@@ -180,6 +279,7 @@
       font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      white-space: nowrap;
     }
 
     td {
@@ -216,6 +316,50 @@
       border: 1px solid rgba(255,99,71,.4);
     }
 
+    @media (max-width: 768px) {
+      .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 12px;
+        margin-bottom: 15px;
+      }
+
+      table {
+        min-width: 600px;
+      }
+
+      th {
+        padding: 12px 8px;
+        font-size: 11px;
+      }
+
+      td {
+        padding: 10px 8px;
+        font-size: 11px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      table {
+        min-width: 500px;
+      }
+
+      th {
+        padding: 10px 6px;
+        font-size: 10px;
+      }
+
+      td {
+        padding: 8px 6px;
+        font-size: 10px;
+      }
+    }
+
     /* AÇÕES */
     .acoes {
       display: flex;
@@ -248,6 +392,33 @@
       background: rgba(255,99,71,.2);
     }
 
+    @media (max-width: 768px) {
+      .acoes {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .btn-acao {
+        flex: 1;
+        min-width: 70px;
+        padding: 6px 8px;
+        font-size: 11px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .acoes {
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .btn-acao {
+        width: 100%;
+        padding: 8px 10px;
+        font-size: 10px;
+      }
+    }
+
     /* MODAL */
     .modal {
       display: none;
@@ -261,6 +432,8 @@
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(4px);
+      padding: 20px;
+      overflow-y: auto;
     }
 
     .modal.active {
@@ -284,6 +457,43 @@
       font-weight: 700;
       color: #7cf0c2;
       margin-bottom: 30px;
+    }
+
+    @media (max-width: 768px) {
+      .modal {
+        padding: 12px;
+      }
+
+      .modal-content {
+        padding: 24px;
+        border-radius: 16px;
+        width: 95%;
+        max-width: 90vw;
+      }
+
+      .modal-header {
+        font-size: 18px;
+        margin-bottom: 20px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .modal {
+        padding: 8px;
+      }
+
+      .modal-content {
+        padding: 16px;
+        border-radius: 12px;
+        width: 100%;
+        max-width: 100vw;
+        max-height: 95vh;
+      }
+
+      .modal-header {
+        font-size: 16px;
+        margin-bottom: 15px;
+      }
     }
 
     .form-group {
@@ -324,6 +534,46 @@
       min-height: 80px;
     }
 
+    @media (max-width: 768px) {
+      .form-group {
+        margin-bottom: 16px;
+      }
+
+      .form-group label {
+        font-size: 12px;
+      }
+
+      .form-group input, .form-group textarea, .form-group select {
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+
+      .form-group textarea {
+        min-height: 60px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .form-group {
+        margin-bottom: 14px;
+      }
+
+      .form-group label {
+        font-size: 11px;
+        margin-bottom: 6px;
+      }
+
+      .form-group input, .form-group textarea, .form-group select {
+        padding: 10px 12px;
+        font-size: 12px;
+        border-radius: 6px;
+      }
+
+      .form-group textarea {
+        min-height: 50px;
+      }
+    }
+
     /* CHECKBOX E MULTI-SELECT */
     .modulos-grid {
       display: grid;
@@ -358,6 +608,41 @@
       font-weight: 600;
       display: flex;
       align-items: center;
+    }
+
+    @media (max-width: 768px) {
+      .modulos-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+      }
+
+      .modulo-item {
+        padding: 10px;
+        border-radius: 6px;
+      }
+
+      .modulo-item label {
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .modulos-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .modulo-item {
+        padding: 10px;
+      }
+
+      .modulo-item label {
+        font-size: 11px;
+      }
+
+      .modulo-item input[type="checkbox"] {
+        margin-right: 6px;
+      }
     }
 
     /* BOTÕES MODAL */
@@ -403,6 +688,43 @@
       color: #ddd;
     }
 
+    @media (max-width: 768px) {
+      .modal-buttons {
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      .btn-salvar {
+        padding: 10px 20px;
+        font-size: 12px;
+      }
+
+      .btn-cancelar {
+        padding: 10px 20px;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .modal-buttons {
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 15px;
+      }
+
+      .btn-salvar {
+        width: 100%;
+        padding: 10px 16px;
+        font-size: 11px;
+      }
+
+      .btn-cancelar {
+        width: 100%;
+        padding: 10px 16px;
+        font-size: 11px;
+      }
+    }
+
     /* NOTIFICAÇÕES */
     .mensagem {
       position: fixed;
@@ -413,6 +735,7 @@
       font-weight: 600;
       z-index: 2000;
       animation: slideIn 0.3s ease-out;
+      max-width: 400px;
     }
 
     @keyframes slideIn {
@@ -436,6 +759,27 @@
       background: rgba(255,99,71,.3);
       border: 1px solid rgba(255,99,71,.5);
       color: #ff9999;
+    }
+
+    @media (max-width: 768px) {
+      .mensagem {
+        top: 60px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+        padding: 12px 16px;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .mensagem {
+        top: 70px;
+        right: 8px;
+        left: 8px;
+        padding: 12px 12px;
+        font-size: 11px;
+      }
     }
 
     .loading {
@@ -483,6 +827,32 @@
       background: rgba(255,255,255,.12);
       border-color: rgba(31,163,122,.6);
       outline: none;
+    }
+
+    @media (max-width: 768px) {
+      .pesquisa-container {
+        padding: 12px;
+        margin-bottom: 15px;
+        border-radius: 10px;
+      }
+
+      .pesquisa-container input {
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .pesquisa-container {
+        padding: 10px;
+        margin-bottom: 12px;
+        border-radius: 8px;
+      }
+
+      .pesquisa-container input {
+        padding: 10px 12px;
+        font-size: 11px;
+      }
     }
 
     /* FILTROS AUDITORIA */
@@ -537,33 +907,69 @@
     }
 
     @media (max-width: 768px) {
-      .header {
-        flex-direction: column;
-        gap: 15px;
-      }
-
-      .header-actions {
-        width: 100%;
-      }
-
-      .header-actions .btn {
-        flex: 1;
-      }
-
-      .modulos-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .acoes {
-        flex-direction: column;
-      }
-
-      .btn-acao {
-        width: 100%;
-      }
-
       .filtros-auditoria {
+        padding: 15px;
+        gap: 12px;
+        margin-bottom: 15px;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+
+      .filtro-grupo label {
+        font-size: 11px;
+        margin-bottom: 6px;
+      }
+
+      .filtro-grupo select, .filtro-grupo input {
+        padding: 8px 10px;
+        font-size: 11px;
+        border-radius: 6px;
+      }
+
+      .filtro-acoes {
+        gap: 8px;
+        grid-column: 1 / -1;
+      }
+
+      .filtro-acoes button {
+        padding: 8px 12px;
+        font-size: 11px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .filtros-auditoria {
+        padding: 12px;
+        gap: 10px;
+        margin-bottom: 12px;
         grid-template-columns: 1fr;
+      }
+
+      .filtro-grupo {
+        width: 100%;
+      }
+
+      .filtro-grupo label {
+        font-size: 10px;
+        margin-bottom: 5px;
+      }
+
+      .filtro-grupo select, .filtro-grupo input {
+        padding: 8px 10px;
+        font-size: 10px;
+        border-radius: 6px;
+      }
+
+      .filtro-acoes {
+        flex-direction: column;
+        gap: 6px;
+        width: 100%;
+        align-items: stretch;
+      }
+
+      .filtro-acoes button {
+        width: 100%;
+        padding: 8px 10px;
+        font-size: 10px;
       }
     }
 
@@ -964,7 +1370,6 @@
   <script src="config.js"></script>
   <script src="auth-utils.js"></script>
   <script src="auth.js"></script>
-  <script src="auth-sistema.js"></script>
   <script src="auditoria.js"></script>
   <script src="usuarios-admin.js"></script>
   <script src="sidebar-dock.js"></script>
