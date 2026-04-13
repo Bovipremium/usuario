@@ -238,8 +238,25 @@ function renderizarModulosCheckbox() {
 // ============================================
 async function carregarVendedoresCheckboxes() {
   try {
-    const clientes = await buscarArquivo('clientes.json');
+    console.log('📥 Carregando clientes.json para extrair vendedores...');
+    let clientes;
+    
+    try {
+      // Tentar via buscarArquivo (com API do Google)
+      clientes = await buscarArquivo('clientes.json');
+      console.log('✅ Clientes carregados via API');
+    } catch (erroAPI) {
+      console.warn('⚠️ Erro ao carregar via API, tentando fallback local...', erroAPI.message);
+      // Fallback: tentar carregar arquivo local diretamente
+      const response = await fetch('./clientes.json');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      clientes = await response.json();
+      console.log('✅ Clientes carregados via fetch local');
+    }
+    
+    console.log('✅ Clientes carregados:', clientes);
     const clientesList = Array.isArray(clientes) ? clientes : [];
+    console.log(`📊 Total de clientes: ${clientesList.length}`);
     
     // ✅ MELHORADO: Extrair vendedores NORMALIZANDO (minúsculas, sem espaços extras)
     const vendedoresMap = new Map(); // Usa Map para rastrear: nome normalizado -> nome original
@@ -278,7 +295,22 @@ async function carregarVendedoresCheckboxes() {
     
     // Renderizar checkboxes de visualização
     const gridVisualizacao = document.getElementById('vendedoresVisualizacaoGrid');
-    gridVisualizacao.innerHTML = vendedores.length > 0
+    
+    // ✅ ADICIONADO: Opção "Ver Todos" no topo
+    let htmlVisualizacao = `
+      <div style="display: flex; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #ddd;">
+        <input 
+          type="checkbox" 
+          name="vendedor-visualizacao" 
+          value="__VER_TODOS__" 
+          id="visual-ver-todos"
+          style="margin-right: 8px; cursor: pointer;"
+        >
+        <label for="visual-ver-todos" style="cursor: pointer; flex: 1; margin: 0;">✅ Ver Todos (qualquer vendedor)</label>
+      </div>
+    `;
+    
+    htmlVisualizacao += vendedores.length > 0
       ? vendedores.map(vendedor => {
         const safeId = vendedor.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
         return `
@@ -294,11 +326,47 @@ async function carregarVendedoresCheckboxes() {
         </div>
       `}).join('')
       : '<p style="color: #999; font-size: 11px;">Nenhum vendedor encontrado</p>';
+    
+    gridVisualizacao.innerHTML = htmlVisualizacao;
+    
+    // ✅ ADICIONADO: Adicionar listeners para "Ver Todos"
+    const verTodosCheckbox = document.getElementById('visual-ver-todos');
+    if (verTodosCheckbox) {
+      verTodosCheckbox.addEventListener('change', function() {
+        // Usar filter com Array.from em vez de querySelectorAll com seletor inválido
+        const todasCheckboxes = Array.from(document.querySelectorAll('input[name="vendedor-visualizacao"]'));
+        const outrasCheckboxes = todasCheckboxes.filter(cb => cb.value !== '__VER_TODOS__');
+        if (this.checked) {
+          // Quando "Ver Todos" é marcado, desmarcar todas as outras
+          outrasCheckboxes.forEach(cb => cb.checked = false);
+        }
+      });
+    }
+    
+    // Adicionar listener para outras checkboxes - desmarcar "Ver Todos" se alguma outra for marcada
+    const todasCheckboxes = Array.from(document.querySelectorAll('input[name="vendedor-visualizacao"]'));
+    todasCheckboxes.filter(cb => cb.value !== '__VER_TODOS__').forEach(checkbox => {
+      checkbox.addEventListener('change', function() {
+        if (this.checked) {
+          // Se marcou uma checkbox específica, desmarcar "Ver Todos"
+          if (verTodosCheckbox) {
+            verTodosCheckbox.checked = false;
+          }
+        }
+      });
+    });
       
   } catch (erro) {
     console.error('❌ Erro ao carregar vendedores:', erro);
-    document.getElementById('vendedoresComissaoGrid').innerHTML = '<p style="color: #ff6b6b;">Erro ao carregar vendedores</p>';
-    document.getElementById('vendedoresVisualizacaoGrid').innerHTML = '<p style="color: #ff6b6b;">Erro ao carregar vendedores</p>';
+    console.error('📋 Detalhes do erro:', erro.message, erro.stack);
+    const mensagemErro = `
+      <div style="color: #ff6b6b; font-size: 11px; padding: 10px; background: rgba(255,107,107,.1); border-radius: 4px;">
+        ❌ Erro ao carregar vendedores<br/>
+        ${erro.message || 'Desconhecido'}
+      </div>
+    `;
+    document.getElementById('vendedoresComissaoGrid').innerHTML = mensagemErro;
+    document.getElementById('vendedoresVisualizacaoGrid').innerHTML = mensagemErro;
   }
 }
 
@@ -363,6 +431,20 @@ async function editarUsuario(id) {
   document.querySelectorAll('input[name="vendedor-visualizacao"]').forEach(cb => {
     cb.checked = vendedoresVisualizacao.includes(cb.value);
   });
+  
+  // ✅ ADICIONADO: Se tiver "__VER_TODOS__", marcar a opção e desmarcar outras
+  if (vendedoresVisualizacao.includes('__VER_TODOS__')) {
+    const verTodosCheckbox = document.getElementById('visual-ver-todos');
+    if (verTodosCheckbox) {
+      verTodosCheckbox.checked = true;
+      // Desmarcar todas as outras checkboxes (usando filter em vez de seletor inválido)
+      Array.from(document.querySelectorAll('input[name="vendedor-visualizacao"]'))
+        .filter(cb => cb.value !== '__VER_TODOS__')
+        .forEach(cb => {
+          cb.checked = false;
+        });
+    }
+  }
 
   // Mostrar campo de senha como opcional em edição
   const labelSenha = document.querySelector('label[for="inputSenha"]') || 
