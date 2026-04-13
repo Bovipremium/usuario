@@ -11,37 +11,112 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Inter', sans-serif; background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%); min-height: 100vh; color: #e5f3ee; padding: 20px; }
     .container { max-width: 1400px; margin: 0 auto; }
-    .header { background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08)); border: 1px solid rgba(31,163,122,.25); border-radius: 20px; padding: 20px 30px; margin-bottom: 30px; backdrop-filter: blur(14px); box-shadow: 0 20px 40px rgba(0,0,0,.45); display: flex; justify-content: space-between; align-items: center; }
-    .header h1 { color: #1fa37a; font-size: 28px; font-weight: 700; }
-    .btn { background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15)); color: #7cf0c2; border: 1px solid rgba(31,163,122,.3); padding: 10px 20px; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.3s; }
+    .header { background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08)); border: 1px solid rgba(31,163,122,.25); border-radius: 20px; padding: 20px 30px; margin-bottom: 30px; backdrop-filter: blur(14px); box-shadow: 0 20px 40px rgba(0,0,0,.45); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .header h1 { color: #1fa37a; font-size: clamp(20px, 4vw, 28px); font-weight: 700; }
+    .btn { background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15)); color: #7cf0c2; border: 1px solid rgba(31,163,122,.3); padding: 10px 20px; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.3s; white-space: nowrap; }
     .btn:hover { background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25)); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(31,163,122,.2); }
     .btn-primary { background: linear-gradient(145deg, rgba(212,175,55,.3), rgba(212,175,55,.15)); color: #d4af37; border-color: rgba(212,175,55,.3); }
     .form-section { background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02)); border: 1px solid rgba(31,163,122,.25); border-radius: 16px; padding: 25px; margin-bottom: 20px; backdrop-filter: blur(14px); }
     .form-section h3 { color: #1fa37a; margin-bottom: 20px; font-size: 16px; font-weight: 700; border-bottom: 1px solid rgba(31,163,122,.2); padding-bottom: 12px; }
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 15px; }
-    label { color: #8fb9ac; font-size: 11px; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; }
-    input, select, textarea { background: rgba(15,42,34,.5); border: 1px solid rgba(31,163,122,.2); color: #e5f3ee; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-family: 'Inter', sans-serif; width: 100%; }
-    .tabela-wrapper { overflow-x: auto; margin-top: 15px; border-radius: 12px; border: 1px solid rgba(31,163,122,.15); }
-    table { width: 100%; border-collapse: collapse; background: linear-gradient(180deg, rgba(15,42,34,.3), rgba(5,11,9,.2)); }
-    th { color: #7cf0c2; padding: 12px 15px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; background: linear-gradient(180deg, rgba(31,163,122,.15), rgba(31,163,122,.08)); border-bottom: 1px solid rgba(31,163,122,.2); }
-    td { padding: 10px 15px; font-size: 12px; color: #b9d8ce; border-bottom: 1px solid rgba(31,163,122,.1); }
-    td input, td select { padding: 6px 8px; font-size: 12px; }
-    .btn-danger { background: linear-gradient(145deg, rgba(255,107,107,.25), rgba(255,107,107,.1)); border: 1px solid rgba(255,107,107,.2); color: #ff6b6b; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; }
-    .resumo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 15px; }
+
+    /* ===== FORM GRID RESPONSIVO ===== */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .form-group { display: flex; flex-direction: column; }
+
+    label { color: #8fb9ac; font-size: 11px; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; display: block; }
+
+    input, select, textarea {
+      background: rgba(15,42,34,.5);
+      border: 1px solid rgba(31,163,122,.2);
+      color: #e5f3ee;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 14px;        /* aumentado de 13px */
+      font-family: 'Inter', sans-serif;
+      width: 100%;
+      min-height: 40px;       /* altura mínima garantida */
+    }
+
+    textarea { min-height: 80px; resize: vertical; }
+
+    /* ===== TABELA RESPONSIVA ===== */
+    .tabela-wrapper { overflow-x: auto; margin-top: 15px; border-radius: 12px; border: 1px solid rgba(31,163,122,.15); -webkit-overflow-scrolling: touch; }
+
+    table { width: 100%; border-collapse: collapse; background: linear-gradient(180deg, rgba(15,42,34,.3), rgba(5,11,9,.2)); min-width: 600px; /* evita colapso extremo */ }
+
+    th { color: #7cf0c2; padding: 12px 15px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; background: linear-gradient(180deg, rgba(31,163,122,.15), rgba(31,163,122,.08)); border-bottom: 1px solid rgba(31,163,122,.2); white-space: nowrap; }
+
+    td { padding: 8px 10px; font-size: 13px; color: #b9d8ce; border-bottom: 1px solid rgba(31,163,122,.1); vertical-align: middle; }
+
+    /* Inputs dentro das células da tabela */
+    td input, td select {
+      padding: 7px 9px;
+      font-size: 13px;
+      min-height: 36px;
+      width: 100%;
+      min-width: 60px;
+    }
+
+    /* Colunas específicas com largura mínima */
+    td:nth-child(1) { min-width: 160px; }  /* Nome produto */
+    td:nth-child(2) { min-width: 80px; }   /* Qtd */
+    td:nth-child(3) { min-width: 70px; }   /* Unid */
+    td:nth-child(4) { min-width: 80px; }   /* Peso */
+    td:nth-child(5) { min-width: 110px; }  /* Valor unit */
+    td:nth-child(6) { min-width: 100px; }  /* Total */
+    td:nth-child(7) { min-width: 80px; }   /* NCM */
+    td:nth-child(8) { min-width: 50px; }   /* Ação */
+
+    .btn-danger { background: linear-gradient(145deg, rgba(255,107,107,.25), rgba(255,107,107,.1)); border: 1px solid rgba(255,107,107,.2); color: #ff6b6b; padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+
+    /* ===== RESUMO ===== */
+    .resumo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 12px; margin-top: 15px; }
     .resumo-box { background: linear-gradient(145deg, rgba(31,163,122,.15), rgba(31,163,122,.08)); border: 1px solid rgba(31,163,122,.2); border-radius: 12px; padding: 15px; text-align: center; }
     .resumo-label { color: #8fb9ac; font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; }
-    .resumo-valor { color: #1fa37a; font-size: 20px; font-weight: 700; }
-    .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(31,163,122,.2); }
+    .resumo-valor { color: #1fa37a; font-size: clamp(16px, 3vw, 20px); font-weight: 700; }
+
+    .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(31,163,122,.2); flex-wrap: wrap; }
+
     .alert { padding: 12px 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid; display: none; }
     .alert.show { display: block; }
     .alert.success { background: rgba(50,200,50,.15); border-color: rgba(50,200,50,.3); color: #32c832; }
     .alert.error { background: rgba(255,107,107,.15); border-color: rgba(255,107,107,.3); color: #ff6b6b; }
+
     .loader-container { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; backdrop-filter: blur(4px); }
     .loader-container.hidden { display: none; }
     .spinner { width: 60px; height: 60px; border: 4px solid rgba(31, 163, 122, 0.2); border-top: 4px solid #1fa37a; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loader-text { color: #7cf0c2; font-size: 16px; font-weight: 500; }
-    @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } table { font-size: 11px; } th, td { padding: 8px 10px; } }
+
+    /* ===== BREAKPOINTS ===== */
+    @media (max-width: 900px) {
+      body { padding: 12px; }
+      .form-section { padding: 18px; }
+      .header { padding: 16px 18px; }
+    }
+
+    @media (max-width: 600px) {
+      body { padding: 8px; }
+      .form-section { padding: 14px; }
+      .header { padding: 14px; border-radius: 14px; }
+      .header h1 { font-size: 20px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .resumo-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+      input, select, textarea { font-size: 16px; /* evita zoom no iOS */ }
+      td input, td select { font-size: 14px; }
+      .form-actions { justify-content: stretch; }
+      .form-actions .btn { flex: 1; text-align: center; }
+    }
+
+    @media (max-width: 400px) {
+      .resumo-grid { grid-template-columns: 1fr 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -70,15 +145,15 @@
     <div class="form-section">
       <h3>📋 Informações da Venda</h3>
       <div class="form-grid">
-        <div>
+        <div class="form-group">
           <label>Número da NF</label>
           <input type="text" id="numeroNF" name="numeroNF" placeholder="Ex: 123">
         </div>
-        <div>
+        <div class="form-group">
           <label>Data da Venda *</label>
           <input type="date" id="dataVenda" name="dataVenda" required>
         </div>
-        <div>
+        <div class="form-group">
           <label>Tipo de Venda *</label>
           <select id="tipoVenda" name="tipoVenda" required onchange="calcularResumo()">
             <option value="">Selecione...</option>
@@ -87,20 +162,31 @@
             <option value="Boleto">Boleto</option>
           </select>
         </div>
-        <div>
+        <div class="form-group">
           <label>👤 Vendedor da Venda *</label>
           <select id="vendedorVenda" name="vendedorVenda" required>
             <option value="">Carregando vendedores...</option>
           </select>
         </div>
-        <div>
+      </div>
     </div>
 
     <div class="form-section">
       <h3>📦 Produtos</h3>
       <div class="tabela-wrapper">
         <table>
-          <thead><tr><th>Nome</th><th style="width: 100px; text-align: center;">Qtd</th><th style="width: 100px; text-align: center;">Unid.</th><th style="width: 100px; text-align: center;">Peso</th><th style="width: 120px; text-align: right;">Valor Unit.</th><th style="width: 120px; text-align: right;">Total</th><th style="width: 80px;">NCM</th><th style="width: 50px;">Ação</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th style="text-align: center;">Qtd</th>
+              <th style="text-align: center;">Unid.</th>
+              <th style="text-align: center;">Peso</th>
+              <th style="text-align: right;">Valor Unit.</th>
+              <th style="text-align: right;">Total</th>
+              <th>NCM</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
           <tbody id="corpoTabela"></tbody>
         </table>
       </div>
@@ -109,15 +195,22 @@
 
     <div class="form-section">
       <h3>💳 Parcelas</h3>
-      <div class="form-grid">
-        <div>
+      <div class="form-grid" style="max-width: 300px;">
+        <div class="form-group">
           <label>Número de Parcelas *</label>
           <input type="number" id="numeroParcelas" name="numeroParcelas" value="1" min="1" max="36" required onchange="gerarParcelas()">
         </div>
       </div>
       <div class="tabela-wrapper">
-        <table>
-          <thead><tr><th>Parc.</th><th>Vencimento</th><th style="text-align: right;">Valor</th><th>Status</th></tr></thead>
+        <table style="min-width: 360px;">
+          <thead>
+            <tr>
+              <th>Parc.</th>
+              <th>Vencimento</th>
+              <th style="text-align: right;">Valor</th>
+              <th>Status</th>
+            </tr>
+          </thead>
           <tbody id="corpoParcelasTabela"></tbody>
         </table>
       </div>
@@ -125,7 +218,7 @@
 
     <div id="resumoVenda" class="resumo-grid"></div>
 
-    <div class="form-section">
+    <div class="form-section" style="margin-top: 20px;">
       <h3>📝 Observações</h3>
       <textarea id="observacaoPreparo" name="observacaoPreparo" placeholder="Notas..."></textarea>
     </div>
