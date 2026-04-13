@@ -341,7 +341,32 @@
 
   async function carregarDados() {
     try {
-      clientesData = await buscarArquivo('clientes.json');
+      let clientesData_Raw = await buscarArquivo('clientes.json');
+      
+      // Verificar se usuário é admin
+      const usuarioLogado = JSON.parse(localStorage.getItem('usuario') || '{}');
+      const isAdmin = usuarioLogado.modulos && usuarioLogado.modulos.includes('Administrador');
+      
+      // Aplicar filtro de vendedor se não for admin
+      if (!isAdmin && usuarioLogado.nome) {
+        const vendedorLogado = usuarioLogado.nome;
+        const vendedoresVisualizacao = usuarioLogado.VendedoresVisualizacao || [];
+        
+        // Usuário vê seus próprios clientes + clientes de vendedores que tem permissão
+        clientesData_Raw = clientesData_Raw.filter(cliente => 
+          cliente.Vendedor === vendedorLogado || 
+          vendedoresVisualizacao.includes(cliente.Vendedor)
+        );
+        
+        const detalhes = vendedoresVisualizacao.length > 0 
+          ? `${clientesData_Raw.length} clientes (seus + de ${vendedoresVisualizacao.join(', ')})`
+          : `${clientesData_Raw.length} clientes (apenas seus)`;
+        console.log(`✅ Filtrado: ${detalhes}`);
+      } else if (isAdmin) {
+        console.log(`✅ Admin logado: vendo todos os ${clientesData_Raw.length} clientes`);
+      }
+      
+      clientesData = clientesData_Raw;
       
       // Extrair todas as parcelas de todos os clientes
       todasParcelas = [];
