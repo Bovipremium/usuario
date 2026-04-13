@@ -14,7 +14,23 @@ function registrarAuditoria(acao, tipo, id, nomeObjeto, descricao, dadosAntigos 
 
   const dadosAntString = typeof dadosAntigos === 'string' ? dadosAntigos : JSON.stringify(dadosAntigos || {});
   const dadosNovString = typeof dadosNovos === 'string' ? dadosNovos : JSON.stringify(dadosNovos || {});
-  const nomeUser = usuario.nome || usuario.Nome || usuario.login || usuario.Login || 'Desconhecido';
+  
+  // ✅ CORRIGIDO: Puxar SEMPRE o nome do usuário (não o módulo "Administrador")
+  // Prioridade: nome > Nome > login > Login
+  let nomeUser = usuario.nome || usuario.Nome || usuario.login || usuario.Login || 'Desconhecido';
+  
+  // Se por algum motivo ficou como "Administrador", tenta puxar do localStorage direto
+  if (nomeUser === 'Administrador') {
+    const usuarioStorage = localStorage.getItem('usuarioLogado');
+    if (usuarioStorage) {
+      try {
+        const u = JSON.parse(usuarioStorage);
+        nomeUser = u.nome || u.Nome || nomeUser;
+      } catch (e) {
+        // fallback silencioso
+      }
+    }
+  }
 
   const registroAuditoria = {
     DataHora: new Date().toISOString(),
