@@ -915,7 +915,7 @@ function imprimirComprovante(cliente, venda) {
           <div class="cabecalho-logo"><img src="assets/img/logo.png" alt="Logo" /></div>
           <div>
             <div class="cabecalho-empresa">COMPROVANTE DE VENDA</div>
-            <div class="cabecalho-info"><strong>Empresa BOVI PREMIUM NUTRIÇÅO ANIMAL */</strong> &nbsp;|&nbsp; CNPJ: 55.951.841/1000-76</div>
+            <div class="cabecalho-info"><strong> BOVI PREMIUM NUTRIÇÅO ANIMAL */</strong> &nbsp;|&nbsp; CNPJ: 55.951.841/1000-76</div>
           </div>
         </div>
         
@@ -969,6 +969,7 @@ function imprimirComprovante(cliente, venda) {
               <th style="width: 50%;">Descrição</th>
               <th style="text-align: center; width: 12%;">Qtd</th>
               <th style="text-align: right; width: 18%;">Valor Unit.</th>
+              <th style="text-align: right; width: 19%;">KG</th>
               <th style="text-align: right; width: 20%;">Total</th>
             </tr>
           </thead>
