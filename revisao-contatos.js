@@ -1352,12 +1352,15 @@ function renderizarJSON() {
   
   console.log(`📊 Total combinado: ${unicos.length} contatos`);
   console.log('📋 Dados do JSON:', unicos);
+  
+  renderizarTabelaJSON(unicos);
+}
 
 // ============================================
 // APAGAR DO JSON
 // ============================================
 async function apagarDoJSON(numero) {
-  console.log('Tentando apagar: ' + numero);
+  console.log('🗑️ APAGAR DO JSON: ' + numero);
   
   if (!confirm('Apagar este contato?\n(Sera adicionado a lista negra e nao podera ser reimportado)')) {
     console.log('Cancelado');
@@ -1367,11 +1370,14 @@ async function apagarDoJSON(numero) {
   try {
     mostrarLoadingTela();
     
-    console.log('Globais antes: ' + contatosGlobais.length);
+    console.log('📊 Globais antes: ' + contatosGlobais.length);
+    console.log('📝 Temporários antes: ' + numerosTemporarios.length);
     
-    // Carregar dados atuais
+    // Carregar dados atuais do Drive
     await carregarDoGoogleDrive();
     await carregarBlacklist();
+    
+    console.log('📥 Recarregado do Drive: ' + contatosGlobais.length + ' globais, ' + blacklist.length + ' blacklist');
     
     // Encontrar o contato EXATO como está no JSON
     const contatoParaApagar = contatosGlobais.find(c => c.numero === numero);
@@ -1381,39 +1387,62 @@ async function apagarDoJSON(numero) {
       return;
     }
     
-    console.log('Encontrado contato:', contatoParaApagar);
+    console.log('✅ Encontrado contato:', contatoParaApagar);
     const numeroExato = contatoParaApagar.numero; 
     
     // Remover do JSON
     contatosGlobais = contatosGlobais.filter(c => c.numero !== numeroExato);
+    console.log('🗑️ Removido do JSON. Globais agora: ' + contatosGlobais.length);
+    
+    // Remover dos temporários também (se estiver lá)
+    numerosTemporarios = numerosTemporarios.filter(c => c.numero !== numeroExato);
+    console.log('🗑️ Removido dos temporários. Temporários agora: ' + numerosTemporarios.length);
     
     // Adicionar à blacklist (SEMPRE usar versão exata do JSON)
     if (!blacklist.includes(numeroExato)) {
       blacklist.push(numeroExato);
-      console.log('Numero ' + numeroExato + ' adicionado a blacklist');
+      console.log('⛔ Numero ' + numeroExato + ' ADICIONADO a blacklist');
     } else {
-      console.log('Numero ' + numeroExato + ' JA estava na blacklist');
+      console.log('⛔ Numero ' + numeroExato + ' JA estava na blacklist');
     }
     
-    console.log('Globais depois: ' + contatosGlobais.length);
-    console.log('Blacklist completa tem: ' + blacklist.length + ' numeros');
+    console.log('📊 Globais depois: ' + contatosGlobais.length);
+    console.log('⛔ Blacklist completa tem: ' + blacklist.length + ' numeros');
+    console.log('⛔ Blacklist conteudo: ', blacklist);
     
     // Salvar ambos
     const sucessoJSON = await salvarNoGoogleDrive(contatosGlobais);
     const sucessoBlacklist = await salvarBlacklist();
     
+    console.log('💾 Salvou JSON: ' + sucessoJSON + ', Salvou Blacklist: ' + sucessoBlacklist);
+    
     esconderLoadingTela();
     
     if (sucessoJSON && sucessoBlacklist) {
-      console.log('Numero ' + numeroExato + ' apagado com sucesso e adicionado a blacklist');
-      exibirMensagem('json', 'Numero ' + numeroExato + ' apagado e bloqueado', 'success');
+      console.log('✅ Numero ' + numeroExato + ' APAGADO e BLOQUEADO com sucesso!');
+      exibirMensagem('json', 'Numero ' + numeroExato + ' apagado e bloqueado!', 'success');
+      
+      // Atualizar todas as renderizações após deletar
+      console.log('🎨 Atualizando todas as abas...');
       renderizarTabelaJSON(contatosGlobais);
+      
+      // Atualizar ligações
+      const ligacoes = contatosGlobais.filter(c => c.tipo !== 'whatsapp');
+      renderizarTabelaLigacoes(ligacoes);
+      console.log('📞 Ligações atualizadas: ' + ligacoes.length);
+      
+      // Atualizar whatsapp
+      const whatsapps = contatosGlobais.filter(c => c.tipo === 'whatsapp');
+      renderizarTabelaWhatsapp(whatsapps);
+      console.log('💬 WhatsApp atualizado: ' + whatsapps.length);
+      
+      console.log('✅ TUDO ATUALIZADO!');
     } else {
-      console.log('Falha ao salvar apos apagar');
+      console.log('❌ Falha ao salvar apos apagar');
       exibirMensagem('json', 'Erro ao apagar', 'error');
     }
   } catch (erro) {
-    console.error('Erro:', erro);
+    console.error('❌ Erro:', erro);
     exibirMensagem('json', 'Erro: ' + erro.message, 'error');
     esconderLoadingTela();
   }
@@ -1516,5 +1545,7 @@ function confirmarAgendamento() {
   fecharModalAgendamento();
 }
 
+// Expor função para onclick no HTML
+window.apagarDoJSON = apagarDoJSON;
+
 console.log('✅ revisao-contatos.js CARREGADO');
-}
