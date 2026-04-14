@@ -1,11 +1,29 @@
 // ============================================
 // REVISÃO DE CONTATOS - V7
 // COM MARCAÇÃO DE TIPO (LIGAÇÃO/WHATSAPP)
+// COM LISTA NEGRA (BLACKLIST)
 // ============================================
 
 const ARQUIVO_CONTATOS = 'revisao_contatos.json';
+const ARQUIVO_BLACKLIST = 'revisao_contatos_blacklist.json';
 let contatosGlobais = [];
 let numerosTemporarios = [];
+let blacklist = []; // Lista negra de números deletados
+
+// Wrapper para mostrarMensagem (função auxiliar)
+function exibirMensagem(aba, texto, tipo) {
+  try {
+    if (typeof mostrarMensagem === 'function') {
+      mostrarMensagem(aba, texto, tipo);
+    } else {
+      console.warn('mostrarMensagem nao disponivel, usando alert:', texto);
+      alert(texto);
+    }
+  } catch (e) {
+    console.error('Erro ao exibir mensagem:', e);
+    alert(texto);
+  }
+}
 
 // ============================================
 // INICIALIZAÇÃO
@@ -25,6 +43,9 @@ window.addEventListener('load', async () => {
   
   // Carregar dados do Drive
   await carregarDoGoogleDrive();
+  
+  // Carregar blacklist
+  await carregarBlacklist();
   
   // Esconder loading
   esconderLoadingTela();
@@ -95,19 +116,29 @@ function mudarAba(abaName) {
     event.target.classList.add('active');
   }
   
-  // Se for para Ligações, mostrar contatos que NÃO são WhatsApp
+  // Se for para Ligações, mostrar APENAS contatos que NÃO são WhatsApp
   if (abaName === 'ligacao') {
-    const ligacoes = numerosTemporarios.concat(contatosGlobais).filter((n, idx, arr) => 
-      arr.findIndex(x => x.numero === n.numero) === idx && n.tipo !== 'whatsapp'
-    );
+    // Se há números temporários, mostrar apenas eles (números novos processados)
+    let ligacoes;
+    if (numerosTemporarios.length > 0) {
+      ligacoes = numerosTemporarios.filter(n => n.tipo !== 'whatsapp');
+    } else {
+      // Se não há temporários, mostrar do JSON (contatosGlobais)
+      ligacoes = contatosGlobais.filter(n => n.tipo !== 'whatsapp');
+    }
     renderizarTabelaLigacoes(ligacoes);
   }
   
-  // Se for para WhatsApp, mostrar contatos que SÃO WhatsApp
+  // Se for para WhatsApp, mostrar APENAS contatos que SÃO WhatsApp
   if (abaName === 'whatsapp') {
-    const whatsapps = numerosTemporarios.concat(contatosGlobais).filter((n, idx, arr) => 
-      arr.findIndex(x => x.numero === n.numero) === idx && n.tipo === 'whatsapp'
-    );
+    // Se há números temporários, mostrar apenas eles (números novos processados)
+    let whatsapps;
+    if (numerosTemporarios.length > 0) {
+      whatsapps = numerosTemporarios.filter(n => n.tipo === 'whatsapp');
+    } else {
+      // Se não há temporários, mostrar do JSON (contatosGlobais)
+      whatsapps = contatosGlobais.filter(n => n.tipo === 'whatsapp');
+    }
     renderizarTabelaWhatsapp(whatsapps);
   }
 }
@@ -122,13 +153,29 @@ function normalizarNumero(numero) {
     return null;
   }
   
-  // Se tem 12 dígitos e NÃO começa com 0, remove 9º dígito
+  // Se tem 12 dígitos sem começar com 0, provavelmente tem +55 implícito ou extra
   if (limpo.length === 12 && !limpo.startsWith('0')) {
+    // Pega: ddd (2) + 8 dígitos (vai ficar 0 + ddd + 9 + 8 = 11)
     limpo = limpo.substring(0, 2) + limpo.substring(3);
   }
   
+  // Se tem 11 dígitos sem começar com 0, remove um dígito
+  if (limpo.length === 11 && !limpo.startsWith('0')) {
+    limpo = limpo.substring(0, 2) + limpo.substring(3);
+  }
+  
+  // Se tem 10 dígitos, precisa adicionar 0 + 9
+  if (limpo.length === 10) {
+    // Exemplo: 6298766453 → 0 + 62 + 9 + 98766453 = 062998766453
+    limpo = '0' + limpo.substring(0, 2) + '9' + limpo.substring(2);
+  }
+  // Se tem 9 dígitos, também adiciona 0 + 9
+  else if (limpo.length === 9) {
+    // DDD está em posição 0-1
+    limpo = '0' + limpo.substring(0, 2) + '9' + limpo.substring(2);
+  }
   // Se não começa com 0, adiciona
-  if (!limpo.startsWith('0')) {
+  else if (!limpo.startsWith('0')) {
     limpo = '0' + limpo;
   }
   
@@ -149,11 +196,15 @@ async function processarNumerosRaw(botao) {
     const texto = textarea.value.trim();
     
     if (!texto) {
-      mostrarMensagem('cola', '❌ Cole pelo menos um número', 'error');
+      exibirMensagem('cola', '❌ Cole pelo menos um número', 'error');
       return;
     }
     
     mostrarLoadingTela();
+    
+    // ✅ LIMPAR números temporários antigos ao reprocessar
+    numerosTemporarios = [];
+    console.log('🗑️ Temporários limpos para novo processamento');
     
     const linhas = texto.split(/\n/).map(l => l.trim()).filter(l => l);
     const numerosProcessados = [];
@@ -162,8 +213,13 @@ async function processarNumerosRaw(botao) {
     await carregarDoGoogleDrive();
     const numerosNoJSON = contatosGlobais.map(c => c.numero);
     
+    // Carregar blacklist para verificar números deletados
+    await carregarBlacklist();
+    
     console.log('🔄 PROCESSANDO NÚMEROS COM NOME E OBS');
     console.log(`📝 Total de linhas para processar: ${linhas.length}`);
+    console.log(`� Números no JSON: ${numerosNoJSON.length} -`, numerosNoJSON.slice(0, 3));
+    console.log(`�🚫 Números na blacklist: ${blacklist.length} -`, blacklist.slice(0, 3));
     
     for (const linha of linhas) {
       console.log(`\n🔎 Processando linha: "${linha}"`);
@@ -212,49 +268,63 @@ async function processarNumerosRaw(botao) {
       }
       
       if (numerosNoJSON.includes(numero)) {
-        console.log(`  ⏭️ Duplicata (já no JSON): ${numero}`);
+        console.log(`  Duplicata (ja no JSON): ${numero}`);
         continue;
       }
       
-      if (!numerosProcessados.find(n => n.numero === numero)) {
-        numerosProcessados.push({
-          numero: numero,
-          nome: nome,
-          obs: obs,
-          tipo: 'ligacao',
-          data: new Date().toISOString()
-        });
-        console.log(`  ✅ ADICIONADO: ${numero} | Nome: "${nome}" | Obs: "${obs}"`);
+      // VERIFICACAO DETALHADA DA BLACKLIST
+      const emBlacklist = blacklist.includes(numero);
+      console.log(`  Verificando blacklist para ${numero}: ${emBlacklist} (blacklist tem ${blacklist.length} numeros)`);
+      if (emBlacklist) {
+        console.log(`  BLOQUEADO (na blacklist): ${numero}`);
+        continue;
       }
+      
+      // VERIFICACAO adicional: garantir que nao esta em processamentos anteriores (mesma rodada)
+      if (numerosProcessados.find(n => n.numero === numero)) {
+        console.log(`  Duplicata (ja processado nesta rodada): ${numero}`);
+        continue;
+      }
+      
+      // ADICIONAR o número
+      numerosProcessados.push({
+        numero: numero,
+        nome: nome,
+        obs: obs,
+        tipo: 'ligacao',
+        data: new Date().toISOString()
+      });
+      console.log(`  ADICIONADO: ${numero} | Nome: "${nome}" | Obs: "${obs}"`);
     }
     
     esconderLoadingTela();
     
     if (numerosProcessados.length === 0) {
-      mostrarMensagem('cola', '❌ Nenhum número válido ou novo', 'error');
+      exibirMensagem('cola', '❌ Nenhum número válido ou novo', 'error');
       return;
     }
     
+    // ✅ LIMPAR temporários antigos e trazer NOVOS
     numerosTemporarios = numerosProcessados;
     
     console.log(`\n✅ ${numerosProcessados.length} números processados!`);
-    mostrarMensagem('cola', `✅ ${numerosProcessados.length} números processados!`, 'success');
+    exibirMensagem('cola', `✅ ${numerosProcessados.length} números processados!`, 'success');
     renderizarTabelaNumerosProcessados();
     atualizarCampoCopia();
     
     // Auto-mostrar números em AMBAS as abas (sem redirecionar)
     console.log('🎯 Auto-display: Renderizando abas com números processados');
     
-    // Renderizar Ligações (TODOS os números processados)
+    // Renderizar Ligações (APENAS os números temporários processados - novos)
     if (numerosProcessados.length > 0) {
       renderizarTabelaLigacoes(numerosProcessados);
-      console.log(`✅ Ligações: ${numerosProcessados.length} números`);
+      console.log(`✅ Ligações: ${numerosProcessados.length} números (novos apenas)`);
     }
     
-    // Renderizar WhatsApp (TAMBÉM com os números processados - igual a Ligações)
+    // Renderizar WhatsApp (APENAS os números temporários processados - novos)
     if (numerosProcessados.length > 0) {
       renderizarTabelaWhatsapp(numerosProcessados);
-      console.log(`✅ WhatsApp: ${numerosProcessados.length} números`);
+      console.log(`✅ WhatsApp: ${numerosProcessados.length} números (novos apenas)`);
     }
     
     // Renderizar JSON
@@ -265,7 +335,7 @@ async function processarNumerosRaw(botao) {
     
   } catch (erro) {
     console.error('❌ Erro:', erro);
-    mostrarMensagem('cola', '❌ Erro: ' + erro.message, 'error');
+    exibirMensagem('cola', '❌ Erro: ' + erro.message, 'error');
     esconderLoadingTela();
   }
 }
@@ -305,7 +375,7 @@ function limparCola(botao) {
   numerosTemporarios = [];
   renderizarTabelaNumerosProcessados();
   atualizarCampoCopia();
-  mostrarMensagem('cola', '', '');
+  exibirMensagem('cola', '', '');
 }
 
 // ============================================
@@ -331,16 +401,16 @@ function copiarCampo(botao) {
     const campo = document.getElementById('campoCopiaNumerosLimpos');
     
     if (!campo.value.trim()) {
-      mostrarMensagem('cola', '❌ Nenhum número para copiar', 'error');
+      exibirMensagem('cola', '❌ Nenhum número para copiar', 'error');
       return;
     }
     
     campo.select();
     document.execCommand('copy');
-    mostrarMensagem('cola', `✅ ${campo.value.split('\n').length} números copiados!`, 'success');
+    exibirMensagem('cola', `✅ ${campo.value.split('\n').length} números copiados!`, 'success');
     
   } catch (err) {
-    mostrarMensagem('cola', '❌ Erro ao copiar', 'error');
+    exibirMensagem('cola', '❌ Erro ao copiar', 'error');
   }
 }
 
@@ -362,20 +432,29 @@ async function salvarJSON(botao) {
       console.log(`   [${i}] ${g.numero} | nome: "${g.nome}" | obs: "${g.obs}" | tipo: ${g.tipo}`);
     });
     
-    // Combinar temporários + globais (globais já estão com as edições feitas via inputs)
-    const todos = [...numerosTemporarios, ...contatosGlobais];
+    // ✅ NOVO: Salvar APENAS temporários novos (não salvar números que já estão no JSON)
+    // Se há temporários, salvar SÓ eles + manter globais como estão
+    let paraGravar;
     
-    console.log(`📊 Total combinado: ${todos.length} contatos`);
+    if (numerosTemporarios.length > 0) {
+      console.log('✅ Há números temporários - salvando APENAS temporários + globais existentes');
+      paraGravar = [...numerosTemporarios, ...contatosGlobais];
+    } else {
+      console.log('⚠️ Sem temporários - salvando apenas globais (edições)');
+      paraGravar = contatosGlobais;
+    }
     
-    if (todos.length === 0) {
+    console.log(`📊 Total para gravar: ${paraGravar.length} contatos`);
+    
+    if (paraGravar.length === 0) {
       esconderLoadingTela();
-      mostrarMensagem('cola', '❌ Nenhum número para salvar', 'error');
+      exibirMensagem('cola', '❌ Nenhum número para salvar', 'error');
       return;
     }
     
     // Remover duplicatas - MANTER O ÚLTIMO (edited version)
     const mapa = new Map();
-    todos.forEach(c => {
+    paraGravar.forEach(c => {
       mapa.set(c.numero, c); // Último sempre sobrescreve
     });
     const unicos = Array.from(mapa.values());
@@ -385,20 +464,40 @@ async function salvarJSON(botao) {
       console.log(`   [${i}] ${u.numero} | nome: "${u.nome}" | obs: "${u.obs}"`);
     });
     
+    // ✅ NOVO: Filtrar números da blacklist
+    console.log(`🚫 Carregando blacklist (tem ${blacklist.length} números bloqueados)...`);
+    await carregarBlacklist();
+    
+    const semBlacklist = unicos.filter(c => {
+      const estaBlacklist = blacklist.includes(c.numero);
+      if (estaBlacklist) {
+        console.log(`   ⛔ ${c.numero} está na blacklist - REJEITADO`);
+      }
+      return !estaBlacklist;
+    });
+    
+    console.log(`🚫 Total após filtrar blacklist: ${semBlacklist.length} (removidos ${unicos.length - semBlacklist.length})`);
+    
+    if (semBlacklist.length === 0) {
+      esconderLoadingTela();
+      exibirMensagem('cola', '❌ Todos os números estão na blacklist', 'error');
+      return;
+    }
+    
     // Atualizar com data
-    unicos.forEach(c => {
+    semBlacklist.forEach(c => {
       if (!c.data) {
         c.data = new Date().toISOString();
       }
     });
     
     // Salvar no Drive
-    const sucesso = await salvarNoGoogleDrive(unicos);
+    const sucesso = await salvarNoGoogleDrive(semBlacklist);
     
     esconderLoadingTela();
     
     if (!sucesso) {
-      mostrarMensagem('cola', '❌ Erro ao salvar', 'error');
+      exibirMensagem('cola', '❌ Erro ao salvar', 'error');
       console.error('❌ Falha ao salvar no Google Drive');
       return;
     }
@@ -409,7 +508,7 @@ async function salvarJSON(botao) {
     
     console.log(`✅ ${unicos.length} contatos salvos!`);
     console.log('📋 Globais atualizados:', contatosGlobais);
-    mostrarMensagem('cola', `✅ ${unicos.length} contatos salvos!`, 'success');
+    exibirMensagem('cola', `✅ ${unicos.length} contatos salvos!`, 'success');
     
     // Limpar campos da aba Cola
     document.getElementById('textareaNumerosRaw').value = '';
@@ -430,7 +529,7 @@ async function salvarJSON(botao) {
     
   } catch (erro) {
     console.error('❌ Erro:', erro);
-    mostrarMensagem('cola', '❌ Erro: ' + erro.message, 'error');
+    exibirMensagem('cola', '❌ Erro: ' + erro.message, 'error');
     esconderLoadingTela();
   }
 }
@@ -469,6 +568,44 @@ async function carregarDoGoogleDrive() {
   } catch (erro) {
     console.error('❌ Erro ao carregar:', erro);
     contatosGlobais = [];
+  }
+}
+
+// ============================================
+// CARREGAR BLACKLIST DO GOOGLE DRIVE
+// ============================================
+async function carregarBlacklist() {
+  try {
+    const deviceId = localStorage.getItem('deviceId');
+    if (!deviceId) {
+      console.warn('❌ Sem deviceId para blacklist');
+      blacklist = [];
+      return;
+    }
+    
+    const url = `${CONFIG.API_URL}?acao=buscar&arquivo=${ARQUIVO_BLACKLIST}&deviceId=${deviceId}&t=${Date.now()}`;
+    console.log('📥 Carregando blacklist:', url);
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.log('⚠️ Arquivo blacklist não existe ainda');
+      blacklist = [];
+      return;
+    }
+    
+    let dados = await response.json();
+    console.log('📦 Blacklist recebida:', dados);
+    
+    if (typeof dados === 'string') {
+      dados = JSON.parse(dados);
+    }
+    
+    blacklist = Array.isArray(dados) ? dados : [];
+    console.log(`✅ Carregou ${blacklist.length} números na blacklist`);
+    
+  } catch (erro) {
+    console.error('❌ Erro ao carregar blacklist:', erro);
+    blacklist = [];
   }
 }
 
@@ -532,6 +669,64 @@ async function salvarNoGoogleDrive(contatos) {
 }
 
 // ============================================
+// SALVAR BLACKLIST NO GOOGLE DRIVE
+// ============================================
+async function salvarBlacklist() {
+  try {
+    const deviceId = localStorage.getItem('deviceId');
+    if (!deviceId) {
+      console.error('❌ Sem deviceId');
+      return false;
+    }
+    
+    const dadosJson = JSON.stringify(blacklist);
+    
+    console.log('📤 Salvando blacklist no Drive:', {
+      acao: 'salvar',
+      arquivo: ARQUIVO_BLACKLIST,
+      numerosCount: blacklist.length
+    });
+    
+    const response = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        'acao': 'salvar',
+        'arquivo': ARQUIVO_BLACKLIST,
+        'dados': dadosJson,
+        'deviceId': deviceId
+      })
+    });
+    
+    if (!response.ok) {
+      console.error(`❌ HTTP ${response.status}`);
+      return false;
+    }
+    
+    const resultado = await response.json();
+    console.log('📤 Resposta blacklist:', resultado);
+    
+    const foiSucesso = resultado.success === true || 
+                       resultado.success === 'true' ||
+                       (resultado.mensagem && resultado.mensagem.includes('sucesso'));
+    
+    if (!foiSucesso) {
+      console.error('❌ Salvar blacklist falhou:', resultado);
+      return false;
+    }
+    
+    console.log(`✅ ${blacklist.length} números na blacklist salvos no Drive!`);
+    return true;
+    
+  } catch (erro) {
+    console.error('❌ Erro ao salvar blacklist:', erro);
+    return false;
+  }
+}
+
+// ============================================
 // GERAR LIGAÇÕES
 // ============================================
 async function gerarLigacoes(botao) {
@@ -565,12 +760,12 @@ async function gerarLigacoes(botao) {
     
     if (unicos.length === 0) {
       console.warn('⚠️ Nenhum contato encontrado');
-      mostrarMensagem('ligacao', 'Nenhum contato', 'info');
+      exibirMensagem('ligacao', 'Nenhum contato', 'info');
       document.getElementById('tabelaLigacoes').innerHTML = `<tr><td colspan="6" style="text-align: center; color: #8fb9ac;">Vazio</td></tr>`;
       return;
     }
     
-    mostrarMensagem('ligacao', `✅ ${unicos.length} contatos carregados`, 'success');
+    exibirMensagem('ligacao', `✅ ${unicos.length} contatos carregados`, 'success');
     renderizarTabelaLigacoes(unicos);
     
     // Mostrar a aba automaticamente
@@ -579,7 +774,7 @@ async function gerarLigacoes(botao) {
     
   } catch (erro) {
     console.error('❌ Erro:', erro);
-    mostrarMensagem('ligacao', 'Erro ao carregar', 'error');
+    exibirMensagem('ligacao', 'Erro ao carregar', 'error');
     esconderLoadingTela();
   }
 }
@@ -599,12 +794,12 @@ async function gerarLigacoesJSON(botao) {
     esconderLoadingTela();
     
     if (soLigacoes.length === 0) {
-      mostrarMensagem('ligacao', 'Nenhum contato do tipo Ligação no JSON', 'info');
+      exibirMensagem('ligacao', 'Nenhum contato do tipo Ligação no JSON', 'info');
       document.getElementById('tabelaLigacoes').innerHTML = `<tr><td colspan="6" style="text-align: center; color: #8fb9ac;">Vazio</td></tr>`;
       return;
     }
     
-    mostrarMensagem('ligacao', `✅ ${soLigacoes.length} ligações do JSON`, 'success');
+    exibirMensagem('ligacao', `✅ ${soLigacoes.length} ligações do JSON`, 'success');
     renderizarTabelaLigacoes(soLigacoes);
     
     // Mostrar a aba automaticamente
@@ -613,7 +808,7 @@ async function gerarLigacoesJSON(botao) {
     
   } catch (erro) {
     console.error('Erro:', erro);
-    mostrarMensagem('ligacao', 'Erro ao carregar', 'error');
+    exibirMensagem('ligacao', 'Erro ao carregar', 'error');
     esconderLoadingTela();
   }
 }
@@ -700,48 +895,66 @@ function atualizarContato(numero, campo, valor) {
 async function marcarWhatsapp(numero, marcado) {
   console.log(`📱 Marcando ${numero} como ${marcado ? 'WhatsApp' : 'Ligação'}`);
   
-  // Atualizar em temporários
+  // Atualizar em temporários (prioridade - números novos processados)
   const tempIdx = numerosTemporarios.findIndex(n => n.numero === numero);
   if (tempIdx !== -1) {
     numerosTemporarios[tempIdx].tipo = marcado ? 'whatsapp' : 'ligacao';
-    console.log(`✅ Temporário [${tempIdx}] atualizado`);
+    console.log(`✅ Temporário [${tempIdx}] atualizado para: ${marcado ? 'whatsapp' : 'ligacao'}`);
   }
   
-  // Atualizar em globais
+  // Atualizar em globais (contatos do Drive)
   const globIdx = contatosGlobais.findIndex(n => n.numero === numero);
   if (globIdx !== -1) {
     contatosGlobais[globIdx].tipo = marcado ? 'whatsapp' : 'ligacao';
-    console.log(`✅ Global [${globIdx}] atualizado`);
+    console.log(`✅ Global [${globIdx}] atualizado para: ${marcado ? 'whatsapp' : 'ligacao'}`);
   }
   
-  console.log(`📱 Marcado como WhatsApp: ${numero} = ${marcado}`);
+  console.log(`📱 Status final: ${numero} = ${marcado ? 'WhatsApp' : 'Ligação'}`);
   
-  // Atualizar Ligações (mostrar TODOS exceto os marcados como WhatsApp)
-  const ligacoes = numerosTemporarios.concat(contatosGlobais).filter((n, idx, arr) => 
-    arr.findIndex(x => x.numero === n.numero) === idx && n.tipo !== 'whatsapp'
-  );
+  // Atualizar Ligações (mostrar APENAS os que NÃO são WhatsApp)
+  let ligacoes;
+  if (numerosTemporarios.length > 0) {
+    ligacoes = numerosTemporarios.filter(n => n.tipo !== 'whatsapp');
+  } else {
+    ligacoes = contatosGlobais.filter(n => n.tipo !== 'whatsapp');
+  }
   console.log(`📞 Ligações após marcar: ${ligacoes.length}`);
   renderizarTabelaLigacoes(ligacoes);
   
-  // Atualizar WhatsApp (mostrar TODOS marcados como WhatsApp)
-  const whatsapps = numerosTemporarios.concat(contatosGlobais).filter((n, idx, arr) => 
-    arr.findIndex(x => x.numero === n.numero) === idx && n.tipo === 'whatsapp'
-  );
+  // Atualizar WhatsApp (mostrar APENAS os que SÃO WhatsApp)
+  let whatsapps;
+  if (numerosTemporarios.length > 0) {
+    whatsapps = numerosTemporarios.filter(n => n.tipo === 'whatsapp');
+  } else {
+    whatsapps = contatosGlobais.filter(n => n.tipo === 'whatsapp');
+  }
   console.log(`💬 WhatsApp após marcar: ${whatsapps.length}`);
   renderizarTabelaWhatsapp(whatsapps);
+  
+  // Se a aba WhatsApp está visível, mostrar mensagem que foi atualizada
+  const abaWhatsapp = document.getElementById('aba-whatsapp');
+  if (abaWhatsapp && abaWhatsapp.classList.contains('active')) {
+    if (marcado) {
+      exibirMensagem('whatsapp', `✅ Número marcado para WhatsApp!`, 'success');
+    } else {
+      exibirMensagem('whatsapp', `✅ Número desmarcado de WhatsApp!`, 'success');
+    }
+  }
   
   // Atualizar JSON
   renderizarJSON();
   
-  // ✅ NOVO: Salvar automaticamente no Drive
+  // ✅ Salvar automaticamente no Drive (sempre com os globais)
   console.log('💾 Salvando marcação no Drive...');
   const sucesso = await salvarNoGoogleDrive(contatosGlobais);
   if (sucesso) {
     console.log('✅ Marcação salva com sucesso!');
-    mostrarMensagem('ligacao', '✅ Marcação salva!', 'success');
+    if (!abaWhatsapp || !abaWhatsapp.classList.contains('active')) {
+      exibirMensagem('ligacao', '✅ Marcação salva!', 'success');
+    }
   } else {
     console.error('❌ Erro ao salvar marcação');
-    mostrarMensagem('ligacao', '❌ Erro ao salvar marcação', 'error');
+    exibirMensagem('ligacao', '❌ Erro ao salvar marcação', 'error');
   }
 }
 
@@ -764,17 +977,17 @@ async function buscarJSONWhatsapp(botao) {
     esconderLoadingTela();
     
     if (soWhatsapp.length === 0) {
-      mostrarMensagem('whatsapp', '⚠️ Nenhum contato marcado para WhatsApp no JSON', 'info');
+      exibirMensagem('whatsapp', '⚠️ Nenhum contato marcado para WhatsApp no JSON', 'info');
       document.getElementById('tabelaWhatsapp').innerHTML = `<tr><td colspan="5" style="text-align: center; color: #8fb9ac;">Vazio</td></tr>`;
       return;
     }
     
-    mostrarMensagem('whatsapp', `✅ ${soWhatsapp.length} contatos para WhatsApp`, 'success');
+    exibirMensagem('whatsapp', `✅ ${soWhatsapp.length} contatos para WhatsApp`, 'success');
     renderizarTabelaWhatsapp(soWhatsapp);
     
   } catch (erro) {
     console.error('❌ Erro:', erro);
-    mostrarMensagem('whatsapp', '❌ Erro ao carregar', 'error');
+    exibirMensagem('whatsapp', '❌ Erro ao carregar', 'error');
     esconderLoadingTela();
   }
 }
@@ -798,17 +1011,17 @@ async function gerarJSONTodos(botao) {
     esconderLoadingTela();
     
     if (todosDoJSON.length === 0) {
-      mostrarMensagem('whatsapp', '⚠️ Nenhum contato no JSON', 'info');
+      exibirMensagem('whatsapp', '⚠️ Nenhum contato no JSON', 'info');
       document.getElementById('tabelaWhatsapp').innerHTML = `<tr><td colspan="5" style="text-align: center; color: #8fb9ac;">Vazio</td></tr>`;
       return;
     }
     
-    mostrarMensagem('whatsapp', `✅ ${todosDoJSON.length} contatos carregados`, 'success');
+    exibirMensagem('whatsapp', `✅ ${todosDoJSON.length} contatos carregados`, 'success');
     renderizarTabelaWhatsapp(todosDoJSON);
     
   } catch (erro) {
     console.error('❌ Erro:', erro);
-    mostrarMensagem('whatsapp', '❌ Erro ao carregar', 'error');
+    exibirMensagem('whatsapp', '❌ Erro ao carregar', 'error');
     esconderLoadingTela();
   }
 }
@@ -860,17 +1073,17 @@ async function gerarJSON(botao) {
     esconderLoadingTela();
     
     if (contatosGlobais.length === 0) {
-      mostrarMensagem('json', 'Nenhum contato no JSON ainda', 'info');
+      exibirMensagem('json', 'Nenhum contato no JSON ainda', 'info');
       document.getElementById('tabelaJSON').innerHTML = `<tr><td colspan="7" style="text-align: center; color: #8fb9ac;">Vazio</td></tr>`;
       return;
     }
     
-    mostrarMensagem('json', `✅ ${contatosGlobais.length} contatos carregados`, 'success');
+    exibirMensagem('json', `✅ ${contatosGlobais.length} contatos carregados`, 'success');
     renderizarTabelaJSON(contatosGlobais);
     
   } catch (erro) {
     console.error('Erro:', erro);
-    mostrarMensagem('json', 'Erro ao carregar', 'error');
+    exibirMensagem('json', 'Erro ao carregar', 'error');
     esconderLoadingTela();
   }
 }
@@ -887,7 +1100,7 @@ async function gerarJSONLigarApp(botao) {
     esconderLoadingTela();
     
     if (contatosGlobais.length === 0) {
-      mostrarMensagem('json', 'Nenhum contato no JSON ainda', 'info');
+      exibirMensagem('json', 'Nenhum contato no JSON ainda', 'info');
       return;
     }
     
@@ -932,13 +1145,127 @@ async function gerarJSONLigarApp(botao) {
     
     // ✅ Copiar automaticamente para clipboard
     await navigator.clipboard.writeText(conteudoTexto);
-    mostrarMensagem('json', `✅ ${numerosFormatados.length} números copiados para clipboard!`, 'success');
+    exibirMensagem('json', `✅ ${numerosFormatados.length} números copiados para clipboard!`, 'success');
     
   } catch (erro) {
     console.error('Erro:', erro);
-    mostrarMensagem('json', 'Erro ao gerar números para Ligar App', 'error');
+    exibirMensagem('json', 'Erro ao gerar números para Ligar App', 'error');
     esconderLoadingTela();
   }
+}
+
+// ============================================
+// GERAR PARA LIGAR (LIGAÇÕES)
+// ============================================
+async function gerarParaLigar(botao) {
+  try {
+    mostrarLoadingTela();
+    
+    console.log('📱 GERAR PARA LIGAR (LIGAÇÕES)');
+    console.log(`📝 Temporários: ${numerosTemporarios.length}`);
+    console.log(`📁 Globais: ${contatosGlobais.length}`);
+    
+    // Combinar temporários + globais (filtrando APENAS Ligações)
+    const todosCombinados = [...numerosTemporarios, ...contatosGlobais];
+    
+    // Filtrar apenas ligações (não WhatsApp)
+    const ligacoes = todosCombinados.filter(c => c.tipo !== 'whatsapp');
+    
+    // Remover duplicatas
+    const mapa = new Map();
+    ligacoes.forEach(c => {
+      mapa.set(c.numero, c);
+    });
+    const unicos = Array.from(mapa.values());
+    
+    console.log(`📊 Total de ligações após filtrar: ${unicos.length}`);
+    
+    esconderLoadingTela();
+    
+    if (unicos.length === 0) {
+      exibirMensagem('ligacao', '⚠️ Nenhuma ligação para gerar', 'info');
+      return;
+    }
+    
+    // ✅ Formatar números para Ligar (com 0 no DDD)
+    const numerosFormatados = unicos.map(contato => {
+      // Limpar número (remover tudo exceto dígitos)
+      let num = contato.numero.replace(/\D/g, '');
+      
+      // Se tem 11 dígitos (0 + ddd + 9 dígitos), já está certo
+      if (num.length === 11 && num.startsWith('0')) {
+        return num;
+      }
+      
+      // Se tem 10 dígitos (0 + ddd + 8 dígitos), adicionar 9
+      if (num.length === 10 && num.startsWith('0')) {
+        return num.substring(0, 3) + '9' + num.substring(3);
+      }
+      
+      // Se não começa com 0, adiciona
+      if (!num.startsWith('0')) {
+        num = '0' + num;
+      }
+      
+      return num;
+    });
+    
+    // Criar conteúdo em formato texto legível
+    const conteudoTexto = numerosFormatados.join('\n');
+    
+    console.log('📱 Números para Ligar:');
+    numerosFormatados.forEach(num => console.log(num));
+    console.log(`✅ Total: ${numerosFormatados.length} números`);
+    
+    // ✅ Exibir os números no textarea da página
+    const secaoNumerosLigarLigacao = document.getElementById('secaoNumerosLigarLigacao');
+    const textareaNumerosLigarLigacao = document.getElementById('textareaNumerosLigarLigacao');
+    
+    textareaNumerosLigarLigacao.value = conteudoTexto;
+    secaoNumerosLigarLigacao.style.display = 'block';
+    
+    // ✅ Copiar automaticamente para clipboard
+    await navigator.clipboard.writeText(conteudoTexto);
+    exibirMensagem('ligacao', `✅ ${numerosFormatados.length} números copiados para clipboard!`, 'success');
+    
+  } catch (erro) {
+    console.error('Erro:', erro);
+    exibirMensagem('ligacao', 'Erro ao gerar números para ligar', 'error');
+    esconderLoadingTela();
+  }
+}
+
+// ============================================
+// COPIAR NÚMEROS LIGAR (LIGAÇÕES)
+// ============================================
+async function copiarNumerosLigarLigacao(botao) {
+  try {
+    const textarea = document.getElementById('textareaNumerosLigarLigacao');
+    const texto = textarea.value;
+    
+    if (!texto.trim()) {
+      exibirMensagem('ligacao', 'Nenhum número para copiar', 'info');
+      return;
+    }
+    
+    await navigator.clipboard.writeText(texto);
+    exibirMensagem('ligacao', '✅ Números copiados para clipboard!', 'success');
+  } catch (erro) {
+    console.error('Erro ao copiar:', erro);
+    exibirMensagem('ligacao', 'Erro ao copiar para clipboard', 'error');
+  }
+}
+
+// ============================================
+// LIMPAR NÚMEROS LIGAR (LIGAÇÕES)
+// ============================================
+function limparNumerosLigarLigacao(botao) {
+  const secaoNumerosLigarLigacao = document.getElementById('secaoNumerosLigarLigacao');
+  const textareaNumerosLigarLigacao = document.getElementById('textareaNumerosLigarLigacao');
+  
+  textareaNumerosLigarLigacao.value = '';
+  secaoNumerosLigarLigacao.style.display = 'none';
+  exibirMensagem('ligacao', '🗑️ Números limpos', 'info');
 }
 
 // ============================================
@@ -950,15 +1277,15 @@ async function copiarNumerosLigarApp(botao) {
     const texto = textarea.value;
     
     if (!texto.trim()) {
-      mostrarMensagem('json', 'Nenhum número para copiar', 'info');
+      exibirMensagem('json', 'Nenhum número para copiar', 'info');
       return;
     }
     
     await navigator.clipboard.writeText(texto);
-    mostrarMensagem('json', '✅ Números copiados para clipboard!', 'success');
+    exibirMensagem('json', '✅ Números copiados para clipboard!', 'success');
   } catch (erro) {
     console.error('Erro ao copiar:', erro);
-    mostrarMensagem('json', 'Erro ao copiar para clipboard', 'error');
+    exibirMensagem('json', 'Erro ao copiar para clipboard', 'error');
   }
 }
 
@@ -971,7 +1298,7 @@ function limparNumerosLigarApp(botao) {
   
   textareaNumerosLigarApp.value = '';
   secaoNumerosLigarApp.style.display = 'none';
-  mostrarMensagem('json', '🗑️ Números limpos', 'info');
+  exibirMensagem('json', '🗑️ Números limpos', 'info');
 }
 
 // ============================================
@@ -1025,61 +1352,71 @@ function renderizarJSON() {
   
   console.log(`📊 Total combinado: ${unicos.length} contatos`);
   console.log('📋 Dados do JSON:', unicos);
-  
-  renderizarTabelaJSON(unicos);
-}
 
 // ============================================
 // APAGAR DO JSON
 // ============================================
-// APAGAR DO JSON
-// ============================================
 async function apagarDoJSON(numero) {
-  console.log(`🗑️ Tentando apagar: ${numero}`);
+  console.log('Tentando apagar: ' + numero);
   
-  if (!confirm('Apagar este contato?')) {
-    console.log('❌ Cancelado');
+  if (!confirm('Apagar este contato?\n(Sera adicionado a lista negra e nao podera ser reimportado)')) {
+    console.log('Cancelado');
     return;
   }
   
   try {
     mostrarLoadingTela();
     
-    console.log(`📁 Globais antes: ${contatosGlobais.length}`, contatosGlobais);
+    console.log('Globais antes: ' + contatosGlobais.length);
     
+    // Carregar dados atuais
     await carregarDoGoogleDrive();
+    await carregarBlacklist();
     
-    contatosGlobais = contatosGlobais.filter(c => c.numero !== numero);
+    // Encontrar o contato EXATO como está no JSON
+    const contatoParaApagar = contatosGlobais.find(c => c.numero === numero);
+    if (!contatoParaApagar) {
+      esconderLoadingTela();
+      exibirMensagem('json', 'Contato nao encontrado', 'error');
+      return;
+    }
     
-    console.log(`📁 Globais depois: ${contatosGlobais.length}`, contatosGlobais);
+    console.log('Encontrado contato:', contatoParaApagar);
+    const numeroExato = contatoParaApagar.numero; 
     
-    const sucesso = await salvarNoGoogleDrive(contatosGlobais);
+    // Remover do JSON
+    contatosGlobais = contatosGlobais.filter(c => c.numero !== numeroExato);
+    
+    // Adicionar à blacklist (SEMPRE usar versão exata do JSON)
+    if (!blacklist.includes(numeroExato)) {
+      blacklist.push(numeroExato);
+      console.log('Numero ' + numeroExato + ' adicionado a blacklist');
+    } else {
+      console.log('Numero ' + numeroExato + ' JA estava na blacklist');
+    }
+    
+    console.log('Globais depois: ' + contatosGlobais.length);
+    console.log('Blacklist completa tem: ' + blacklist.length + ' numeros');
+    
+    // Salvar ambos
+    const sucessoJSON = await salvarNoGoogleDrive(contatosGlobais);
+    const sucessoBlacklist = await salvarBlacklist();
     
     esconderLoadingTela();
     
-    if (sucesso) {
-      console.log(`✅ ${numero} apagado com sucesso`);
-      mostrarMensagem('json', `✅ ${numero} apagado`, 'success');
+    if (sucessoJSON && sucessoBlacklist) {
+      console.log('Numero ' + numeroExato + ' apagado com sucesso e adicionado a blacklist');
+      exibirMensagem('json', 'Numero ' + numeroExato + ' apagado e bloqueado', 'success');
       renderizarTabelaJSON(contatosGlobais);
     } else {
-      console.log('❌ Falha ao salvar após apagar');
-      mostrarMensagem('json', '❌ Erro ao apagar', 'error');
+      console.log('Falha ao salvar apos apagar');
+      exibirMensagem('json', 'Erro ao apagar', 'error');
     }
   } catch (erro) {
-    console.error('❌ Erro:', erro);
-    mostrarMensagem('json', '❌ Erro: ' + erro.message, 'error');
+    console.error('Erro:', erro);
+    exibirMensagem('json', 'Erro: ' + erro.message, 'error');
     esconderLoadingTela();
   }
-}
-
-// ============================================
-// AÇÕES: LIGAR E WHATSAPP
-// ============================================
-function ligarPara(numero) {
-  // Redireciona para WhatsApp ao invés de fazer chamada tel:
-  const numLimpo = numero.replace(/\D/g, '');
-  const url = `https://wa.me/55${numLimpo}`;
-  window.open(url, '_blank');
 }
 
 function fazerChamada(numero) {
@@ -1097,7 +1434,7 @@ function abrirWhatsapp(numero) {
 // ============================================
 // AUXILIARES
 // ============================================
-function mostrarMensagem(aba, texto, tipo) {
+function exibirMensagem(aba, texto, tipo) {
   const elemento = document.getElementById(`mensagem${aba.charAt(0).toUpperCase() + aba.slice(1)}`);
   if (!elemento) return;
   
@@ -1174,9 +1511,10 @@ function confirmarAgendamento() {
   console.log(`  📝 Descrição: ${descricao}`);
   
   // Aqui você pode salvar o agendamento em banco de dados ou enviar para API
-  mostrarMensagem('cola', `✅ Agendamento registrado para ${data} às ${hora}`, 'success');
+  exibirMensagem('cola', `✅ Agendamento registrado para ${data} às ${hora}`, 'success');
   
   fecharModalAgendamento();
 }
 
 console.log('✅ revisao-contatos.js CARREGADO');
+}
