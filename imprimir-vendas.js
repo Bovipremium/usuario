@@ -78,7 +78,7 @@ function imprimirVenda(idx) {
     htmlImpressao += '@media print { body { max-width: 100%; margin: 0; padding: 0; } .container { max-width: 100%; } }';
     htmlImpressao += '</style></head><body><div class="container">';
     
-    htmlImpressao += '<div class="cabecalho"><div class="cabecalho-logo"><img src="assets/img/logo.png" alt="Logo" /></div><div><div class="cabecalho-empresa">COMPROVANTE DE VENDA</div><div class="cabecalho-info"><strong>Empresa BOVI PREMIUM NUTRICAO ANIMAL</strong> | CNPJ: 55.951.841/1000-76</div></div></div>';
+    htmlImpressao += '<div class="cabecalho"><div class="cabecalho-logo"><img src="assets/img/logo.png" alt="Logo" /></div><div><div class="cabecalho-empresa">COMPROVANTE DE VENDA</div><div class="cabecalho-info"><strong> BOVI PREMIUM NUTRICAO ANIMAL</strong> | CNPJ: 55.951.841/1000-76</div></div></div>';
     htmlImpressao += '<div class="data-emissao">Emitido em: ' + dataAtual + '</div>';
     
     htmlImpressao += '<div class="info-venda">';
@@ -114,7 +114,6 @@ function imprimirVenda(idx) {
     htmlImpressao += '<div class="resumo-linha"><span class="resumo-label">Quantidade Parcelas:</span><span class="resumo-valor">' + (venda.NumeroParcelas || 1) + 'x</span></div>';
     htmlImpressao += '<div class="resumo-linha resumo-total"><span class="resumo-label">VALOR TOTAL:</span><span class="resumo-valor" style="font-size: 18px;">💰 R$ ' + valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2}) + '</span></div></div>';
     
-    htmlImpressao += '<div class="rodape"><div style="font-size: 14px; margin-bottom: 5px;">✅ 📄 ✅</div><div>Documento emitido automaticamente pelo sistema</div><div style="margin-top: 10px; font-size: 10px;">Obrigado pela preferencia!</div></div>';
     
     htmlImpressao += '</div></body></html>';
     
