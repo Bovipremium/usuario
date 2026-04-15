@@ -84,8 +84,28 @@
     .user-info {
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 15px;
       z-index: 1;
+    }
+
+    .user-photo {
+      width: 50px;
+      height: 65px;
+      border-radius: 6px;
+      object-fit: cover;
+      border: 2px solid rgba(31,163,122,.4);
+      cursor: pointer;
+      transition: all 0.3s;
+      flex-shrink: 0;
+      background: rgba(31,163,122,.1);
+      display: block;
+      image-rendering: crisp-edges;
+    }
+
+    .user-photo:hover {
+      border-color: rgba(31,163,122,.8);
+      box-shadow: 0 4px 12px rgba(31,163,122,.3);
+      transform: scale(1.05);
     }
 
     .user-name {
@@ -526,6 +546,7 @@
     <span>Sistema Financeiro</span>
   </div>
   <div class="user-info">
+    <img id="fotoUsuario" class="user-photo" src="" alt="Foto do usuário" title="Clique para editar seu perfil" onclick="window.location.href='perfil-usuario.html'" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <span class="user-name" id="nomeUsuario" style="cursor: pointer;" onclick="window.location.href='perfil-usuario.html'" title="Clique para editar seu perfil">Carregando...</span>
     <button class="btn-logout" onclick="logout()">Sair</button>
   </div>
@@ -568,7 +589,6 @@
 <script src="auditoria.js"></script>
 <script src="seguranca.js"></script>
 <script src="alertas-ligacoes.js"></script>
-<script src="calcular-meta-alvo.js"></script>
 <script src="app.js"></script>
 <script src="sidebar-dock.js"></script>
 </body>
