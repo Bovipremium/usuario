@@ -94,10 +94,11 @@ function imprimirVenda(idx) {
     htmlImpressao += '<div class="cliente-info-linha"><strong>CPF/CNPJ:</strong> ' + (clienteAtual.CPF || 'N/A') + '</div>';
     htmlImpressao += '<div class="cliente-info-linha"><strong>Inscricao:</strong> ' + (clienteAtual.Inscricao || 'N/A') + '</div>';
     htmlImpressao += '<div class="cliente-info-linha"><strong>Endereco:</strong> ' + (clienteAtual.Endereco || '') + ' ' + (clienteAtual.NumeroEndereco || '') + ' ' + (clienteAtual.ComplementoEndereco || '') + '</div>';
-    htmlImpressao += '<div class="cliente-info-linha"><strong>Bairro:</strong> ' + (clienteAtual.Bairro || 'N/A') + ' <strong>CEP:</strong> ' + (clienteAtual.CEP || '') + '</div>';
+    htmlImpressao += '<div class="cliente-info-linha"><strong>Bairro:</strong> ' + (clienteAtual.Bairro || 'N/A') + ' <strong>CEP:</strong> ' + (clienteAtual.CEP || 'N/A') + '</div>';
     htmlImpressao += '<div class="cliente-info-linha"><strong>Cidade/Estado:</strong> ' + (clienteAtual.Cidade || 'N/A') + ', ' + (clienteAtual.Estado || 'N/A') + '</div>';
     htmlImpressao += '<div class="cliente-info-linha"><strong>Telefone:</strong> ' + (clienteAtual.Telefone1 || 'N/A') + ' <strong>Tel2:</strong> ' + (clienteAtual.Telefone2 || '') + '</div>';
     htmlImpressao += '<div class="cliente-info-linha"><strong>E-mail:</strong> ' + (clienteAtual.Email || 'N/A') + '</div>';
+    htmlImpressao += '<div class="cliente-info-linha"><strong>Mídia/Origem:</strong> ' + (clienteAtual.Midia || 'N/A') + '</div>';
     htmlImpressao += '</div>';
     
     htmlImpressao += '<div class="secao-titulo">📦 PRODUTOS</div>';
