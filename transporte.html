@@ -1224,6 +1224,36 @@
 
       console.log('✅ Transportes sincronizados com Drive');
 
+      // ✅ SE FOR NOVO TRANSPORTE E TEM VALOR DE FRETE, CRIAR CONTA AUTOMATICAMENTE
+      if (!isEdicao && dados.ValorFrete && dados.ValorFrete > 0) {
+        try {
+          console.log('🚚 Criando conta de frete automaticamente...');
+          
+          const responseConta = await fetch(CONFIG.API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+              'acao': 'criarFreteAutomatico',
+              'transportadora': dados.Transportadora,
+              'valorFrete': dados.ValorFrete.toString(),
+              'dataPagamentoFrete': dados.DataPagamentoFrete || '',
+              'numeroNF': dados.NumeroNF || ''
+            })
+          });
+
+          if (responseConta.ok) {
+            const resultadoConta = await responseConta.json();
+            console.log('✅ Conta de frete criada:', resultadoConta);
+          } else {
+            console.warn('⚠️ Erro ao criar conta de frete, mas transporte foi salvo');
+          }
+        } catch (erro) {
+          console.warn('⚠️ Não foi possível criar conta de frete automaticamente:', erro);
+        }
+      }
+
       // ✅ FECHAR MODAL E ATUALIZAR UI COM DADOS FRESCOS
       fecharModal();
       renderizarTabela();
