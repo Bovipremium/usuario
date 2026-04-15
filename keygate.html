@@ -300,7 +300,7 @@
 
 <script src="config.js"></script>
 <script>
-// 🔐 VALIDAR CHAVE DE ACESSO
+
 async function validarChave(event) {
   event.preventDefault();
 
@@ -330,7 +330,6 @@ async function validarChave(event) {
     const deviceId = gerarDeviceId();
     console.log('📱 Device ID:', deviceId);
 
-    // Enviar para Google Apps Script
     const url = new URL(CONFIG.API_URL);
     url.searchParams.append('acao', 'validarChave');
     url.searchParams.append('chave', chave);
@@ -351,8 +350,7 @@ async function validarChave(event) {
     console.log('📥 Resposta do servidor:', resultado);
 
     if (resultado.sucesso) {
-      // ✅ CHAVE CORRETA - SALVAR APENAS DEVICE ID
-      // Google Apps Script vai identificar pelo cache
+      
       localStorage.setItem('deviceId', deviceId);
       localStorage.setItem('autenticado', 'true');
 
@@ -360,7 +358,7 @@ async function validarChave(event) {
 
       exibirSucesso(mensagem, '✅ ' + resultado.mensagem);
 
-      // Redirecionar após 1.5s
+  
       setTimeout(() => {
         window.location.href = 'index.html';
       }, 1500);
