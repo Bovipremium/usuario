@@ -25,8 +25,11 @@ window.addEventListener("load", async () => {
   // Mostrar nome do usuário
   const nomeUsuarioEl = document.getElementById('nomeUsuario');
   if (nomeUsuarioEl && usuarioLogado) {
-    nomeUsuarioEl.textContent = `👤 ${usuarioLogado.nome || 'Usuário'}`;
+    nomeUsuarioEl.textContent = usuarioLogado.nome || 'Usuário';
   }
+
+  // Carregar foto do usuário
+  await carregarFotoUsuario();
 
   // Carregar menu de módulos
   await carregarMenu();
@@ -34,6 +37,51 @@ window.addEventListener("load", async () => {
   // Carregar resultados de metas
   await carregarResultadosMetas();
 });
+
+// ============================================
+// FUNÇÃO: CARREGAR FOTO DO USUÁRIO
+// ============================================
+async function carregarFotoUsuario() {
+  try {
+    const imgElement = document.getElementById('fotoUsuario');
+    if (!imgElement) return;
+    
+    // Mostrar quadrado vazio por padrão
+    imgElement.style.display = 'block';
+    
+    if (!usuarioLogado || !usuarioLogado.nome) {
+      console.warn('❌ Usuário não identificado para carregar foto');
+      return;
+    }
+
+    const nomeUsuario = usuarioLogado.nome.trim();
+    console.log(`📸 Solicitando foto do usuário: ${nomeUsuario}`);
+
+    const deviceId = localStorage.getItem('deviceId');
+    const url = `${CONFIG.API_URL}?acao=buscar_foto&usuario=${encodeURIComponent(nomeUsuario)}&deviceId=${deviceId}`;
+    
+    const response = await AuthManager.requisicaoSegura(url);
+    
+    if (!response.ok) {
+      console.warn('⚠️ Erro na requisição de foto');
+      return;
+    }
+    
+    const data = await response.json();
+    
+    if (data.status === 'success' && data.url) {
+      imgElement.src = data.url;
+      console.log(`✅ Foto carregada: ${data.fileName}`);
+    } else if (data.status === 'not_found') {
+      console.log(`ℹ️ Nenhuma foto encontrada para ${nomeUsuario}`);
+    } else {
+      console.warn('⚠️ Erro ao buscar foto:', JSON.stringify(data));
+    }
+    
+  } catch (erro) {
+    console.error('❌ Erro ao carregar foto do usuário:', erro);
+  }
+}
 
 // ============================================
 // FUNÇÃO: CARREGAR MENU DE MÓDULOS
@@ -2057,6 +2105,165 @@ function limparFiltrosTransporte() {
 function logout() {
   if (confirm("Deseja sair da sua conta?")) {
     fazerLogout();
+  }
+}
+
+// ============================================
+// FUNÇÃO: ATUALIZAR METAS INTELIGENTES
+// Calcula metas baseado em inadimplência, despesas e boletos
+// ============================================
+async function atualizarMetasInteligentes() {
+  try {
+    // 1. Carregar configuração de metas do localStorage
+    const configMetas = JSON.parse(localStorage.getItem('configMetas') || '{}');
+    
+    // 2. Carregar dados de clientes do localStorage
+    const clientesJSON = localStorage.getItem('clientes');
+    const clientes = clientesJSON ? JSON.parse(clientesJSON) : [];
+    
+    // 3. Carregar dados de despesas
+    const despesasJSON = localStorage.getItem('despesas');
+    const despesas = despesasJSON ? JSON.parse(despesasJSON) : [];
+    
+    // 4. Calcular taxa de inadimplência
+    const totalClientes = clientes.length || 1;
+    const clientesInadimplentes = clientes.filter(c => verificarInadimplenciaCliente(c)).length;
+    const taxaInadimplencia = totalClientes > 0 ? ((clientesInadimplentes / totalClientes) * 100).toFixed(1) : 0;
+    
+    // 5. Calcular despesas fixas (próximo mês)
+    const agora = new Date();
+    const proximoMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 1);
+    const despesasFixasProximoMes = despesas
+      .filter(d => d.Tipo === 'Fixa' || d.Tipo === 'FIXA')
+      .reduce((acc, d) => acc + (parseFloat(d.Valor) || 0), 0);
+    
+    // 6. Calcular boletos a receber (próximo mês)
+    let boletosAReceberProximoMes = 0;
+    clientes.forEach(cliente => {
+      if (cliente.Vendas) {
+        cliente.Vendas.forEach(venda => {
+          if (venda.Parcelas) {
+            venda.Parcelas.forEach(parcela => {
+              const dataVencimento = new Date(parcela.DataVencimento);
+              if (dataVencimento.getMonth() === proximoMes.getMonth() && 
+                  dataVencimento.getFullYear() === proximoMes.getFullYear() &&
+                  !parcela.Pago) {
+                boletosAReceberProximoMes += parseFloat(parcela.Valor) || 0;
+              }
+            });
+          }
+        });
+      }
+    });
+    
+    // 7. Retornar objeto com metas calculadas
+    const metasCalculadas = {
+      taxaInadimplencia: parseFloat(taxaInadimplencia),
+      despesasFixasProximoMes: despesasFixasProximoMes,
+      boletosAReceberProximoMes: boletosAReceberProximoMes,
+      clientesInadimplentes: clientesInadimplentes,
+      totalClientes: totalClientes,
+      receitaLiquida: boletosAReceberProximoMes * (1 - parseFloat(taxaInadimplencia) / 100),
+      metaMinima: despesasFixasProximoMes * 1.2, // Meta mínima = 20% acima das despesas
+      metaAlvo: despesasFixasProximoMes * 1.5    // Meta alvo = 50% acima das despesas
+    };
+    
+    console.log('📊 Metas Inteligentes Calculadas:', metasCalculadas);
+    return metasCalculadas;
+  } catch (erro) {
+    console.error('❌ Erro ao calcular metas inteligentes:', erro);
+    
+    // Retornar valores padrão em caso de erro
+    return {
+      taxaInadimplencia: 0,
+      despesasFixasProximoMes: 0,
+      boletosAReceberProximoMes: 0,
+      clientesInadimplentes: 0,
+      totalClientes: 0,
+      receitaLiquida: 0,
+      metaMinima: 0,
+      metaAlvo: 0
+    };
+  }
+}
+
+// ============================================
+// FUNÇÃO: CALCULAR COMISSÃO DO MÊS ATUAL
+// ============================================
+async function calcularComissaoMesAtual() {
+  try {
+    // Carregar dados de vendas do localStorage
+    const vendedoresJSON = localStorage.getItem('vendedores');
+    const vendedores = vendedoresJSON ? JSON.parse(vendedoresJSON) : {};
+    
+    const clientesJSON = localStorage.getItem('clientes');
+    const clientes = clientesJSON ? JSON.parse(clientesJSON) : [];
+    
+    // Carregar configuração de comissão
+    const configMetas = JSON.parse(localStorage.getItem('configMetas') || '{}');
+    const percentualComissao = parseFloat(configMetas.percentualComissao || 5);
+    
+    const agora = new Date();
+    const mesAtual = agora.getMonth() + 1;
+    const anoAtual = agora.getFullYear();
+    
+    const comissoes = {};
+    let comissaoTotalGeral = 0;
+    
+    // Calcular comissão por vendedor
+    Object.keys(vendedores).forEach(vendedor => {
+      let vendaTotal = 0;
+      
+      clientes.forEach(cliente => {
+        if (cliente.Vendedor === vendedor && cliente.Vendas) {
+          cliente.Vendas.forEach(venda => {
+            const dataVenda = new Date(venda.DataVenda || venda.Data);
+            if (dataVenda.getMonth() + 1 === mesAtual && dataVenda.getFullYear() === anoAtual) {
+              vendaTotal += parseFloat(venda.Total || 0);
+            }
+          });
+        }
+      });
+      
+      const comissaoVendedor = vendaTotal * (percentualComissao / 100);
+      comissoes[vendedor] = comissaoVendedor;
+      comissaoTotalGeral += comissaoVendedor;
+    });
+    
+    // Obter usuário para verificar se é admin
+    const usuario = obterUsuario();
+    const isAdmin = (usuario && usuario.modulos && usuario.modulos.includes('Administrador')) || 
+                    (usuario && usuario.ModulosPermitidos && usuario.ModulosPermitidos.includes('Administrador'));
+    
+    // Construir array de comissões
+    const comissoesArray = Object.entries(comissoes).map(([vendedor, valor]) => ({
+      vendedor,
+      valor: parseFloat(valor) || 0
+    }));
+    
+    const resultado = {
+      comissaoTotal: comissaoTotalGeral,
+      percentualComissao: percentualComissao,
+      comissoes: comissoes,
+      comissoesArray: comissoesArray,
+      isAdmin: isAdmin,
+      mesAtual: mesAtual,
+      anoAtual: anoAtual
+    };
+    
+    console.log('💰 Comissões do Mês Atual:', resultado);
+    return resultado;
+  } catch (erro) {
+    console.error('❌ Erro ao calcular comissões:', erro);
+    return {
+      comissaoTotal: 0,
+      percentualComissao: 0,
+      comissoes: {},
+      comissoesArray: [],
+      isAdmin: false,
+      mesAtual: new Date().getMonth() + 1,
+      anoAtual: new Date().getFullYear()
+    };
   }
 }
 
