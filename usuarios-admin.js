@@ -67,7 +67,7 @@ async function carregarUsuarios() {
     const tabelaContainer = document.getElementById('tabelaUsuarios');
     tabelaContainer.innerHTML = `
       <tr>
-        <td colspan="6" class="loading">
+        <td colspan="7" class="loading">
           <div class="spinner"></div>
           Carregando usuários...
         </td>
@@ -101,7 +101,7 @@ async function carregarUsuarios() {
     mostrarMensagem('Erro ao carregar usuários: ' + erro.message, 'erro');
     document.getElementById('tabelaUsuarios').innerHTML = `
       <tr>
-        <td colspan="6" style="color: #ff9999; padding: 20px;">
+        <td colspan="7" style="color: #ff9999; padding: 20px;">
           Erro ao carregar usuários. Tente novamente.
         </td>
       </tr>
@@ -118,7 +118,7 @@ function renderizarTabelaUsuarios() {
   if (usuariosAtivos.length === 0) {
     tabelaContainer.innerHTML = `
       <tr>
-        <td colspan="6" style="text-align: center; padding: 40px; color: #999;">
+        <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
           📭 Nenhum usuário cadastrado. Clique em "+ Novo Usuário" para começar.
         </td>
       </tr>
@@ -128,6 +128,9 @@ function renderizarTabelaUsuarios() {
 
   tabelaContainer.innerHTML = usuariosAtivos.map(usuario => `
     <tr>
+      <td>
+        <img class="user-avatar" src="" alt="${usuario.Nome || 'Usuário'}" data-usuario="${usuario.Nome || 'N/A'}" />
+      </td>
       <td>
         <strong>${usuario.Nome || 'N/A'}</strong>
       </td>
@@ -157,6 +160,40 @@ function renderizarTabelaUsuarios() {
       </td>
     </tr>
   `).join('');
+
+  // Carregar fotos após renderizar
+  carregarFotosUsuarios();
+}
+
+// ============================================
+// CARREGAR FOTOS DOS USUÁRIOS
+// ============================================
+async function carregarFotosUsuarios() {
+  const imagens = document.querySelectorAll('.user-avatar[data-usuario]');
+  
+  for (const img of imagens) {
+    const nomeUsuario = img.getAttribute('data-usuario');
+    if (!nomeUsuario) continue;
+
+    try {
+      const deviceId = localStorage.getItem('deviceId');
+      const url = `${CONFIG.API_URL}?acao=buscar_foto&usuario=${encodeURIComponent(nomeUsuario)}&deviceId=${deviceId}`;
+      
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 'success' && data.url) {
+          img.src = data.url;
+        } else {
+          img.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/%3E%3C/svg%3E';
+        }
+      }
+    } catch (erro) {
+      console.warn(`⚠️ Erro ao carregar foto de ${nomeUsuario}:`, erro);
+      img.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/%3E%3C/svg%3E';
+    }
+  }
 }
 
 // ============================================
@@ -176,7 +213,7 @@ function filtrarUsuarios() {
   if (usuariosFiltrados.length === 0) {
     tabelaContainer.innerHTML = `
       <tr>
-        <td colspan="6" style="text-align: center; padding: 40px; color: #999;">
+        <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
           🔍 Nenhum usuário encontrado para "${termo}"
         </td>
       </tr>
@@ -186,6 +223,9 @@ function filtrarUsuarios() {
 
   tabelaContainer.innerHTML = usuariosFiltrados.map(usuario => `
     <tr>
+      <td>
+        <img class="user-avatar" src="" alt="${usuario.Nome || 'Usuário'}" data-usuario="${usuario.Nome || 'N/A'}" />
+      </td>
       <td>
         <strong>${usuario.Nome || 'N/A'}</strong>
       </td>
@@ -215,6 +255,9 @@ function filtrarUsuarios() {
       </td>
     </tr>
   `).join('');
+
+  // Carregar fotos após renderizar
+  carregarFotosUsuarios();
 }
 
 // ============================================
