@@ -954,7 +954,7 @@ function imprimirComprovante(cliente, venda) {
   <div class="cliente-info-linha"><strong>Mídia/Origem:</strong> ${cliente.Midia || 'N/A'}</div>
           <div class="cliente-info-linha"><strong>Inscrição:</strong> ${cliente.Inscricao || 'N/A'}</div>
           <div class="cliente-info-linha"><strong>Endereço:</strong> ${cliente.Endereco || ''} ${cliente.NumeroEndereco || ''} ${cliente.ComplementoEndereco || ''}</div>
-          <div class="cliente-info-linha"><strong>Bairro:</strong> ${cliente.Bairro || 'N/A'} &nbsp; <strong>CEP:</strong> ${cliente.CEP || ''}</div>
+          <div class="cliente-info-linha"><strong>Bairro:</strong> ${cliente.Bairro || 'N/A'} &nbsp; <strong>CEP:</strong> ${cliente.CEP || 'N/A'}</div>
           <div class="cliente-info-linha"><strong>Cidade/Estado:</strong> ${cliente.Cidade || 'N/A'}, ${cliente.Estado || 'N/A'}</div>
           <div class="cliente-info-linha"><strong>Telefone:</strong> ${cliente.Telefone1 || 'N/A'} &nbsp; <strong>Tel2:</strong> ${cliente.Telefone2 || ''}</div>
           <div class="cliente-info-linha"><strong>E-mail:</strong> ${cliente.Email || 'N/A'}</div>
