@@ -315,16 +315,49 @@ function gerarParcelas() {
   const numeroParcelas = parseInt(document.getElementById('numeroParcelas').value) || 1;
   const tipoVenda = document.getElementById('tipoVenda').value;
   
+  // ⚠️ IMPORTANTE: Detectar se há uma primeira parcela já digitada
+  // Se o usuário já digitou a primeira data e depois muda numeroParcelas,
+  // devemos MANTER a primeira data e gerar as próximas a partir dela
+  let dataPrimeiraParcelaNova = null;
+  const parcelasExistentes = document.querySelectorAll('#corpoParcelasTabela tr');
+  
+  if (parcelasExistentes.length > 0) {
+    // Já existem parcelas, preserve a primeira
+    const primeiraLinha = parcelasExistentes[0];
+    const inputDataPrimeira = primeiraLinha.querySelector('.parcela-data');
+    if (inputDataPrimeira && inputDataPrimeira.value) {
+      // Parsear a data da forma correta (YYYY-MM-DD é local, não UTC)
+      const [ano, mes, dia] = inputDataPrimeira.value.split('-');
+      dataPrimeiraParcelaNova = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+    }
+  }
+  
+  // Se não encontrou primeira data customizada, usar "hoje"
+  if (!dataPrimeiraParcelaNova) {
+    const hoje = new Date();
+    dataPrimeiraParcelaNova = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  }
+  
   parcelas = [];
   const corpo = document.getElementById('corpoParcelasTabela');
   corpo.innerHTML = '';
   
-  const hoje = new Date();
-  
   for (let i = 1; i <= numeroParcelas; i++) {
-    const dataParcela = new Date(hoje);
-    // Adicionar 31 dias para cada parcela (consistente)
-    dataParcela.setDate(dataParcela.getDate() + (31 * i));
+    // ✅ CORRIGIDO: Usar método correto para adicionar meses (não apenas days)
+    // Começar a partir de dataPrimeiraParcelaNova
+    const dataParcela = new Date(dataPrimeiraParcelaNova);
+    
+    // Adicionar (i-1) meses + guardar o dia original
+    const diaOriginal = dataPrimeiraParcelaNova.getDate();
+    dataParcela.setMonth(dataParcela.getMonth() + (i - 1));
+    
+    // Se o mês tem menos dias, ajustar (ex: jan 31 + 1 mês = fev 28/29)
+    const ultimoDiaDoMes = new Date(dataParcela.getFullYear(), dataParcela.getMonth() + 1, 0).getDate();
+    if (diaOriginal > ultimoDiaDoMes) {
+      dataParcela.setDate(ultimoDiaDoMes);
+    } else {
+      dataParcela.setDate(diaOriginal);
+    }
     
     const idParcela = 'parc_' + i;
     
