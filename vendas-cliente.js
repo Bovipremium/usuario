@@ -1029,15 +1029,16 @@ function imprimirComprovante(cliente, venda) {
         <table>
           <thead>
             <tr>
-              <th style="width: 50%;">Descrição</th>
-              <th style="text-align: center; width: 12%;">Qtd</th>
-              <th style="text-align: right; width: 18%;">Valor Unit.</th>
-              <th style="text-align: right; width: 19%;">KG</th>
-              <th style="text-align: right; width: 20%;">Total</th>
+              <th style="width: 40%;">Descrição</th>
+              <th style="text-align: center; width: 10%;">Qtd</th>
+              <th style="text-align: center; width: 10%;">Unidade</th>
+              <th style="text-align: center; width: 10%;">Peso (KG)</th>
+              <th style="text-align: right; width: 15%;">Valor Unit.</th>
+              <th style="text-align: right; width: 15%;">Total</th>
             </tr>
           </thead>
           <tbody>
-            ${htmlProdutos || '<tr><td colspan="4" style="text-align: center; padding: 20px;">Nenhum produto registrado</td></tr>'}
+            ${htmlProdutos || '<tr><td colspan="6" style="text-align: center; padding: 20px;">Nenhum produto registrado</td></tr>'}
           </tbody>
         </table>
         
