@@ -14,9 +14,22 @@ const searchBox = document.getElementById("searchBox");
 const buscaInput = document.getElementById("busca");
 const botoesAcao = document.getElementById("botoesAcao");
 
-// Dados em cache
+// ✅ CACHE DE DADOS EM MEMÓRIA
+let clientesGlobal = null; // Cache clientes.json uma vez
 let dadosAtivos = [];
 let tipoAtivo = null;
+
+// ✅ FUNÇÃO: Carregar clientes UMA ÚNICA VEZ
+async function carregarClientesUmaVez() {
+  if (clientesGlobal) {
+    console.log('✅ Usando clientes.json do cache em memória');
+    return clientesGlobal;
+  }
+  
+  console.log('📥 Carregando clientes.json (será cacheado)...');
+  clientesGlobal = await buscarArquivo("clientes.json");
+  return clientesGlobal;
+}
 
 // ============================================
 // INICIALIZAÇÃO
@@ -97,22 +110,13 @@ async function carregarComissaoUsuario() {
     const configMetas = JSON.parse(localStorage.getItem('configMetas') || '{}');
     const percentualComissao = parseFloat(configMetas.comissao) || 0;
 
-    // Buscar clientes do Drive para calcular vendas
-    const deviceId = localStorage.getItem('deviceId');
-    const response = await fetch(
-      `${CONFIG.API_URL}?acao=buscar&arquivo=${CONFIG.ARQUIVOS.CLIENTES}&deviceId=${deviceId}`
-    );
+    // ✅ Usar cache global de clientes (carregar uma única vez)
+    const clientes = await carregarClientesUmaVez();
 
-    if (!response.ok) {
+    if (!Array.isArray(clientes)) {
       console.warn('⚠️ Erro ao carregar clientes para comissão');
       return;
     }
-
-    let clientes = await response.json();
-    if (typeof clientes === 'string') {
-      clientes = JSON.parse(clientes);
-    }
-    clientes = Array.isArray(clientes) ? clientes : [];
 
     // Calcular vendas do mês atual
     const agora = new Date();
@@ -353,8 +357,8 @@ async function carregarModulo(nome, tipo, arquivo) {
     } 
     // TRATAMENTO ESPECIAL PARA PAGAMENTOS
     else if (tipo === "pagamentos") {
-      // Pagamentos vêm de dentro de Clientes.Vendas.Parcelas
-      const clientes = await buscarArquivo("clientes.json");
+      // ✅ Usar cache global de clientes (carregar uma única vez)
+      const clientes = await carregarClientesUmaVez();
       
       tipoAtivo = tipo;
       dadosAtivos = Array.isArray(clientes) ? clientes : [];
@@ -685,8 +689,8 @@ function renderizarTabela(tipo, dados) {
 // FUNÇÃO: ABRIR DETALHE DE PAGAMENTO
 // ============================================
 function abrirDetalhePagamento(nomeCliente) {
-  // Buscar o cliente completo
-  buscarArquivo("clientes.json").then(clientes => {
+  // ✅ Usar cache global de clientes (carregar uma única vez)
+  carregarClientesUmaVez().then(clientes => {
     const cliente = Array.isArray(clientes) ? 
       clientes.find(c => c.Nome === nomeCliente) : 
       null;
@@ -718,8 +722,8 @@ function abrirDetalhesCliente(nomeCliente) {
   // 📍 MOSTRAR LOADING IMEDIATAMENTE
   mostrarLoadingCliente();
 
-  // Buscar o cliente completo
-  buscarArquivo("clientes.json").then(clientes => {
+  // ✅ Usar cache global de clientes (carregar uma única vez)
+  carregarClientesUmaVez().then(clientes => {
     const cliente = Array.isArray(clientes) ? 
       clientes.find(c => c.Nome === nomeCliente) : 
       null;
@@ -833,8 +837,8 @@ function expandirStatusCliente(event, nomeCliente) {
     return;
   }
   
-  // Buscar cliente
-  buscarArquivo("clientes.json").then(clientes => {
+  // ✅ Usar cache global de clientes (carregar uma única vez)
+  carregarClientesUmaVez().then(clientes => {
     const cliente = Array.isArray(clientes) ? 
       clientes.find(c => c.Nome === nomeCliente) : 
       null;
@@ -2351,3 +2355,5 @@ async function calcularComissaoMesAtual() {
     };
   }
 }
+
+
