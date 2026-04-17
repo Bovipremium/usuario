@@ -143,7 +143,6 @@ function validarAcesso(modulo) {
     'pagamentos': ['Pagamentos'],
     'receitas': ['Receitas'],
     'despesas': ['Despesas'],
-    'analise-vendedor': ['Análise Vendedor'],
     'agendar-ligacao': ['AutoWhatsApp', 'Agendar Ligação', 'AgendamentodeLigacoes'],  // ✅ Suporta 3 variações
     'administrador': ['Administrador'],  // ✅ Módulo de administração
     'auditoria': ['Auditoria', 'Administrador']  // ✅ Auditoria (acessível por admins)
