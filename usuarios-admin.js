@@ -14,7 +14,6 @@ const MODULOS_SISTEMA = [
   "Pagamentos",
   "Receitas",
   "Despesas",
-  "Análise Vendedor",
   "AutoWhatsApp",
   "Revisão Contatos",
   "Administrador"
@@ -1142,7 +1141,6 @@ function renderizarSidebarAdmin() {
     "Pagamentos": { icone: "💳", tipo: "pagamentos" },
     "Receitas": { icone: "📈", tipo: "receitas" },
     "Despesas": { icone: "💸", tipo: "despesas" },
-    "Análise Vendedor": { icone: "📊", tipo: "analise-vendedor" },
     "AutoWhatsApp": { icone: "📞", tipo: "agendar-ligacao" },
     "Administrador": { icone: "⚙️", tipo: "administrador" },
     "Auditoria": { icone: "📋", tipo: "auditoria" }
