@@ -532,6 +532,17 @@
         const statusClass = parc.Pago ? 'pago' : 'pendente';
         const statusTxt = parc.Pago ? '✅ Pago' : '⏳ Pendente';
         const mesAtualTxt = parc.ContarNoMesAtual ? ' (Mês Atual)' : '';
+        
+        // Calcular informações de pagamento parcial
+        const valorTotal = parseFloat(parc.Valor) || 0;
+        const valorPago = parseFloat(parc.ValorPago) || 0;
+        const saldoFaltante = valorTotal - valorPago;
+        
+        // Exibição diferenciada se houver pagamento parcial
+        let infoValor = `Valor: ${formatarMoeda(parc.Valor)}`;
+        if (valorPago > 0 && !parc.Pago) {
+          infoValor = `Valor: ${formatarMoeda(parc.Valor)} - Pagamento Parcial: ${formatarMoeda(valorPago)} | Falta: ${formatarMoeda(saldoFaltante)}`;
+        }
 
         htmlParcelas += `
           <div class="parcela-item">
@@ -540,7 +551,7 @@
               <span class="parcela-status ${statusClass}">${statusTxt}${mesAtualTxt}</span>
             </div>
             <div class="parcela-info">
-              Vence: ${dataParcela} | Valor: ${formatarMoeda(parc.Valor)}
+              Vence: ${dataParcela} | ${infoValor}
               ${parc.Pago ? `<br>💳 Pagto: ${dataPagamento}` : ''}
             </div>
             <div class="parcela-botoes">
@@ -549,6 +560,9 @@
               </button>
               <button class="parcela-btn" onclick="editarDataVencimento(${vendaIdx}, ${parcIdx})">
                 📅 Editar Data
+              </button>
+              <button class="parcela-btn" onclick="abrirPagamentoParcial(${vendaIdx}, ${parcIdx})" style="background: #ff9800; color: white;">
+                💰 Pagamento Parcial
               </button>
             </div>
           </div>
@@ -978,6 +992,185 @@
     } catch (erro) {
       console.error('Erro:', erro);
       ocultarLoading();
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // Pagamento Parcial
+  async function abrirPagamentoParcial(vendaIdx, parcelaIdx) {
+    try {
+      if (vendaIdx < 0 || vendaIdx >= clienteAtual.Vendas.length) {
+        alert('❌ Venda não encontrada');
+        return;
+      }
+
+      const venda = clienteAtual.Vendas[vendaIdx];
+      if (!venda.Parcelas || !venda.Parcelas[parcelaIdx]) {
+        alert('❌ Parcela não encontrada');
+        return;
+      }
+
+      const parcela = venda.Parcelas[parcelaIdx];
+      const valorTotal = parseFloat(parcela.Valor || 0);
+      const valorPago = parseFloat(parcela.ValorPago || 0);
+      const saldoFaltante = valorTotal - valorPago;
+
+      // Criar modal
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.95);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+        backdrop-filter: blur(5px);
+      `;
+
+      const form = document.createElement('div');
+      form.style.cssText = `
+        background: linear-gradient(180deg, rgba(14,31,26,.95), rgba(5,11,9,.95));
+        border: 2px solid rgba(255,152,0,.5);
+        border-radius: 16px;
+        padding: 30px;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 10px 60px rgba(255,152,0,.3);
+      `;
+
+      form.innerHTML = `
+        <h2 style="color: #ff9800; margin-bottom: 20px; text-align: center;">💰 Pagamento Parcial</h2>
+
+        <div style="background: rgba(255,152,0,.1); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          <p style="color: #ffb74d; margin-bottom: 10px;"><strong>Cliente:</strong> ${clienteAtual.Nome}</p>
+          <p style="color: #ffb74d; margin-bottom: 10px;"><strong>NF:</strong> ${venda.NumeroNF || '-'}</p>
+          <p style="color: #ffb74d; margin-bottom: 0;"><strong>Parcela:</strong> ${parcela.Numero}</p>
+        </div>
+
+        <div style="background: rgba(31,163,122,.1); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #1fa37a;">
+          <p style="color: #7cf0c2; margin-bottom: 5px; font-size: 12px;">Valor Total da Parcela</p>
+          <p style="color: #1fa37a; font-size: 18px; font-weight: 700; margin: 0;">R$ ${valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+        </div>
+
+        <div style="background: rgba(76,175,80,.1); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #4caf50;">
+          <p style="color: #a5d6a7; margin-bottom: 5px; font-size: 12px;">Já Pago</p>
+          <p style="color: #4caf50; font-size: 18px; font-weight: 700; margin: 0;">R$ ${valorPago.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+        </div>
+
+        <div style="background: rgba(244,67,54,.1); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f44336;">
+          <p style="color: #ef9a9a; margin-bottom: 5px; font-size: 12px;">Saldo Faltante</p>
+          <p style="color: #f44336; font-size: 18px; font-weight: 700; margin: 0;">R$ ${saldoFaltante.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase; display: block; margin-bottom: 8px;">💵 Novo Valor a Pagar</label>
+          <input type="number" id="novoValorPago" placeholder="0.00" value="${saldoFaltante.toFixed(2)}" step="0.01" min="0" max="${saldoFaltante.toFixed(2)}" style="width: 100%; padding: 12px; border: 1px solid rgba(255,152,0,.3); border-radius: 8px; background: rgba(255,152,0,.1); color: #ffb74d; font-size: 16px; font-weight: 700; box-sizing: border-box;">
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase; display: block; margin-bottom: 8px;">📅 Data do Pagamento</label>
+          <input type="date" id="dataPagamentoParcial" value="${new Date().toISOString().split('T')[0]}" style="width: 100%; padding: 10px; border: 1px solid rgba(255,152,0,.3); border-radius: 8px; background: rgba(255,152,0,.1); color: #ffb74d; box-sizing: border-box;">
+        </div>
+
+        <div id="novoSaldo" style="background: rgba(33,150,243,.1); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #2196f3;">
+          <p style="color: #90caf9; margin-bottom: 5px; font-size: 12px;">Novo Saldo Faltante</p>
+          <p id="novoSaldoValor" style="color: #2196f3; font-size: 18px; font-weight: 700; margin: 0;">R$ ${saldoFaltante.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button id="btnSalvarParcial" class="btn" style="padding: 12px 30px; background: #ff9800; color: white;">💾 Registrar</button>
+          <button id="btnCancelarParcial" class="btn danger" style="padding: 12px 30px;">✕ Cancelar</button>
+        </div>
+      `;
+
+      modal.appendChild(form);
+      document.body.appendChild(modal);
+
+      const inputValor = document.getElementById('novoValorPago');
+      const novoSaldoValor = document.getElementById('novoSaldoValor');
+
+      // Atualizar saldo em tempo real
+      inputValor.addEventListener('change', () => {
+        const novoValor = parseFloat(inputValor.value) || 0;
+        const novoSaldo = saldoFaltante - novoValor;
+        novoSaldoValor.textContent = `R$ ${Math.max(0, novoSaldo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+      });
+
+      document.getElementById('btnCancelarParcial').onclick = () => modal.remove();
+
+      document.getElementById('btnSalvarParcial').onclick = async () => {
+        try {
+          const novoValorPago = parseFloat(document.getElementById('novoValorPago').value) || 0;
+          const dataPag = document.getElementById('dataPagamentoParcial').value;
+
+          if (novoValorPago <= 0) {
+            alert('❌ Informe um valor maior que zero');
+            return;
+          }
+
+          if (novoValorPago > saldoFaltante) {
+            alert(`❌ Valor não pode ser maior que o saldo faltante (R$ ${saldoFaltante.toFixed(2)})`);
+            return;
+          }
+
+          mostrarLoading();
+
+          // Atualizar valor pago
+          const novoTotalPago = valorPago + novoValorPago;
+          
+          // Se pagou tudo, marcar como pago
+          const novoStatusPago = Math.abs(novoTotalPago - valorTotal) < 0.01;
+
+          // Guardar dados antigos para auditoria
+          const parcelaAnterior = JSON.parse(JSON.stringify(parcela));
+
+          // Atualizar parcela
+          parcela.ValorPago = novoTotalPago;
+          parcela.Pago = novoStatusPago;
+          parcela.DataPagamento = dataPag;
+
+          const clientes = await buscarArquivo('clientes.json');
+          const idx = clientes.findIndex(c => c.Id === clienteAtual.Id);
+          if (idx >= 0) clientes[idx] = clienteAtual;
+
+          // Salvar
+          const resultadoSalvar = await salvarClientesNoGoogleDrive(clientes);
+          if (!resultadoSalvar) {
+            ocultarLoading();
+            alert('❌ Erro ao salvar no Drive');
+            return;
+          }
+
+          // Registrar auditoria
+          registrarAuditoria(
+            'Atualizar',
+            'Parcela',
+            parcelaIdx.toString(),
+            `Parcela ${parcela.Numero}`,
+            `Registrado pagamento parcial de R$ ${novoValorPago.toFixed(2)}`,
+            JSON.stringify(parcelaAnterior),
+            JSON.stringify(parcela)
+          );
+
+          // Recarregar
+          await recarregarClienteDoServidor();
+          renderizarVendas();
+          modal.remove();
+          ocultarLoading();
+          alert(`✅ Pagamento parcial registrado! Saldo restante: R$ ${(valorTotal - novoTotalPago).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
+          
+        } catch (erro) {
+          console.error('❌ Erro ao registrar pagamento parcial:', erro);
+          ocultarLoading();
+          alert('❌ Erro ao salvar: ' + erro.message);
+        }
+      };
+    } catch (erro) {
+      console.error('❌ Erro:', erro);
       alert('❌ Erro: ' + erro.message);
     }
   }
