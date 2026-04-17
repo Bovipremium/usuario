@@ -18,18 +18,37 @@ function imprimirVenda(idx) {
     var valorTotal = 0;
     var htmlProdutos = '';
     if (venda.Produtos && venda.Produtos.length > 0) {
+      // Calcular totais
+      var totalQtd = 0;
+      var totalPeso = 0;
+      
       venda.Produtos.forEach(function(p) {
         var qtd = parseFloat(p.Quantidade) || 0;
         var valor = parseFloat(p.Valor) || 0;
+        var peso = parseFloat(p.PesoUnidade) || 0;
         var subTotal = qtd * valor;
+        
+        totalQtd += qtd;
+        totalPeso += peso;
         valorTotal += subTotal;
+        
         htmlProdutos += '<tr>';
-        htmlProdutos += '<td style="width: 50%; padding: 8px; border-bottom: 1px solid #ecf0f1;">' + (p.Nome || '') + '</td>';
-        htmlProdutos += '<td style="text-align: center; width: 12%; padding: 8px; border-bottom: 1px solid #ecf0f1;">' + qtd + '</td>';
-        htmlProdutos += '<td style="text-align: right; width: 18%; padding: 8px; border-bottom: 1px solid #ecf0f1;">R$ ' + valor.toLocaleString('pt-BR', {minimumFractionDigits: 2}) + '</td>';
-        htmlProdutos += '<td style="text-align: right; width: 20%; padding: 8px; border-bottom: 1px solid #ecf0f1; font-weight: bold;">R$ ' + subTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2}) + '</td>';
+        htmlProdutos += '<td style="width: 40%; padding: 8px; border-bottom: 1px solid #ecf0f1;">' + (p.Nome || '') + '</td>';
+        htmlProdutos += '<td style="text-align: center; width: 10%; padding: 8px; border-bottom: 1px solid #ecf0f1;">' + qtd.toLocaleString('pt-BR') + '</td>';
+        htmlProdutos += '<td style="text-align: center; width: 10%; padding: 8px; border-bottom: 1px solid #ecf0f1;">' + peso.toLocaleString('pt-BR') + '</td>';
+        htmlProdutos += '<td style="text-align: right; width: 15%; padding: 8px; border-bottom: 1px solid #ecf0f1;">R$ ' + valor.toLocaleString('pt-BR', {minimumFractionDigits: 2}) + '</td>';
+        htmlProdutos += '<td style="text-align: right; width: 15%; padding: 8px; border-bottom: 1px solid #ecf0f1; font-weight: bold;">R$ ' + subTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2}) + '</td>';
         htmlProdutos += '</tr>';
       });
+      
+      // Adicionar rodapé com totalizações
+      htmlProdutos += '<tr style="background: #f0f0f0; border-top: 2px solid #1fa37a; font-weight: bold;">';
+      htmlProdutos += '<td style="width: 40%; padding: 10px 8px; text-align: right; color: #1fa37a;">TOTAL:</td>';
+      htmlProdutos += '<td style="text-align: center; width: 10%; padding: 10px 8px; color: #1fa37a;">' + totalQtd.toLocaleString('pt-BR') + '</td>';
+      htmlProdutos += '<td style="text-align: center; width: 10%; padding: 10px 8px; color: #1fa37a;">' + totalPeso.toLocaleString('pt-BR') + '</td>';
+      htmlProdutos += '<td style="text-align: right; width: 15%; padding: 10px 8px; color: #1fa37a;">-</td>';
+      htmlProdutos += '<td style="text-align: right; width: 15%; padding: 10px 8px; color: #1fa37a; font-size: 14px;">R$ ' + valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2}) + '</td>';
+      htmlProdutos += '</tr>';
     }
     
     var htmlParcelas = '';
@@ -102,8 +121,8 @@ function imprimirVenda(idx) {
     htmlImpressao += '</div>';
     
     htmlImpressao += '<div class="secao-titulo">📦 PRODUTOS</div>';
-    htmlImpressao += '<table><thead><tr><th style="width: 50%;">Descricao</th><th style="text-align: center; width: 12%;">Qtd</th><th style="text-align: right; width: 18%;">Valor Unit.</th><th style="text-align: right; width: 20%;">Total</th></tr></thead><tbody>';
-    htmlImpressao += htmlProdutos || '<tr><td colspan="4" style="text-align: center; padding: 20px;">Nenhum produto registrado</td></tr>';
+    htmlImpressao += '<table><thead><tr><th style="width: 40%;">Descricao</th><th style="text-align: center; width: 10%;">Qtd</th><th style="text-align: center; width: 10%;">Peso (KG)</th><th style="text-align: right; width: 15%;">Valor Unit.</th><th style="text-align: right; width: 15%;">Total</th></tr></thead><tbody>';
+    htmlImpressao += htmlProdutos || '<tr><td colspan="5" style="text-align: center; padding: 20px;">Nenhum produto registrado</td></tr>';
     htmlImpressao += '</tbody></table>';
     
     htmlImpressao += '<div style="font-size: 12px; font-weight: bold; color: #1fa37a; margin-top: 15px; margin-bottom: 8px;">💳 FORMAS DE PAGAMENTO</div>';
