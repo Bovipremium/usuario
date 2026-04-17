@@ -10,7 +10,6 @@ const MODULOS_DOCK = [
   { nome: 'Pagamentos', tipo: 'modulos', icon: '💳', url: 'index.html' },
   { nome: 'Receitas', tipo: 'modulos', icon: '📈', url: 'index.html' },
   { nome: 'Despesas', tipo: 'modulos', icon: '💸', url: 'index.html' },
-  { nome: 'Análise', tipo: 'modulos', icon: '📊', url: 'analise-vendedor.html' },
   { nome: 'WhatsApp', tipo: 'modulos', icon: '📞', url: 'agendar-ligacoes.html' },
   { nome: 'Admin', tipo: 'modulos', icon: '⚙️', url: 'usuarios-admin.html' },
   { nome: 'Auditoria', tipo: 'modulos', icon: '📋', url: 'auditoria.html' },
