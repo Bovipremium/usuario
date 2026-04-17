@@ -646,16 +646,46 @@ function imprimirComprovante(cliente, venda) {
   
   let htmlProdutos = '';
   if (venda.Produtos && venda.Produtos.length > 0) {
-    htmlProdutos = venda.Produtos.map(p => `
+    // Calcular totais
+    let totalQtd = 0;
+    let totalPeso = 0;
+    let totalValor = 0;
+    
+    const linhasProdutos = venda.Produtos.map(p => {
+      const qtd = parseFloat(p.Quantidade) || 0;
+      const peso = parseFloat(p.PesoUnidade) || 0;
+      const valor = parseFloat(p.Valor) || 0;
+      const subtotal = qtd * valor;
+      
+      totalQtd += qtd;
+      totalPeso += peso;
+      totalValor += subtotal;
+      
+      return `
       <tr>
         <td style="width: 40%; padding: 8px; border-bottom: 1px solid #ecf0f1;">${p.Nome || ''}</td>
-        <td style="text-align: center; width: 10%; padding: 8px; border-bottom: 1px solid #ecf0f1;">${p.Quantidade || 0}</td>
+        <td style="text-align: center; width: 10%; padding: 8px; border-bottom: 1px solid #ecf0f1;">${qtd}</td>
         <td style="text-align: center; width: 10%; padding: 8px; border-bottom: 1px solid #ecf0f1;">${p.Unidade || ''}</td>
-        <td style="text-align: center; width: 10%; padding: 8px; border-bottom: 1px solid #ecf0f1;">${p.PesoUnidade || 0} kg</td>
-        <td style="text-align: right; width: 15%; padding: 8px; border-bottom: 1px solid #ecf0f1;">R$ ${(parseFloat(p.Valor) || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-        <td style="text-align: right; width: 15%; padding: 8px; border-bottom: 1px solid #ecf0f1; font-weight: bold;">R$ ${((p.Quantidade || 0) * (parseFloat(p.Valor) || 0)).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+        <td style="text-align: center; width: 10%; padding: 8px; border-bottom: 1px solid #ecf0f1;">${peso.toLocaleString('pt-BR')} kg</td>
+        <td style="text-align: right; width: 15%; padding: 8px; border-bottom: 1px solid #ecf0f1;">R$ ${valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+        <td style="text-align: right; width: 15%; padding: 8px; border-bottom: 1px solid #ecf0f1; font-weight: bold;">R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
+    
+    // Adicionar rodapé com totalizações
+    const rodape = `
+      <tr style="background: #f0f0f0; border-top: 2px solid #1fa37a; font-weight: bold;">
+        <td style="width: 40%; padding: 10px 8px; text-align: right; color: #1fa37a;">TOTAL:</td>
+        <td style="text-align: center; width: 10%; padding: 10px 8px; color: #1fa37a;">${totalQtd.toLocaleString('pt-BR')}</td>
+        <td style="text-align: center; width: 10%; padding: 10px 8px; color: #1fa37a;">-</td>
+        <td style="text-align: center; width: 10%; padding: 10px 8px; color: #1fa37a;">${totalPeso.toLocaleString('pt-BR')}</td>
+        <td style="text-align: right; width: 15%; padding: 10px 8px; color: #1fa37a;">-</td>
+        <td style="text-align: right; width: 15%; padding: 10px 8px; color: #1fa37a; font-size: 14px;">R$ ${totalValor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+      </tr>
+    `;
+    
+    htmlProdutos = linhasProdutos + rodape;
   }
   
   let htmlParcelas = '';
