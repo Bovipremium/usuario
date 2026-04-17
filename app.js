@@ -31,11 +31,11 @@ window.addEventListener("load", async () => {
   // Carregar foto do usuário
   await carregarFotoUsuario();
 
+  // Carregar comissão do usuário para exibir ao lado da foto
+  await carregarComissaoUsuario();
+
   // Carregar menu de módulos
   await carregarMenu();
-  
-  // Carregar resultados de metas
-  await carregarResultadosMetas();
 });
 
 // ============================================
@@ -80,6 +80,101 @@ async function carregarFotoUsuario() {
     
   } catch (erro) {
     console.error('❌ Erro ao carregar foto do usuário:', erro);
+  }
+}
+
+// ============================================
+// FUNÇÃO: CARREGAR COMISSÃO DO USUÁRIO
+// Mostra ao lado da foto: Vendido (mês) e Comissão
+// ============================================
+async function carregarComissaoUsuario() {
+  try {
+    if (!usuarioLogado || !usuarioLogado.nome) {
+      return;
+    }
+
+    // Obter configuração de comissão do localStorage
+    const configMetas = JSON.parse(localStorage.getItem('configMetas') || '{}');
+    const percentualComissao = parseFloat(configMetas.comissao) || 0;
+
+    // Buscar clientes do Drive para calcular vendas
+    const deviceId = localStorage.getItem('deviceId');
+    const response = await fetch(
+      `${CONFIG.API_URL}?acao=buscar&arquivo=${CONFIG.ARQUIVOS.CLIENTES}&deviceId=${deviceId}`
+    );
+
+    if (!response.ok) {
+      console.warn('⚠️ Erro ao carregar clientes para comissão');
+      return;
+    }
+
+    let clientes = await response.json();
+    if (typeof clientes === 'string') {
+      clientes = JSON.parse(clientes);
+    }
+    clientes = Array.isArray(clientes) ? clientes : [];
+
+    // Calcular vendas do mês atual
+    const agora = new Date();
+    const mesAtual = agora.getMonth() + 1;
+    const anoAtual = agora.getFullYear();
+    
+    let vendidoMes = 0;
+
+    // Percorrer clientes e suas vendas
+    clientes.forEach(cliente => {
+      if (cliente.Vendas && Array.isArray(cliente.Vendas)) {
+        cliente.Vendas.forEach(venda => {
+          // Verificar se a venda é deste usuário (usando VendedorVenda)
+          const vendedorVenda = venda.VendedorVenda || venda.Vendedor;
+          const dataVenda = new Date(venda.DataVenda);
+          const mesVenda = dataVenda.getMonth() + 1;
+          const anoVenda = dataVenda.getFullYear();
+
+          if (vendedorVenda === usuarioLogado.nome && mesVenda === mesAtual && anoVenda === anoAtual) {
+            vendidoMes += parseFloat(venda.ValorTotal) || 0;
+          }
+        });
+      }
+    });
+
+    // Calcular comissão
+    const comissao = vendidoMes * (percentualComissao / 100);
+
+    // Nomes dos meses
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const mesNome = meses[mesAtual - 1];
+
+    // Exibir ao lado da foto
+    const containerComissao = document.getElementById('usuarioComissao');
+    const elementoVendido = document.getElementById('usuarioVendido');
+    const elementoComissao = document.getElementById('usuarioComissaoValor');
+    const labelMes = document.getElementById('usuarioVendidoLabel');
+
+    if (containerComissao && elementoVendido && elementoComissao) {
+      // Formatar valores com R$
+      const vendidoFormatado = vendidoMes.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+      const comissaoFormatada = comissao.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+      
+      elementoVendido.textContent = `R$ ${vendidoFormatado}`;
+      elementoComissao.textContent = `R$ ${comissaoFormatada}`;
+      
+      // Atualizar label do mês
+      if (labelMes) {
+        labelMes.textContent = `Vendido (${mesNome})`;
+      }
+      
+      // Mostrar o container se houver vendas ou se percentual está configurado
+      if (vendidoMes > 0 || percentualComissao > 0) {
+        containerComissao.style.display = 'block';
+      }
+
+      console.log(`💰 Comissão do usuário ${usuarioLogado.nome}: Vendido R$ ${vendidoMes.toFixed(2)}, Comissão R$ ${comissao.toFixed(2)}`);
+    }
+
+  } catch (erro) {
+    console.error('❌ Erro ao carregar comissão do usuário:', erro);
   }
 }
 
@@ -131,12 +226,6 @@ async function carregarMenu() {
       descricao: "Análise de despesas",
       arquivo: "despesas.json",
       tipo: "despesas"
-    },
-    "Análise Vendedor": {
-      icone: "📈",
-      descricao: "Análise de vendas e lucros",
-      arquivo: "clientes.json",
-      tipo: "analise-vendedor"
     },
     "AutoWhatsApp": {
       icone: "📞",
@@ -238,6 +327,7 @@ function renderizarSidebar(modulosDisponiveis, modulosPermitidos) {
 // ============================================
 async function carregarModulo(nome, tipo, arquivo) {
   console.log('carregarModulo called with', { nome, tipo, arquivo });
+  
   // Verificar permissão de acesso ao módulo (mantido comentado por padrão)
   // if (!validarAcesso(tipo)) {
   //   alert(`❌ Você não tem permissão para acessar o módulo: ${nome}`);
@@ -352,11 +442,6 @@ async function carregarModulo(nome, tipo, arquivo) {
     // PÁGINA ESPECIAL DE REVISÃO DE CONTATOS
     else if (tipo === "revisao-contatos") {
       window.location.href = "revisao-contatos.html";
-      return;
-    }
-    // PÁGINA ESPECIAL DE ANÁLISE DE VENDEDOR
-    else if (tipo === "analise-vendedor") {
-      window.location.href = "analise-vendedor.html";
       return;
     }
     else if (arquivo) {
@@ -2264,174 +2349,5 @@ async function calcularComissaoMesAtual() {
       mesAtual: new Date().getMonth() + 1,
       anoAtual: new Date().getFullYear()
     };
-  }
-}
-
-// ============================================
-// FUNÇÃO: CARREGAR RESULTADOS DE METAS
-// Utiliza cálculo inteligente baseado em inadimplência
-// ============================================
-async function carregarResultadosMetas() {
-  try {
-    const container = document.getElementById('resultadosMetas');
-    if (!container) return;
-
-    // Mostrar loader enquanto carrega
-    container.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
-        <div style="text-align: center;">
-          <div style="width: 50px; height: 50px; border: 4px solid rgba(31,163,122,0.2); border-top: 4px solid #1fa37a; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
-          <p style="color: #1fa37a; font-size: 14px; font-weight: 600;">Carregando metas...</p>
-        </div>
-        <style>
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        </style>
-      </div>
-    `;
-    
-    // Buscar configuração de metas (com valores padrão)
-    const configMetas = JSON.parse(localStorage.getItem('configMetas') || '{}');
-    
-    // Se não tem NENHUMA configuração de pro-labore, ainda assim calcula a meta (baseada em despesas)
-    // Só mostra aviso se tem config mas está vazia ou inválida
-    const temAlgumaConfig = configMetas.comissao || configMetas.proLabore || configMetas.proLaboreMinima;
-    
-    if (!temAlgumaConfig) {
-      console.log("ℹ️ Nenhuma configuração de metas. Usando valores padrão (para não quebrar a empresa)");
-    }
-
-    // Calcular metas inteligentes (baseadas em inadimplência e fluxo de caixa)
-    const metasCalculadas = await atualizarMetasInteligentes();
-    
-    if (!metasCalculadas) {
-      console.warn("⚠️ Não foi possível calcular as metas inteligentes");
-      return;
-    }
-
-    const agora = new Date();
-    const mesAtual = agora.getMonth() + 1;
-    const anoAtual = agora.getFullYear();
-
-    const comissoesVendedor = await calcularComissaoMesAtual();
-
-    // Verificar permissão do usuário (Admin only)
-    const usuario = obterUsuario();
-    const isAdmin = (usuario && usuario.modulos && usuario.modulos.includes('Administrador')) || 
-                    (usuario && usuario.ModulosPermitidos && usuario.ModulosPermitidos.includes('Administrador'));
-    
-    console.log(`👤 Verificação de Admin: usuario=${usuario?.Nome || 'null'}, isAdmin=${isAdmin}`);
-
-    // Renderizar seção de Resultados com dados inteligentes
-    let htmlResultados = `
-      <hr style="margin: 30px 0; border: none; border-top: 2px solid #ddd;">
-      <h4 style="color: #333; margin-bottom: 15px;">📈 Meta Alvo Inteligente - ${mesAtual}/${anoAtual}</h4>
-    `;
-    
-    // Se Admin: mostrar resumo detalhado
-    // Se User: mostrar resumo simples
-    if (isAdmin) {
-      console.log("✅ Usuário é ADMIN - mostrando resumo técnico detalhado");
-      htmlResultados += `
-        <p style="color: #666; font-size: 12px; margin-bottom: 20px;">
-          ⚙️ Calculada com base em: Inadimplência (${metasCalculadas.taxaInadimplencia}%), 
-          Despesas Fixas (R$ ${metasCalculadas.despesasFixasProximoMes.toLocaleString('pt-BR', {minimumFractionDigits: 2})}), 
-          Boletos a Receber (R$ ${metasCalculadas.boletosAReceberProximoMes.toLocaleString('pt-BR', {minimumFractionDigits: 2})})
-        </p>
-      `;
-    } else {
-      console.log("🔒 Usuário NÃO é ADMIN - mostrando resumo simples (sem detalhes técnicos)");
-      htmlResultados += `
-        <p style="color: #999; font-size: 12px; margin-bottom: 20px; font-style: italic;">
-          📊 Análise de metas baseada em dados históricos de 90 dias
-        </p>
-      `;
-    }
-    
-    htmlResultados += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px;">
-        
-        <!-- Meta Alvo (Principal) -->
-        <div style="background: linear-gradient(135deg, rgba(31,163,122,.25), rgba(31,163,122,.1)); padding: 20px; border-radius: 8px; border-left: 5px solid #1fa37a; box-shadow: 0 2px 8px rgba(31,163,122,0.15);">
-          <p style="color: #1fa37a; font-size: 13px; font-weight: 700; margin-bottom: 8px;">🎯 META ALVO (Para Não Quebrar)</p>
-          <h2 style="color: #1fa37a; font-size: 28px; font-weight: 800; margin-bottom: 10px;">R$ ${metasCalculadas.metaAlvo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h2>
-          <p style="color: #999; font-size: 11px;">Venda mínima para cobrir despesas + segurança</p>
-          <p style="color: #1fa37a; font-size: 10px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(31,163,122,0.3);">
-            💡 Com ${metasCalculadas.taxaRecebimento}% taxa de recebimento
-          </p>
-        </div>
-
-        <!-- Meta Mínima -->
-        <div style="background: linear-gradient(135deg, rgba(255,152,0,.2), rgba(255,152,0,.1)); padding: 20px; border-radius: 8px; border-left: 4px solid #ff9800;">
-          <p style="color: #666; font-size: 12px; font-weight: 600; margin-bottom: 8px;">🎚️ Meta Mínima (Garantido)</p>
-          <h3 style="color: #ff9800; font-size: 22px; font-weight: 700;">R$ ${metasCalculadas.metaMinima.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h3>
-          <p style="color: #999; font-size: 11px; margin-top: 6px;">Mínimo que você pode ganhar</p>
-          <p style="color: #ff9800; font-size: 10px; margin-top: 8px;">Sua margem de lucro segura</p>
-        </div>
-    `;
-
-    // Sempre mostrar comissão (mesmo que seja R$ 0)
-    if (comissoesVendedor) {
-      // Determinar título da comissão
-      let titutoComissao = `💰 COMISSÃO - ${mesAtual}/${anoAtual}`;
-      
-      if (comissoesVendedor.isAdmin) {
-        // ADMIN: mostrar "COMISSÃO - 4/2026" (sem nome, pois é total de todos)
-        titutoComissao = `💰 COMISSÃO - ${mesAtual}/${anoAtual}`;
-      } else if (comissoesVendedor.usuarioLogado) {
-        // USER NORMAL: mostrar "COMISSÃO - JONATHAN (4/2026)"
-        titutoComissao = `💰 COMISSÃO - ${comissoesVendedor.usuarioLogado} (${mesAtual}/${anoAtual})`;
-      }
-      
-      // Mostrar lista se tem dados
-      const mostrarLista = comissoesVendedor.comissoesArray && comissoesVendedor.comissoesArray.length > 0;
-      
-      htmlResultados += `
-        <!-- Comissão do Mês -->
-        <div style="background: linear-gradient(135deg, rgba(255,193,7,.25), rgba(255,193,7,.1)); padding: 20px; border-radius: 8px; border-left: 5px solid #ffc107; ${comissoesVendedor.isAdmin ? 'grid-column: 1 / -1;' : ''} box-shadow: 0 2px 8px rgba(255,193,7,0.15);">
-          <p style="color: #ffc107; font-size: 13px; font-weight: 700; margin-bottom: 10px;">${titutoComissao}</p>
-          ${comissoesVendedor.isAdmin ? `
-            <p style="color: #999; font-size: 11px; margin-bottom: 15px;">Comissão Pessoal: <strong style="color: #ffc107; font-size: 13px;">R$ ${comissoesVendedor.comissaoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong></p>
-          ` : `
-            <h2 style="color: #ffc107; font-size: 28px; font-weight: 800; margin-bottom: 10px;">R$ ${comissoesVendedor.comissaoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h2>
-          `}
-          <p style="color: #999; font-size: 11px; margin-bottom: 15px;">${comissoesVendedor.percentualComissao}% sobre vendas do mês</p>
-          
-          ${mostrarLista ? `
-          <div style="border-top: 1px solid rgba(255,193,7,0.2); padding-top: 15px;">
-            ${comissoesVendedor.comissoesArray.map(item => `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,193,7,0.1);">
-              <div>
-                <p style="color: #e5f3ee; font-size: 12px; font-weight: 500; margin: 0;">${item.vendedor}</p>
-                <p style="color: #999; font-size: 10px; margin: 4px 0 0 0;">Vendido: R$ ${item.vendidoMesAtual.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
-              </div>
-              <div style="text-align: right;">
-                <p style="color: #ffc107; font-size: 13px; font-weight: 700; margin: 0;">R$ ${item.comissao.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
-              </div>
-            </div>
-            `).join('')}
-            ${comissoesVendedor.isAdmin ? `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 2px solid rgba(255,193,7,0.4); font-weight: 700; margin-top: 10px;">
-              <p style="color: #ffc107; font-size: 12px; margin: 0;">TOTAL</p>
-              <p style="color: #ffc107; font-size: 14px; margin: 0;">R$ ${comissoesVendedor.comissoesArray.reduce((sum, item) => sum + item.comissao, 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
-            </div>
-            ` : ''}
-          </div>
-          ` : `
-          <p style="color: #999; font-size: 11px; margin-top: 10px; font-style: italic;">
-            Nenhuma venda neste mês.
-          </p>
-          `}
-        </div>
-      `;
-    }
-
-    htmlResultados += `</div>`;
-
-    document.getElementById('resultadosMetas').innerHTML = htmlResultados;
-
-  } catch (erro) {
-    console.error('❌ Erro ao carregar resultados de metas inteligentes:', erro);
-    // Falha silenciosa - não mostra erro no dashboard
   }
 }
