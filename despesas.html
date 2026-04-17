@@ -458,7 +458,6 @@
     <h1>💰 Despesas por Mês</h1>
     <div class="header-actions">
       <button class="btn btn-add" onclick="abrirModalAdicionar()">➕ Adicionar Despesas</button>
-      <button class="btn btn-gold" onclick="window.location.href='analise-vendedor.html'">📈 Análise Vendedor</button>
       <button class="btn" onclick="window.location.href='index.html'">← Dashboard</button>
     </div>
   </div>
@@ -607,10 +606,10 @@
   }
 </style>
 
-<script src="config.js"></script>
-<script src="pesquisa-utils.js"></script>
-<script src="auth-utils.js"></script>
-<script src="auth.js"></script>
+<script async src="config.js"></script>
+<script async src="pesquisa-utils.js"></script>
+<script async src="auth-utils.js"></script>
+<script async src="auth.js"></script>
 <script>
 
   let todasDespesas = [];
@@ -1497,6 +1496,6 @@
     }
   }
 </script>
-<script src="sidebar-dock.js"></script>
+<script defer src="sidebar-dock.js"></script>
 </body>
 </html>
