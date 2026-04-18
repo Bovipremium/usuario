@@ -109,11 +109,26 @@ async function carregarComissaoUsuario() {
       return;
     }
 
-    // Obter configuração de comissão do localStorage
-    const configMetas = JSON.parse(localStorage.getItem('configMetas') || '{}');
+    // Obter configuração de comissão do localStorage PRIMEIRO
+    let configMetas = JSON.parse(localStorage.getItem('configMetas') || '{}');
+    
+    // Se localStorage vazio ou antigo, carregar do Drive
+    if (!configMetas.comissao) {
+      try {
+        const configDoArquivo = await buscarArquivo('configMetas.json');
+        if (configDoArquivo && configDoArquivo.comissao !== undefined) {
+          configMetas = configDoArquivo;
+          localStorage.setItem('configMetas', JSON.stringify(configMetas));
+          console.log('✅ ConfigMetas carregada do Drive:', configMetas);
+        }
+      } catch (e) {
+        console.warn('⚠️ Não conseguiu carregar configMetas.json do Drive');
+      }
+    }
+    
     const percentualComissao = parseFloat(configMetas.comissao) || 0;
-    console.log('💰 ConfigMetas carregada:', configMetas);
-    console.log('💰 Percentual Comissão:', percentualComissao);
+    console.log('💰 ConfigMetas:', configMetas);
+    console.log('💰 Percentual Comissão:', percentualComissao + '%');
 
     // ✅ Usar cache global de clientes (carregar uma única vez)
     const clientes = await carregarClientesUmaVez();
