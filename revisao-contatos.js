@@ -510,6 +510,17 @@ async function salvarJSON(botao) {
     console.log('📋 Globais atualizados:', contatosGlobais);
     exibirMensagem('cola', `✅ ${unicos.length} contatos salvos!`, 'success');
     
+    // 📋 Registrar auditoria
+    registrarAuditoria(
+      'Atualizar',
+      'Contatos',
+      unicos.length.toString(),
+      `Revisão de ${unicos.length} contatos`,
+      `Salvos ${unicos.length} números de contatos`,
+      JSON.stringify(contatosGlobais.slice(0, 5)),
+      JSON.stringify(unicos.slice(0, 5))
+    );
+    
     // Limpar campos da aba Cola
     document.getElementById('textareaNumerosRaw').value = '';
     renderizarTabelaNumerosProcessados();
@@ -718,6 +729,18 @@ async function salvarBlacklist() {
     }
     
     console.log(`✅ ${blacklist.length} números na blacklist salvos no Drive!`);
+    
+    // 📋 Registrar auditoria
+    registrarAuditoria(
+      'Atualizar',
+      'Blacklist',
+      blacklist.length.toString(),
+      `Blacklist de números bloqueados`,
+      `Salvos ${blacklist.length} números na blacklist`,
+      JSON.stringify(blacklist.slice(0, 5)),
+      JSON.stringify(blacklist.slice(0, 5))
+    );
+    
     return true;
     
   } catch (erro) {
@@ -949,6 +972,16 @@ async function marcarWhatsapp(numero, marcado) {
   const sucesso = await salvarNoGoogleDrive(contatosGlobais);
   if (sucesso) {
     console.log('✅ Marcação salva com sucesso!');
+    
+    // 📋 Registrar auditoria
+    registrarAuditoria(
+      'Atualizar',
+      'Contato',
+      numero,
+      numero,
+      `Marcado como ${marcado ? 'WhatsApp' : 'Ligação'}`
+    );
+    
     if (!abaWhatsapp || !abaWhatsapp.classList.contains('active')) {
       exibirMensagem('ligacao', '✅ Marcação salva!', 'success');
     }
@@ -1421,6 +1454,15 @@ async function apagarDoJSON(numero) {
     if (sucessoJSON && sucessoBlacklist) {
       console.log('✅ Numero ' + numeroExato + ' APAGADO e BLOQUEADO com sucesso!');
       exibirMensagem('json', 'Numero ' + numeroExato + ' apagado e bloqueado!', 'success');
+      
+      // 📋 Registrar auditoria
+      registrarAuditoria(
+        'Deletar',
+        'Contato',
+        numeroExato,
+        numeroExato,
+        `Contato deletado e adicionado à blacklist`
+      );
       
       // Atualizar todas as renderizações após deletar
       console.log('🎨 Atualizando todas as abas...');
