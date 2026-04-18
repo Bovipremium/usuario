@@ -145,6 +145,7 @@ async function carregarComissaoUsuario() {
     
     let vendidoMes = 0;
     let faturamentoTotal = 0; // Total de TODOS os vendedores
+    let totalPendente = 0; // Total de parcelas não pagas
 
     // Percorrer clientes e suas vendas
     clientes.forEach(cliente => {
@@ -166,6 +167,15 @@ async function carregarComissaoUsuario() {
           // Somar apenas as vendas deste usuário
           if (vendedorVenda === usuarioLogado.nome && mesVenda === mesAtual && anoVenda === anoAtual) {
             vendidoMes += valorVenda;
+          }
+
+          // Calcular total de parcelas não pagas (todos os vendedores)
+          if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+            venda.Parcelas.forEach(parcela => {
+              if (!parcela.Pago) {
+                totalPendente += parseFloat(parcela.Valor) || 0;
+              }
+            });
           }
         });
       }
