@@ -1271,12 +1271,23 @@ async function salvarConfigMetas() {
       anoAtual: new Date().getFullYear()
     };
     
+    console.log('🔍 Config que será salva:', config);
+    console.log('📁 Arquivo:', CONFIG.ARQUIVOS.CONFIG_METAS || 'configMetas.json');
+    
     // Salvar no localStorage IMEDIATAMENTE (para garantir persistência)
     localStorage.setItem('configMetas', JSON.stringify(config));
     console.log('✅ Config salva em localStorage:', config);
     
     // Salvar no Drive
     const dadosJson = JSON.stringify(config);
+    const nomeArquivo = CONFIG.ARQUIVOS.CONFIG_METAS || 'configMetas.json';
+    
+    console.log('📤 Enviando para Drive:', {
+      arquivo: nomeArquivo,
+      dados: dadosJson,
+      tamanho: dadosJson.length
+    });
+    
     const response = await fetch(CONFIG.API_URL, {
       method: 'POST',
       headers: {
@@ -1284,7 +1295,7 @@ async function salvarConfigMetas() {
       },
       body: new URLSearchParams({
         'acao': 'salvar',
-        'arquivo': CONFIG.ARQUIVOS.CONFIG_METAS || 'configMetas.json',
+        'arquivo': nomeArquivo,
         'dados': dadosJson,
         'deviceId': adminDeviceId
       })
@@ -1304,6 +1315,7 @@ async function salvarConfigMetas() {
     }
 
     console.log('📤 Resultado salvar config metas:', resultado);
+    console.log('✅ Arquivo salvo em:', nomeArquivo);
 
     const foiSucesso = resultado.success === true || 
                        resultado.success === 'true' || 
