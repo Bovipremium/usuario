@@ -493,6 +493,22 @@
         return;
       }
 
+      // ✅ GARANTIR QUE TODAS AS PARCELAS TENHAM VALORPOR E NUMERO INICIALIZADOS
+      if (clienteAtual.Vendas && Array.isArray(clienteAtual.Vendas)) {
+        clienteAtual.Vendas.forEach(venda => {
+          if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+            venda.Parcelas.forEach((parcela, idx) => {
+              if (parcela.ValorPago === undefined || parcela.ValorPago === null) {
+                parcela.ValorPago = 0;
+              }
+              if (parcela.Numero === undefined || parcela.Numero === null) {
+                parcela.Numero = idx + 1;
+              }
+            });
+          }
+        });
+      }
+
       document.getElementById('clienteNome').textContent = clienteAtual.Nome;
       renderizarVendas();
       
@@ -527,6 +543,16 @@
 
       let htmlParcelas = '';
       parcelas.forEach((parc, parcIdx) => {
+        // ✅ GARANTIR QUE VALORPOR EXISTE COMO NUMBER
+        if (parc.ValorPago === undefined || parc.ValorPago === null) {
+          parc.ValorPago = 0;
+        }
+        
+        // ✅ GARANTIR QUE NUMERO EXISTE (SE NÃO, USAR ÍNDICE + 1)
+        if (parc.Numero === undefined || parc.Numero === null) {
+          parc.Numero = parcIdx + 1;
+        }
+        
         const dataParcela = formatarData(parc.DataVencimento);
         const dataPagamento = parc.DataPagamento ? formatarData(parc.DataPagamento) : '-';
         const statusClass = parc.Pago ? 'pago' : 'pendente';
@@ -540,7 +566,7 @@
         
         // Exibição diferenciada se houver pagamento parcial
         let infoValor = `Valor: ${formatarMoeda(parc.Valor)}`;
-        if (valorPago > 0 && !parc.Pago) {
+        if (valorPago > 0) {
           infoValor = `Valor: ${formatarMoeda(parc.Valor)} - Pagamento Parcial: ${formatarMoeda(valorPago)} | Falta: ${formatarMoeda(saldoFaltante)}`;
         }
 
@@ -632,6 +658,7 @@
             Numero: 1,
             DataVencimento: new Date(hoje.getTime() + 30*24*60*60*1000).toISOString().split('T')[0],
             Valor: valorParcela,
+            ValorPago: 0,
             Pago: false,
             DataPagamento: null
           },
@@ -639,6 +666,7 @@
             Numero: 2,
             DataVencimento: new Date(hoje.getTime() + 60*24*60*60*1000).toISOString().split('T')[0],
             Valor: valorParcela,
+            ValorPago: 0,
             Pago: false,
             DataPagamento: null
           },
@@ -646,6 +674,7 @@
             Numero: 3,
             DataVencimento: new Date(hoje.getTime() + 90*24*60*60*1000).toISOString().split('T')[0],
             Valor: valorParcela,
+            ValorPago: 0,
             Pago: false,
             DataPagamento: null
           }
@@ -830,6 +859,22 @@
       if (!clienteAtualizado) {
         console.error('❌ Cliente não encontrado no Drive após recarregar');
         return false;
+      }
+
+      // ✅ GARANTIR QUE TODAS AS PARCELAS TENHAM VALORPOR E NUMERO INICIALIZADO
+      if (clienteAtualizado.Vendas && Array.isArray(clienteAtualizado.Vendas)) {
+        clienteAtualizado.Vendas.forEach(venda => {
+          if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+            venda.Parcelas.forEach((parcela, idx) => {
+              if (parcela.ValorPago === undefined || parcela.ValorPago === null) {
+                parcela.ValorPago = 0;
+              }
+              if (parcela.Numero === undefined || parcela.Numero === null) {
+                parcela.Numero = idx + 1;
+              }
+            });
+          }
+        });
       }
 
       // Atualizar a variável global
@@ -1068,7 +1113,10 @@
 
         <div style="margin-bottom: 15px;">
           <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase; display: block; margin-bottom: 8px;">💵 Novo Valor a Pagar</label>
-          <input type="number" id="novoValorPago" placeholder="0.00" value="${saldoFaltante.toFixed(2)}" step="0.01" min="0" max="${saldoFaltante.toFixed(2)}" style="width: 100%; padding: 12px; border: 1px solid rgba(255,152,0,.3); border-radius: 8px; background: rgba(255,152,0,.1); color: #ffb74d; font-size: 16px; font-weight: 700; box-sizing: border-box;">
+          <div style="position: relative;">
+            <span style="position: absolute; left: 12px; top: 12px; color: #ffb74d; font-size: 16px; font-weight: 700;">R$</span>
+            <input type="text" id="novoValorPago" placeholder="0,00" value="${saldoFaltante.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}" step="0.01" style="width: 100%; padding: 12px 12px 12px 40px; border: 1px solid rgba(255,152,0,.3); border-radius: 8px; background: rgba(255,152,0,.1); color: #ffb74d; font-size: 16px; font-weight: 700; box-sizing: border-box;">
+          </div>
         </div>
 
         <div style="margin-bottom: 15px;">
@@ -1095,7 +1143,9 @@
 
       // Atualizar saldo em tempo real
       inputValor.addEventListener('change', () => {
-        const novoValor = parseFloat(inputValor.value) || 0;
+        // Converter valor de moeda formatada para número
+        const valorTexto = inputValor.value.replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
+        const novoValor = parseFloat(valorTexto) || 0;
         const novoSaldo = saldoFaltante - novoValor;
         novoSaldoValor.textContent = `R$ ${Math.max(0, novoSaldo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
       });
@@ -1104,7 +1154,9 @@
 
       document.getElementById('btnSalvarParcial').onclick = async () => {
         try {
-          const novoValorPago = parseFloat(document.getElementById('novoValorPago').value) || 0;
+          // Converter valor de moeda formatada para número
+          const valorTexto = document.getElementById('novoValorPago').value.replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
+          const novoValorPago = parseFloat(valorTexto) || 0;
           const dataPag = document.getElementById('dataPagamentoParcial').value;
 
           if (novoValorPago <= 0) {
@@ -1133,9 +1185,24 @@
           parcela.Pago = novoStatusPago;
           parcela.DataPagamento = dataPag;
 
+          console.log('✅ Parcela atualizada:', {
+            Numero: parcela.Numero,
+            ValorPago: parcela.ValorPago,
+            Pago: parcela.Pago,
+            DataPagamento: parcela.DataPagamento
+          });
+
           const clientes = await buscarArquivo('clientes.json');
           const idx = clientes.findIndex(c => c.Id === clienteAtual.Id);
-          if (idx >= 0) clientes[idx] = clienteAtual;
+          if (idx >= 0) {
+            clientes[idx] = clienteAtual;
+            console.log('✅ Cliente atualizado no array clientes[' + idx + ']');
+            console.log('✅ Dados da parcela no arquivo:', {
+              Numero: clientes[idx].Vendas[vendaIdx].Parcelas[parcelaIdx].Numero,
+              ValorPago: clientes[idx].Vendas[vendaIdx].Parcelas[parcelaIdx].ValorPago,
+              Pago: clientes[idx].Vendas[vendaIdx].Parcelas[parcelaIdx].Pago
+            });
+          }
 
           // Salvar
           const resultadoSalvar = await salvarClientesNoGoogleDrive(clientes);
@@ -1144,6 +1211,8 @@
             alert('❌ Erro ao salvar no Drive');
             return;
           }
+
+          console.log('✅ Dados salvos no Google Drive com sucesso');
 
           // Registrar auditoria
           registrarAuditoria(
