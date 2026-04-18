@@ -52,6 +52,18 @@ window.addEventListener("load", async () => {
 
   // Carregar menu de módulos
   await carregarMenu();
+
+  // Adicionar evento para preparar cliente ao abrir em nova aba
+  document.addEventListener('auxclick', (e) => {
+    // auxclick é disparado para clique do meio ou clique com Ctrl/Cmd
+    if (e.button === 1 || (e.ctrlKey || e.metaKey)) { // button 1 = clique do meio, ou Ctrl/Cmd + click
+      const link = e.target.closest('a[data-cliente]');
+      if (link) {
+        const nomeCliente = link.getAttribute('data-cliente');
+        prepararClienteNovaAba(nomeCliente);
+      }
+    }
+  });
 });
 
 // ============================================
@@ -712,15 +724,23 @@ function renderizarTabela(tipo, dados) {
     const classe = tipo === "pagamentos" ? "click-pagamento" : "";
     const onclick = tipo === "pagamentos" ? `onclick="abrirDetalhePagamento('${item.Nome}')"` : (tipo === "clientes" ? `onclick="abrirDetalhesCliente('${item.Nome}')"` : "");
     const cursor = (tipo === 'pagamentos' || tipo === 'clientes') ? 'cursor: pointer;' : '';
+    const href = tipo === "clientes" ? `href="clientes-detalhes.html" data-cliente="${item.Nome}"` : "";
+    const title = tipo === 'clientes' ? 'Clique esquerdo: abrir aqui | Clique direito: abrir em nova aba' : 'Clique para detalhes';
     
-    html += `<tr class="${classe}" ${onclick} style="${cursor}" title="${tipo === 'clientes' ? 'Clique para detalhes' : 'Clique para detalhes'}">`;
-    colunas.forEach(col => {
-      const valor = obterValor(item, col, tipo);
-      html += `<td>${valor}</td>`;
-    });
-    
-    // Adicionar status para clientes
+    // Para clientes, criar como link para permitir clique direito nativo
     if (tipo === "clientes") {
+      html += `<tr class="${classe}" style="${cursor}" title="${title}">`;
+      html += `<td colspan="${colunas.length + 1}" style="padding: 0;">
+        <a ${href} onclick="abrirDetalhesCliente('${item.Nome}'); return false;" style="display: block; padding: 10px; text-decoration: none; color: inherit;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>`;
+      
+      colunas.forEach(col => {
+        const valor = obterValor(item, col, tipo);
+        html += `<td>${valor}</td>`;
+      });
+      
+      // Adicionar status para clientes
       const inadimplente = verificarInadimplenciaCliente(item);
       const statusTexto = inadimplente ? '❌ Inadimplente' : '✅ Ativo';
       const statusCor = inadimplente ? '#d9534f' : '#4a7c2c';
@@ -732,9 +752,20 @@ function renderizarTabela(tipo, dados) {
         <span style="font-size: 14px; margin: 0 3px;" title="Produto: ${item.ProdutoPronto ? 'Pronto' : 'Não pronto'}">${produtoStatus}</span>
         <span style="font-size: 14px; cursor: pointer;" title="Satisfação: ${item.Satisfacao}" onclick="expandirStatusCliente(event, '${item.Nome}')">${satisfacao} ▼</span>
       </td>`;
+      
+      html += `</tr>
+          </table>
+        </a>
+      </td>`;
+      html += '</tr>';
+    } else {
+      html += `<tr class="${classe}" ${onclick} style="${cursor}" title="${title}">`;
+      colunas.forEach(col => {
+        const valor = obterValor(item, col, tipo);
+        html += `<td>${valor}</td>`;
+      });
+      html += '</tr>';
     }
-    
-    html += '</tr>';
   });
 
   html += '</tbody></table>';
@@ -813,6 +844,29 @@ function abrirDetalhesCliente(nomeCliente) {
   }).catch(erro => {
     ocultarLoadingCliente();
     alert('Erro ao buscar detalhes: ' + erro.message);
+  });
+}
+
+// ============================================
+// FUNCTION: PREPARAR CLIENTE PARA ABRIR EM NOVA ABA
+// ============================================
+function prepararClienteNovaAba(nomeCliente) {
+  // ✅ Usar cache global de clientes (carregar uma única vez)
+  carregarClientesUmaVez().then(clientes => {
+    const cliente = Array.isArray(clientes) ? 
+      clientes.find(c => c.Nome === nomeCliente) : 
+      null;
+
+    if (cliente) {
+      // Armazenar cliente no localStorage para nova aba acessar
+      console.log('💾 Salvando cliente para nova aba:', cliente);
+      const clienteJSON = JSON.stringify(cliente);
+      localStorage.setItem('clienteSelecionado', clienteJSON);
+      sessionStorage.setItem('clienteSelecionado', clienteJSON);
+      console.log('✅ Cliente salvo para nova aba');
+    }
+  }).catch(erro => {
+    console.error('Erro ao buscar detalhes:', erro.message);
   });
 }
 
