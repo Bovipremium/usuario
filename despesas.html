@@ -441,6 +441,7 @@
       }
     }
   </style>
+  <script src="auditoria.js"></script>
 </head>
 <body>
 
@@ -1484,15 +1485,6 @@
       setTimeout(() => {
         alertDiv.innerHTML = '';
       }, 4000);
-    }
-  }
-
-  async function registrarAuditoria(dados) {
-    try {
-      const response = await AuthManager.requisicaoSegura(CONFIG.API_URL + '?action=save&file=auditoria.json&data=' + encodeURIComponent(JSON.stringify(dados)));
-      console.log('✅ Auditoria registrada');
-    } catch (erro) {
-      console.warn('⚠️ Erro ao registrar auditoria:', erro);
     }
   }
 </script>
