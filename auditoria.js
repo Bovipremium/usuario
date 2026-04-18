@@ -21,7 +21,7 @@ function registrarAuditoria(acao, tipo, id, nomeObjeto, descricao, dadosAntigos 
   
   // Se por algum motivo ficou como "Administrador", tenta puxar do localStorage direto
   if (nomeUser === 'Administrador') {
-    const usuarioStorage = localStorage.getItem('usuarioLogado');
+    const usuarioStorage = localStorage.getItem('usuario');
     if (usuarioStorage) {
       try {
         const u = JSON.parse(usuarioStorage);
