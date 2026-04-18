@@ -41,6 +41,9 @@ window.addEventListener("load", async () => {
     nomeUsuarioEl.textContent = usuarioLogado.nome || 'Usuário';
   }
 
+  // ✅ PRÉ-CARREGAR clientes.json em clientesGlobal (não bloqueia UI)
+  carregarClientesUmaVez();
+
   // Carregar foto do usuário
   await carregarFotoUsuario();
 
@@ -109,6 +112,8 @@ async function carregarComissaoUsuario() {
     // Obter configuração de comissão do localStorage
     const configMetas = JSON.parse(localStorage.getItem('configMetas') || '{}');
     const percentualComissao = parseFloat(configMetas.comissao) || 0;
+    console.log('💰 ConfigMetas carregada:', configMetas);
+    console.log('💰 Percentual Comissão:', percentualComissao);
 
     // ✅ Usar cache global de clientes (carregar uma única vez)
     const clientes = await carregarClientesUmaVez();
@@ -124,6 +129,7 @@ async function carregarComissaoUsuario() {
     const anoAtual = agora.getFullYear();
     
     let vendidoMes = 0;
+    let faturamentoTotal = 0; // 🆕 Total de TODOS os vendedores
 
     // Percorrer clientes e suas vendas
     clientes.forEach(cliente => {
@@ -134,9 +140,17 @@ async function carregarComissaoUsuario() {
           const dataVenda = new Date(venda.DataVenda);
           const mesVenda = dataVenda.getMonth() + 1;
           const anoVenda = dataVenda.getFullYear();
+          
+          const valorVenda = parseFloat(venda.ValorTotal) || 0;
 
+          // Somar ao total de faturamento (todos os vendedores)
+          if (mesVenda === mesAtual && anoVenda === anoAtual) {
+            faturamentoTotal += valorVenda;
+          }
+
+          // Somar apenas as vendas deste usuário
           if (vendedorVenda === usuarioLogado.nome && mesVenda === mesAtual && anoVenda === anoAtual) {
-            vendidoMes += parseFloat(venda.ValorTotal) || 0;
+            vendidoMes += valorVenda;
           }
         });
       }
@@ -154,15 +168,22 @@ async function carregarComissaoUsuario() {
     const containerComissao = document.getElementById('usuarioComissao');
     const elementoVendido = document.getElementById('usuarioVendido');
     const elementoComissao = document.getElementById('usuarioComissaoValor');
+    const elementoFaturamento = document.getElementById('usuarioFaturamento');
     const labelMes = document.getElementById('usuarioVendidoLabel');
 
     if (containerComissao && elementoVendido && elementoComissao) {
       // Formatar valores com R$
       const vendidoFormatado = vendidoMes.toLocaleString('pt-BR', {minimumFractionDigits: 2});
       const comissaoFormatada = comissao.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+      const faturamentoFormatado = faturamentoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
       
       elementoVendido.textContent = `R$ ${vendidoFormatado}`;
       elementoComissao.textContent = `R$ ${comissaoFormatada}`;
+      
+      // 🆕 Exibir faturamento total
+      if (elementoFaturamento) {
+        elementoFaturamento.textContent = `R$ ${faturamentoFormatado}`;
+      }
       
       // Atualizar label do mês
       if (labelMes) {
@@ -174,7 +195,8 @@ async function carregarComissaoUsuario() {
         containerComissao.style.display = 'block';
       }
 
-      console.log(`💰 Comissão do usuário ${usuarioLogado.nome}: Vendido R$ ${vendidoMes.toFixed(2)}, Comissão R$ ${comissao.toFixed(2)}`);
+      console.log(`💰 Comissão do usuário ${usuarioLogado.nome}: Vendido R$ ${vendidoMes.toFixed(2)}, Comissão R$ ${comissao.toFixed(2)} (${percentualComissao}%)`);
+      console.log(`📊 Faturamento Total (${mesNome}): R$ ${faturamentoTotal.toFixed(2)}`);
     }
 
   } catch (erro) {
@@ -1336,7 +1358,7 @@ function filtrarDadosPagamentos() {
 // ============================================
 // FUNÇÃO: MOSTRAR DASHBOARD
 // ============================================
-function mostrarDashboard() {
+async function mostrarDashboard() {
   searchBox.classList.add("hidden");
   
   const usuario = obterUsuario();
@@ -1367,6 +1389,9 @@ function mostrarDashboard() {
       <ul style="margin-top: 10px; color: #666;">
         ${obterModulos().map(m => `<li>✓ ${m}</li>`).join("")}
       </ul>
+
+      <!-- DESEMPENHO DE VENDEDORES -->
+      <div id="desempenhoVendedores" style="margin-top: 30px;"></div>
       
       <!-- PRÓXIMAS LIGAÇÕES AGENDADAS -->
       <div id="proximasLigacoes" style="margin-top: 30px;"></div>
@@ -1375,8 +1400,116 @@ function mostrarDashboard() {
 
   conteudo.innerHTML = html;
   
+  // ✅ RECARREGAR COMISSÃO (pode ter sido atualizada em admin)
+  await carregarComissaoUsuario();
+  
   // Carregar próximos agendamentos (async sem await)
   carregarProximasLigacoesDashboard();
+  
+  // Carregar desempenho de vendedores (usa cache global)
+  carregarDesempenhoVendedoresDashboard();
+}
+
+// ============================================
+// FUNÇÃO: CARREGAR DESEMPENHO DE VENDEDORES NO DASHBOARD
+// ============================================
+async function carregarDesempenhoVendedoresDashboard() {
+  try {
+    const container = document.getElementById('desempenhoVendedores');
+    if (!container) return;
+
+    // ✅ USAR CACHE GLOBAL - não fazer requisição extra!
+    const clientes = clientesGlobal || [];
+    if (!Array.isArray(clientes) || clientes.length === 0) {
+      console.warn('⚠️ Clientes ainda não carregados globalmente');
+      container.innerHTML = '';
+      return;
+    }
+
+    // Obter mês/ano atual
+    const agora = new Date();
+    const mesAtual = agora.getMonth() + 1;
+    const anoAtual = agora.getFullYear();
+    const meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const mesNome = meses[mesAtual];
+
+    // Calcular vendas por vendedor
+    const vendasPorVendedor = {};
+    let totalGeral = 0;
+
+    clientes.forEach(cliente => {
+      if (cliente.Vendas && Array.isArray(cliente.Vendas)) {
+        cliente.Vendas.forEach(venda => {
+          const dataVenda = new Date(venda.DataVenda);
+          const mesVenda = dataVenda.getMonth() + 1;
+          const anoVenda = dataVenda.getFullYear();
+
+          if (mesVenda === mesAtual && anoVenda === anoAtual) {
+            const vendedor = venda.VendedorVenda || venda.Vendedor || 'Não atribuído';
+            const valor = parseFloat(venda.ValorTotal) || 0;
+
+            if (!vendasPorVendedor[vendedor]) {
+              vendasPorVendedor[vendedor] = 0;
+            }
+            vendasPorVendedor[vendedor] += valor;
+            totalGeral += valor;
+          }
+        });
+      }
+    });
+
+    // Se não tem vendas, não mostra nada
+    if (totalGeral === 0 || Object.keys(vendasPorVendedor).length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    // Ordena por valor (maior para menor)
+    const vendedoresOrdenados = Object.entries(vendasPorVendedor)
+      .sort((a, b) => b[1] - a[1])
+      .map(([nome, valor]) => ({ nome, valor }));
+
+    // Renderizar HTML
+    const html = `
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+      <h4 style="color: #333; margin-bottom: 15px;">💰 Desempenho de Vendedores - ${mesNome}/${anoAtual}</h4>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 20px;">
+        ${vendedoresOrdenados.map((vendedor, idx) => {
+          const percentual = ((vendedor.valor / totalGeral) * 100).toFixed(1);
+          return `
+            <div style="background: white; padding: 15px; border-radius: 5px; border-left: 4px solid #667eea; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: #333; font-size: 14px;">👤 ${vendedor.nome}</strong>
+                <span style="background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">${percentual}%</span>
+              </div>
+              <h3 style="color: #667eea; font-size: 18px; margin: 10px 0;">R$ ${vendedor.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+              
+              <!-- Barra de progresso -->
+              <div style="background: #e3f2fd; border-radius: 4px; height: 6px; overflow: hidden;">
+                <div style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: ${percentual}%; transition: width 0.3s ease;"></div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <!-- TOTAL VENDIDO DO MÊS -->
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); text-align: center;">
+        <p style="font-size: 14px; margin-bottom: 8px; opacity: 0.9;">📊 TOTAL VENDIDO DO MÊS</p>
+        <h2 style="font-size: 32px; font-weight: 700; margin: 0;">R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h2>
+        <p style="font-size: 12px; margin-top: 8px; opacity: 0.8;">🎯 ${Object.keys(vendasPorVendedor).length} ${Object.keys(vendasPorVendedor).length === 1 ? 'vendedor' : 'vendedores'} ativo(s) em ${mesNome}</p>
+      </div>
+    `;
+
+    container.innerHTML = html;
+    console.log('📊 Desempenho de vendedores carregado (via cache):', vendasPorVendedor);
+
+  } catch (erro) {
+    console.warn('⚠️ Erro ao carregar desempenho de vendedores:', erro);
+    // Falha silenciosa
+  }
 }
 
 // ============================================
@@ -1853,7 +1986,14 @@ function renderizarTabelaPagamentosFiltered(clientes) {
         const dataVencimento = new Date(p.DataVencimento);
         if (dataDe && dataVencimento < new Date(dataDe)) return false;
         if (dataAte && dataVencimento > new Date(dataAte)) return false;
-        if (p.Valor < valorMin || p.Valor > valorMax) return false;
+        
+        // Considerar pagamento parcial no filtro de valor
+        let valorParaFiltrar = p.Valor;
+        if (p.ValorPago > 0) {
+          valorParaFiltrar = p.ValorPago;
+        }
+        if (valorParaFiltrar < valorMin || valorParaFiltrar > valorMax) return false;
+        
         return true;
       });
 
@@ -1933,8 +2073,13 @@ function aplicarFiltrosPagamentos() {
           if (dataAte && dataVencimento > new Date(dataAte)) continue;
         }
 
-        // Filtro de valor
-        if (parcela.Valor < valorMin || parcela.Valor > valorMax) continue;
+        // Filtro de valor - CONSIDERAR PAGAMENTO PARCIAL
+        let valorParaFiltrar = parcela.Valor;
+        if (parcela.ValorPago > 0) {
+          // Se houve pagamento parcial, usar o valor pago para filtrar
+          valorParaFiltrar = parcela.ValorPago;
+        }
+        if (valorParaFiltrar < valorMin || valorParaFiltrar > valorMax) continue;
 
         // Se chegou aqui, este cliente passa pelos filtros
         return true;
