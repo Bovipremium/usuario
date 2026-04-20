@@ -700,7 +700,7 @@ function renderizarTabela(tipo, dados) {
   // Definir colunas por tipo (baseado no C#)
   const colunasPorTipo = {
     clientes: ["Id", "Nome", "CPF", "Telefone1"],
-    insumos: ["Nome", "Quantidade", "Valor", "Unidade"],
+    insumos: ["Nome", "Quantidade", "QuantidadePendente", "Valor", "Unidade"],
     transporte: ["NomeCliente", "Cidade", "Estado", "CodigoRastreio", "ValorFrete", "Status"],
     pagamentos: ["ClienteNome", "ClienteCPF", "NumeroNF", "DataVencimento", "Valor", "Pago", "DataPagamento"],
     receitas: ["Nome", "Tipo", "PesoPadrao", "CustoPorKg", "Descricao"]
@@ -727,7 +727,13 @@ function renderizarTabela(tipo, dados) {
     html += `<tr class="${classe}" ${onclick} ${dataCliente} style="${cursor}" title="${tipo === 'clientes' ? 'Clique para detalhes' : 'Clique para detalhes'}">`;
     colunas.forEach(col => {
       const valor = obterValor(item, col, tipo);
-      html += `<td>${valor}</td>`;
+      
+      // 📌 COLORIR EM VERMELHO QUANTIDADE PENDENTE DE INSUMOS
+      if (tipo === "insumos" && col === "QuantidadePendente" && item.QuantidadePendente && item.QuantidadePendente > 0) {
+        html += `<td style="background-color: #ffcccc; color: #c33; font-weight: bold; text-align: center;">${valor}</td>`;
+      } else {
+        html += `<td>${valor}</td>`;
+      }
     });
     
     // Adicionar status para clientes
