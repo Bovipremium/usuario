@@ -422,16 +422,13 @@
   async function recarregarClienteDoServidor() {
     try {
       if (!clienteAtual || !clienteAtual.Id) {
-        console.warn('⚠️ Cliente não identificado para recarregar');
         return false;
       }
 
       mostrarLoading();
-      console.log('🔄 Recarregando cliente do servidor...');
       const clientes = await buscarArquivo('clientes.json');
       
       if (!Array.isArray(clientes)) {
-        console.error('❌ Erro: arquivo de clientes não é um array válido');
         ocultarLoading();
         return false;
       }
@@ -439,14 +436,12 @@
       const clienteAtualizado = clientes.find(c => c.Id === clienteAtual.Id);
       
       if (!clienteAtualizado) {
-        console.warn('⚠️ Cliente não encontrado no servidor');
         ocultarLoading();
         return false;
       }
 
       // ✅ Atualizar com os dados mais recentes do servidor
       clienteAtual = clienteAtualizado;
-      console.log('✅ Cliente recarregado com sucesso');
       
       // Também atualizar no sessionStorage para evitar inconsistências
       sessionStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
@@ -454,7 +449,6 @@
       ocultarLoading();
       return true;
     } catch (erro) {
-      console.error('❌ Erro ao recarregar cliente:', erro);
       ocultarLoading();
       return false;
     }
@@ -629,6 +623,10 @@
         return;
       }
 
+      // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
+
       // ✨ NOVO: Recarregar do servidor para sincronizar
       await recarregarClienteDoServidor();
 
@@ -677,11 +675,15 @@
         return;
       }
 
+      // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
+
       // ✨ NOVO: Recarregar do servidor para sincronizar
       await recarregarClienteDoServidor();
 
       // ✅ Atualizar UI localmente
-      renderizarSatisfacao();
+      renderizarProdutoPronto();
       ocultarLoading();
       alert('✅ Produto Pronto atualizado com sucesso!');
     } catch (erro) {
@@ -1001,6 +1003,10 @@
           alert('❌ Erro ao salvar! Tente novamente.');
           return;
         }
+
+        // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+        const cacheKey = 'arquivo_clientes.json_cache';
+        localStorage.removeItem(cacheKey);
 
         // ✨ NOVO: Recarregar dados do servidor após salvar com sucesso
         const recarregou = await recarregarClienteDoServidor();
@@ -1747,6 +1753,10 @@
         return;
       }
 
+      // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
+
       modal.remove();
       renderizarVendas();
       renderizarStatus();
@@ -1795,6 +1805,10 @@
         alert('❌ Erro ao salvar! Tente novamente.');
         return;
       }
+
+      // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
 
       renderizarVendas();
       renderizarStatus();
@@ -1851,6 +1865,10 @@
         JSON.stringify(novaObs)
       );
 
+      // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
+
       renderizarObservacoes();
       alert('✅ Observação adicionada com sucesso!');
     } catch (erro) {
@@ -1899,6 +1917,10 @@
         JSON.stringify(obsRemovida),
         ''
       );
+
+      // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
 
       renderizarObservacoes();
       alert('✅ Observação removida com sucesso!');
