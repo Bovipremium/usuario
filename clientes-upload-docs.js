@@ -540,31 +540,15 @@ function carregarArquivosAnexados(tipo = 'ANEXO') {
       return response.json();
     })
     .then(dados => {
-      console.log(`✅ Resposta de arquivos (${tipo}):`, dados);
-      
-      // Log adicional para debug
-      if (dados.debug) {
-        console.log(`📂 [DEBUG Backend] Pasta procurada: ${dados.debug.pastaProcurada}`);
-        if (dados.debug.pastasEncontradas) {
-          console.log(`📂 [DEBUG Backend] Pastas encontradas:`, dados.debug.pastasEncontradas);
-        }
-        if (dados.debug.pastaClienteNome) {
-          console.log(`📂 [DEBUG Backend] Pasta do cliente (encontrada): ${dados.debug.pastaClienteNome}`);
-        }
-      }
-      
       // Validar dados recebidos
       if (!dados.arquivos) {
-        console.log(`⚠️ Dados sem campo 'arquivos', criando array vazio`);
         dados.arquivos = [];
       }
       
-      console.log(`📂 Total de arquivos (${tipo}): ${dados.total || dados.arquivos.length}`);
       exibirListaArquivos(dados, tipo);
     })
     .catch(erro => {
       console.error(`❌ Erro ao carregar arquivos (${tipo}):`, erro);
-      console.error(erro.stack);
       exibirListaArquivos({ status: 'error', arquivos: [], message: erro.message }, tipo);
     });
 }
