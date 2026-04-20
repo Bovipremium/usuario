@@ -679,6 +679,19 @@
       const cacheKey = 'arquivo_clientes.json_cache';
       localStorage.removeItem(cacheKey);
 
+      // 📌 SE MARCOU COMO PRONTO, REMOVE QUANTIDADE PENDENTE E DEDUZ DO ESTOQUE
+      if (pronto && cliente.Vendas && Array.isArray(cliente.Vendas)) {
+        for (const venda of cliente.Vendas) {
+          if (venda.Produtos && Array.isArray(venda.Produtos)) {
+            for (const produto of venda.Produtos) {
+              if (produto.Quantidade > 0) {
+                await removerQuantidadePendente(produto.Nome, produto.PesoUnidade, produto.Quantidade);
+              }
+            }
+          }
+        }
+      }
+
       // ✨ NOVO: Recarregar do servidor para sincronizar
       await recarregarClienteDoServidor();
 
@@ -1756,6 +1769,15 @@
       // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
       const cacheKey = 'arquivo_clientes.json_cache';
       localStorage.removeItem(cacheKey);
+
+      // 📌 SE NÃO ESTÁ MARCADO COMO PRODUTO PRONTO, ADICIONA QUANTIDADE PENDENTE
+      if (!clienteAtual.ProdutoPronto) {
+        for (const produto of produtos) {
+          if (produto.Quantidade > 0) {
+            await adicionarQuantidadePendente(produto.Nome, produto.PesoUnidade, produto.Quantidade);
+          }
+        }
+      }
 
       modal.remove();
       renderizarVendas();
