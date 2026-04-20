@@ -1,215 +1,2898 @@
-// ============================================
-// GERENCIAMENTO DE ESTOQUE
-// ============================================
-// Deduz insumos quando marca "Produto Pronto: Sim"
-
-// ============================================
-// HELPER: DEFINIR CLASSE DE PESO
-// ============================================
-function definirClassePeso(peso) {
-  if (peso <= 0.5) return "Pequeno";
-  if (peso <= 2) return "Médio";
-  if (peso <= 5) return "Grande";
-  if (peso <= 10) return "ExtraGrande";
-  return "SuperGrande";
-}
-
-// ============================================
-// BUSCAR INSUMO PARA DEDUZIR
-// ============================================
-// Tenta encontrar o insumo na seguinte ordem:
-// 1. Nome + Peso exato
-// 2. Nome + Classe de Peso
-// 3. Sem Nome + Classe de Peso
-async function buscarInsumoParaDeduzir(nomeProduto, pesoProduto, quantidadeNecessaria) {
-  try {
-    // Carregar insumos
-    const response = await AuthManager.requisicaoSegura(`${CONFIG.API_URL}?acao=buscar&arquivo=insumos.json`);
-    const insumos = await response.json();
-
-    if (!Array.isArray(insumos)) {
-      console.warn("❌ insumos.json não está no formato esperado");
-      return null;
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <link rel="icon" type="image/png" href="assets/img/logo.png">
+  <link rel="stylesheet" href="sidebar-dock.css">
+  <title>Detalhes do Cliente - Bovi Premium</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
 
-    // 1️⃣ Tentar encontrar insumo com NOME + PESO exato
-    let insumo = insumos.find(i =>
-      i.Nome && 
-      i.Nome.toLowerCase() === nomeProduto.toLowerCase() &&
-      Math.abs(i.Peso - pesoProduto) < 0.01 &&
-      i.Quantidade >= quantidadeNecessaria
-    );
-
-    if (insumo) {
-      console.log(`✅ Insumo encontrado (exato): ${insumo.Nome} - ${insumo.Peso}kg`);
-      return insumo;
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
+      min-height: 100vh;
+      color: #e5f3ee;
+      padding: 20px;
     }
 
-    // 2️⃣ Tentar encontrar insumo com NOME + CLASSE DE PESO
-    const classePeso = definirClassePeso(pesoProduto);
-    const insumosComNome = insumos.filter(i =>
-      i.Nome &&
-      i.Nome.toLowerCase() === nomeProduto.toLowerCase() &&
-      definirClassePeso(i.Peso) === classePeso &&
-      i.Quantidade >= quantidadeNecessaria
-    ).sort((a, b) => 
-      Math.abs(a.Peso - pesoProduto) - Math.abs(b.Peso - pesoProduto)
-    );
-
-    if (insumosComNome.length > 0) {
-      insumo = insumosComNome[0];
-      console.log(`✅ Insumo encontrado (mesma classe): ${insumo.Nome} - ${insumo.Peso}kg`);
-      return insumo;
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
     }
 
-    // 3️⃣ Tentar encontrar insumo SEM NOME + CLASSE DE PESO
-    const insumosGenéricos = insumos.filter(i =>
-      (!i.Nome || i.Nome.trim() === "") &&
-      definirClassePeso(i.Peso) === classePeso &&
-      i.Quantidade >= quantidadeNecessaria
-    ).sort((a, b) =>
-      Math.abs(a.Peso - pesoProduto) - Math.abs(b.Peso - pesoProduto)
-    );
-
-    if (insumosGenéricos.length > 0) {
-      insumo = insumosGenéricos[0];
-      console.log(`✅ Insumo encontrado (genérico): ${insumo.Peso}kg`);
-      return insumo;
+    .header {
+      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
-    console.warn(`❌ Nenhum insumo encontrado para: ${nomeProduto} (${pesoProduto}kg)`);
-    return null;
+    .header h1 {
+      color: #1fa37a;
+      font-size: 32px;
+      font-weight: 700;
+    }
 
-  } catch (erro) {
-    console.error("❌ Erro ao buscar insumo:", erro);
-    return null;
+    .btn {
+      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 12px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
+      transform: translateY(-2px);
+    }
+
+    .btn.danger {
+      background: linear-gradient(145deg, rgba(220,53,69,.3), rgba(220,53,69,.15));
+      color: #ff9999;
+      border-color: rgba(220,53,69,.3);
+    }
+
+    .btn.danger:hover {
+      background: linear-gradient(145deg, rgba(220,53,69,.4), rgba(220,53,69,.25));
+    }
+
+    .content-card {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 30px;
+      backdrop-filter: blur(14px);
+      margin-bottom: 30px;
+    }
+
+    .section-title {
+      color: #1fa37a;
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      border-bottom: 2px solid rgba(31,163,122,.3);
+      padding-bottom: 15px;
+    }
+
+    .dados-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .dado-item {
+      background: rgba(31,163,122,.1);
+      padding: 18px;
+      border-radius: 12px;
+      border-left: 3px solid #1fa37a;
+    }
+
+    .dado-label {
+      font-size: 11px;
+      color: #8fb9ac;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .dado-valor {
+      font-size: 16px;
+      color: #7cf0c2;
+      font-weight: 600;
+      word-break: break-word;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 25px;
+      flex-wrap: wrap;
+    }
+
+    .observacao-item {
+      background: rgba(31,163,122,.1);
+      border-left: 3px solid #1fa37a;
+      padding: 15px;
+      margin-bottom: 12px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 15px;
+    }
+
+    .observacao-texto {
+      flex: 1;
+      color: #7cf0c2;
+      line-height: 1.5;
+    }
+
+    .observacao-btn {
+      background: rgba(220,53,69,.2);
+      color: #ff9999;
+      border: 1px solid rgba(220,53,69,.3);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      white-space: nowrap;
+      transition: all 0.3s;
+    }
+
+    .observacao-btn:hover {
+      background: rgba(220,53,69,.3);
+    }
+
+    .empty-message {
+      text-align: center;
+      padding: 40px;
+      color: #8fb9ac;
+      font-style: italic;
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+      }
+
+      .content-card {
+        padding: 20px;
+      }
+
+      .btn-group {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+
+    /* Loading Spinner */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      backdrop-filter: blur(8px);
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .spinner {
+      border: 5px solid rgba(31, 163, 122, 0.15);
+      border-top: 5px solid #1fa37a;
+      border-right: 5px solid #7cf0c2;
+      border-radius: 50%;
+      width: 70px;
+      height: 70px;
+      animation: spin 0.8s linear infinite;
+      box-shadow: 0 0 30px rgba(31, 163, 122, 0.4);
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Texto de loading */
+    .loading-overlay::after {
+      content: '';
+      position: absolute;
+      bottom: 30%;
+      text-align: center;
+      color: #7cf0c2;
+      font-size: 14px;
+      font-weight: 600;
+      width: 100%;
+    }
+  </style></head>
+<body>
+
+<div class="container">
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <h1>👤 Detalhes do Cliente</h1>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <button class="btn" id="btnFC" onclick="toggleFC(event)" style="padding: 10px 18px; font-size: 14px; font-weight: bold; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: #f0f0f0; color: #666; border: 2px solid #ddd;">FC</button>
+      <button class="btn" onclick="voltarParaClientes()">← Voltar</button>
+    </div>
+  </div>
+
+  <!-- STATUS E SATISFAÇÃO -->
+  <div class="content-card">
+    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 20px;">
+      <div id="statusBadge" style="padding: 12px 20px; border-radius: 4px; font-weight: bold; color: white; font-size: 14px;">
+        Carregando status...
+      </div>
+      <button class="btn" id="btnSatisfeito" onclick="atualizarSatisfacao('Satisfeito')" style="padding: 12px 20px; font-size: 13px;">😊 Satisfeito</button>
+      <button class="btn" id="btnInsatisfeito" onclick="atualizarSatisfacao('Insatisfeito')" style="padding: 12px 20px; font-size: 13px;">😠 Insatisfeito</button>
+      <button class="btn" id="btnSemGado" onclick="atualizarSatisfacao('SemGado')" style="padding: 12px 20px; font-size: 13px;">🚫 Sem Gado</button>
+    </div>
+    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-top: 15px; border-top: 1px solid rgba(31,163,122,.3); padding-top: 15px;">
+      <span style="color: #8fb9ac; font-size: 12px; text-transform: uppercase; font-weight: 600;">📦 Produto Pronto:</span>
+      <button class="btn" id="btnProdutoProntoSim" onclick="marcarProdutoPronto(clienteAtual, true)" style="padding: 12px 20px; font-size: 13px;">✅ Sim</button>
+      <button class="btn" id="btnProdutoProntoNao" onclick="marcarProdutoPronto(clienteAtual, false)" style="padding: 12px 20px; font-size: 13px;">❌ Não</button>
+    </div>
+  </div>
+
+  <!-- DADOS PESSOAIS -->
+  <div class="content-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid rgba(31,163,122,.3); padding-bottom: 15px;">
+      <div class="section-title" style="margin: 0; border: none; padding: 0;">📋 Informações Pessoais</div>
+      <div class="btn-group" style="margin: 0; gap: 8px; flex-wrap: wrap;">
+        <button class="btn" onclick="novaVendaCliente()" style="background: linear-gradient(145deg, rgba(212,175,55,.3), rgba(212,175,55,.15)); color: #d4af37; border-color: rgba(212,175,55,.3); font-weight: 700;">➕ Nova Venda</button>
+        <button class="btn" onclick="editarCliente()">✏️ Editar Dados</button>
+        <button class="btn" onclick="abrirWhatsApp()">💬 WhatsApp</button>
+        <button class="btn" onclick="abrirCotacao()">📊 Cotação</button>
+        <button class="btn" onclick="agendarLigacaoCliente()">📞 Agendar Ligação</button>
+        <button class="btn" onclick="gerarRastreio()">🚚 Gerar Rastreio</button>
+        <button class="btn" onclick="abrirAssinaturaPDF()" style="background: linear-gradient(145deg, rgba(220, 53, 69,.3), rgba(220, 53, 69,.15)); border-color: rgba(220, 53, 69,.3);">📝 Assinatura</button>
+      </div>
+    </div>
+    <div class="dados-grid" id="dadosGrid">
+      <p class="empty-message">Carregando...</p>
+    </div>
+  </div>
+
+  <!-- OBSERVAÇÕES -->
+  <div class="content-card">
+    <div class="section-title">📝 Observações</div>
+    <div id="observacoesContainer">
+      <p class="empty-message">Nenhuma observação</p>
+    </div>
+    <button class="btn" onclick="adicionarObservacao()" style="margin-top: 20px;">➕ Adicionar Observação</button>
+  </div>
+
+  <!-- UPLOAD DE DOCUMENTOS -->
+  <div class="content-card">
+    <div class="section-title">📄 Upload de Documentos</div>
+    <p style="color: #8fb9ac; margin-bottom: 20px; font-size: 14px;">
+      Envie documentos do cliente para o Google Drive. Os arquivos serão organizados em pastas específicas.
+    </p>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+      <button class="btn" onclick="abrirUploadAnexo()" style="background: linear-gradient(145deg, rgba(100, 200, 150,.3), rgba(100, 200, 150,.15)); border-color: rgba(100, 200, 150,.3);">
+        📎 Anexo (PDF, Imagem, Doc)
+      </button>
+      <button class="btn" onclick="abrirUploadNF()" style="background: linear-gradient(145deg, rgba(200, 150, 100,.3), rgba(200, 150, 100,.15)); border-color: rgba(200, 150, 100,.3);">
+        📄 Nota Fiscal (PDF, Imagem)
+      </button>
+    </div>
+
+    <!-- ARQUIVOS ANEXADOS -->
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(31, 163, 122, 0.2);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="color: #1fa37a; font-size: 16px; font-weight: 700; margin: 0;">📎 Arquivos Anexados</h3>
+        <button 
+          class="btn" 
+          onclick="carregarArquivosAnexados('ANEXO')"
+          style="
+            padding: 6px 12px;
+            font-size: 12px;
+            background: rgba(31, 163, 122, 0.2);
+            border-color: rgba(31, 163, 122, 0.4);
+          "
+        >
+          🔄 Atualizar
+        </button>
+      </div>
+      <div id="arquivosAnexoContainer">
+        <div style="padding: 15px; text-align: center; color: #8fb9ac; font-size: 13px;">
+          ⏳ Carregando...
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTAS FISCAIS -->
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(31, 163, 122, 0.2);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="color: #1fa37a; font-size: 16px; font-weight: 700; margin: 0;">📄 Notas Fiscais</h3>
+        <button 
+          class="btn" 
+          onclick="carregarArquivosAnexados('NF')"
+          style="
+            padding: 6px 12px;
+            font-size: 12px;
+            background: rgba(31, 163, 122, 0.2);
+            border-color: rgba(31, 163, 122, 0.4);
+          "
+        >
+          🔄 Atualizar
+        </button>
+      </div>
+      <div id="arquivosNFContainer">
+        <div style="padding: 15px; text-align: center; color: #8fb9ac; font-size: 13px;">
+          ⏳ Carregando...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OBSERVAÇÕES -->
+  <div class="content-card">
+    <div class="section-title">📝 Observações</div>
+    <div id="observacoesContainer">
+      <p class="empty-message">Nenhuma observação</p>
+    </div>
+    <button class="btn" onclick="adicionarObservacao()" style="margin-top: 20px;">➕ Adicionar Observação</button>
+  </div>
+
+  <!-- HISTÓRICO DE VENDAS -->
+  <div class="content-card">
+    <div class="section-title">💰 Histórico de Vendas</div>
+    <div id="vendasContainer">
+      <p class="empty-message">Nenhuma venda registrada</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="config.js"></script>
+<script src="auth-utils.js"></script>
+<script src="CONFIG_URLS.js"></script>
+<script src="auth.js"></script>
+<script src="auditoria.js"></script>
+<script src="estoque.js"></script>
+<script src="clientes-upload-docs.js"></script>
+<script src="imprimir-vendas.js"></script>
+
+<script>
+  let clienteAtual = null;
+
+  // 🔧 Mostrar loading spinner
+  function mostrarLoading() {
+    if (document.getElementById('loadingOverlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'loadingOverlay';
+    overlay.className = 'loading-overlay';
+    overlay.innerHTML = `
+      <div class="spinner"></div>
+      <div style="color: #7cf0c2; font-size: 16px; font-weight: 600; margin-top: 20px; text-align: center;">
+        <div>⏳ Processando...</div>
+        <div style="color: #8fb9ac; font-size: 12px; margin-top: 8px;">Por favor, aguarde</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
   }
-}
 
-// ============================================
-// DEDUZIR INSUMO DO ESTOQUE
-// ============================================
-async function deduzirInsumoDoProduto(cliente) {
-  try {
-    console.log("🔄 Deduzindo insumos para cliente:", cliente.Nome);
+  // 🔧 Ocultar loading spinner
+  function ocultarLoading() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.remove();
+  }
 
-    // Carregar insumos atuais
-    const responseInsumos = await AuthManager.requisicaoSegura(`${CONFIG.API_URL}?acao=buscar&arquivo=insumos.json`);
-    const insumos = await responseInsumos.json();
+  // 🔧 Fechar todos os modais abertos
+  function fecharTodosModais() {
+    const modais = document.querySelectorAll('[class*="modal"]');
+    modais.forEach(m => {
+      if (m && m.parentNode) {
+        m.remove();
+      }
+    });
+  }
 
-    // Para cada venda, deduzir cada produto
-    for (const venda of cliente.Vendas) {
-      if (!venda.Produtos) continue;
+  // ✨ NOVO: Recarregar cliente do servidor (Google Drive) para sincronizar após salvar
+  async function recarregarClienteDoServidor() {
+    try {
+      if (!clienteAtual || !clienteAtual.Id) {
+        return false;
+      }
 
-      for (const produto of venda.Produtos) {
-        if (produto.Quantidade <= 0) continue;
+      mostrarLoading();
+      const clientes = await buscarArquivo('clientes.json');
+      
+      if (!Array.isArray(clientes)) {
+        ocultarLoading();
+        return false;
+      }
 
-        // Buscar insumo correspondente
-        const insumo = await buscarInsumoParaDeduzir(
-          produto.Nome,
-          produto.PesoUnidade,
-          produto.Quantidade
-        );
+      const clienteAtualizado = clientes.find(c => c.Id === clienteAtual.Id);
+      
+      if (!clienteAtualizado) {
+        ocultarLoading();
+        return false;
+      }
 
-        if (insumo) {
-          // Deduzir quantidade
-          insumo.Quantidade -= produto.Quantidade;
-          console.log(`✅ Deduzido: ${produto.Quantidade}un de ${insumo.Nome || "genérico"} (${insumo.Peso}kg)`);
-        } else {
-          console.warn(`⚠️ Insumo insuficiente ou não encontrado: ${produto.Nome}`);
+      // ✅ Atualizar com os dados mais recentes do servidor
+      clienteAtual = clienteAtualizado;
+      
+      // Também atualizar no sessionStorage para evitar inconsistências
+      sessionStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
+      
+      ocultarLoading();
+      return true;
+    } catch (erro) {
+      ocultarLoading();
+      return false;
+    }
+  }
+
+  // Carregar cliente ao abrir página
+  async function carregarCliente() {
+    let clienteJson = sessionStorage.getItem('clienteSelecionado');
+    
+    // Se não encontrar em sessionStorage, tentar localStorage
+    if (!clienteJson) {
+      clienteJson = localStorage.getItem('clienteSelecionado');
+    }
+    
+    console.log('🔍 Buscando clienteSelecionado:', clienteJson);
+
+    if (!clienteJson) {
+      alert('❌ Cliente não especificado');
+      console.log('❌ Nenhum cliente no sessionStorage ou localStorage');
+      voltarParaClientes();
+      return;
+    }
+
+    try {
+      clienteAtual = JSON.parse(clienteJson);
+      console.log('✅ Cliente carregado:', clienteAtual);
+
+      if (!clienteAtual) {
+        alert('❌ Cliente não encontrado');
+        voltarParaClientes();
+        return;
+      }
+
+      renderizarStatus();
+      renderizarDados();
+      renderizarSatisfacao();
+      renderizarObservacoes();
+      renderizarVendas();
+      
+      // Carregar arquivos anexados
+      setTimeout(() => {
+        carregarArquivosAnexados('ANEXO');
+        carregarArquivosAnexados('NF');
+      }, 500);
+    } catch (erro) {
+      console.error('Erro ao carregar cliente:', erro);
+      alert('❌ Erro ao carregar cliente: ' + erro.message);
+    }
+  }
+
+
+
+  // Renderizar status (Ativo/Inadimplente)
+  function renderizarStatus() {
+    const statusBadge = document.getElementById('statusBadge');
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    let status = 'Ativo';
+    let statusColor = '#28a745';
+    let inadimplente = false;
+
+    if (clienteAtual.Vendas && Array.isArray(clienteAtual.Vendas)) {
+      for (const venda of clienteAtual.Vendas) {
+        if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+          for (const parcela of venda.Parcelas) {
+            const dataVencimento = new Date(parcela.DataVencimento);
+            dataVencimento.setHours(0, 0, 0, 0);
+            if (!parcela.Pago && dataVencimento <= hoje) {
+              status = 'Inadimplente';
+              statusColor = '#dc3545';
+              inadimplente = true;
+              break;
+            }
+          }
+          if (inadimplente) break;
         }
       }
     }
 
-    // Salvar insumos atualizados
-    await salvarArquivoDrive("insumos.json", JSON.stringify(insumos, null, 2));
-    console.log("✅ Estoque atualizado!");
-
-    return true;
-
-  } catch (erro) {
-    console.error("❌ Erro ao deduzir insumo:", erro);
-    return false;
+    statusBadge.textContent = `CLIENTE: ${status}`;
+    statusBadge.style.backgroundColor = statusColor;
   }
-}
 
-// ============================================
-// MARCAR PRODUTO PRONTO NO SITE
-// ============================================
-async function marcarProdutoPronto(cliente, pronto = true) {
-  try {
-    console.log(`🔄 Marcando "${cliente.Nome}" como Produto Pronto: ${pronto ? "SIM" : "NÃO"}`);
+  // Renderizar botões de satisfação
+  function renderizarSatisfacao() {
+    const btnSatisfeito = document.getElementById('btnSatisfeito');
+    const btnInsatisfeito = document.getElementById('btnInsatisfeito');
+    const btnSemGado = document.getElementById('btnSemGado');
 
-    if (pronto) {
-      // ⚠️ PERGUNTAR ao usuário se deseja descontar do insumo
-      const desejaDescontar = confirm(
-        `Deseja descontar os insumos do estoque para o produto "${cliente.Nome}"?\n\n` +
-        `Ao clicar em OK, os insumos serão deduzidos do arquivo JSON.\n` +
-        `Ao clicar em Cancelar, apenas marcará como pronto SEM descontar.`
+    const satisfacao = clienteAtual.Satisfacao || 'NaoInformado';
+
+    [btnSatisfeito, btnInsatisfeito, btnSemGado].forEach(btn => {
+      btn.style.backgroundColor = 'transparent';
+      btn.style.color = '#7cf0c2';
+    });
+
+    if (satisfacao === 'Satisfeito') {
+      btnSatisfeito.style.backgroundColor = 'rgba(40, 167, 69, 0.5)';
+      btnSatisfeito.style.color = '#ffffff';
+    } else if (satisfacao === 'Insatisfeito') {
+      btnInsatisfeito.style.backgroundColor = 'rgba(220, 53, 69, 0.5)';
+      btnInsatisfeito.style.color = '#ffffff';
+    } else if (satisfacao === 'SemGado') {
+      btnSemGado.style.backgroundColor = 'rgba(255, 165, 0, 0.5)';
+      btnSemGado.style.color = '#ffffff';
+    }
+
+    // Renderizar estado do Produto Pronto
+    renderizarProdutoPronto();
+  }
+
+  // Renderizar estado do Produto Pronto
+  function renderizarProdutoPronto() {
+    const btnSim = document.getElementById('btnProdutoProntoSim');
+    const btnNao = document.getElementById('btnProdutoProntoNao');
+
+    if (!btnSim || !btnNao) return;
+
+    const produtoPronto = clienteAtual.ProdutoPronto === true;
+
+    [btnSim, btnNao].forEach(btn => {
+      btn.style.backgroundColor = 'transparent';
+      btn.style.color = '#7cf0c2';
+    });
+
+    if (produtoPronto) {
+      btnSim.style.backgroundColor = 'rgba(40, 167, 69, 0.5)';
+      btnSim.style.color = '#ffffff';
+    } else if (clienteAtual.ProdutoPronto === false) {
+      btnNao.style.backgroundColor = 'rgba(220, 53, 69, 0.5)';
+      btnNao.style.color = '#ffffff';
+    }
+  }
+
+  // Atualizar satisfação
+  async function atualizarSatisfacao(tipo) {
+    try {
+      mostrarLoading();
+      
+      const satisfacaoAtual = clienteAtual.Satisfacao || 'NaoInformado';
+      
+      if (satisfacaoAtual === tipo) {
+        clienteAtual.Satisfacao = 'NaoInformado';
+      } else {
+        clienteAtual.Satisfacao = tipo;
+      }
+
+      const clientes = await buscarArquivo('clientes.json');
+      const idx = clientes.findIndex(c => c.Id === clienteAtual.Id);
+      if (idx >= 0) {
+        clientes[idx] = clienteAtual;
+      }
+
+      // ✅ Salvar no Drive e verificar se funcionou
+      const salvou = await salvarDadosComAuditoria(
+        'clientes.json',
+        clientes,
+        'auditoria',
+        'Atualizar',
+        'Cliente',
+        clienteAtual.Id,
+        clienteAtual.Nome,
+        `Satisfação atualizada para ${tipo} via Site`,
+        '',
+        JSON.stringify(clienteAtual)
       );
 
-      if (!desejaDescontar) {
-        console.log("⚠️ Usuário optou por NÃO descontar do insumo");
-        // Apenas marcar como pronto sem deduzir
-        cliente.ProdutoPronto = pronto;
-        await salvarClienteComAuditoria(cliente);
-        alert('✅ Produto marcado como pronto (SEM desconto de insumo)');
-        return true;
+      if (!salvou) {
+        ocultarLoading();
+        alert('❌ Erro ao salvar! Tente novamente.');
+        return;
       }
 
-      // Limpar observações de preparo (igual ao C#)
-      for (const venda of cliente.Vendas) {
-        venda.ObservacaoPreparo = "";
-      }
+      // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
 
-      // Deduzir insumos do estoque
-      await deduzirInsumoDoProduto(cliente);
-      alert('✅ Produto marcado como pronto! Insumos foram deduzidos do estoque.');
+      // ✨ NOVO: Recarregar do servidor para sincronizar
+      await recarregarClienteDoServidor();
+
+      // ✅ Atualizar UI localmente
+      renderizarSatisfacao();
+      ocultarLoading();
+      alert('✅ Satisfação atualizada com sucesso!');
+    } catch (erro) {
+      console.error('Erro ao atualizar satisfação:', erro);
+      ocultarLoading();
+      alert('❌ Erro: ' + erro.message);
     }
-
-    // Atualizar flag
-    cliente.ProdutoPronto = pronto;
-
-    // Salvar cliente
-    await salvarClienteComAuditoria(cliente);
-
-    console.log(`✅ Cliente marcado como Produto Pronto: ${pronto ? "SIM" : "NÃO"}`);
-    return true;
-
-  } catch (erro) {
-    console.error("❌ Erro ao marcar produto pronto:", erro);
-    alert(`❌ Erro ao marcar produto pronto: ${erro.message}`);
-    return false;
   }
-}
 
-// ============================================
-// SALVAR CLIENTE COM AUDITORIA
-// ============================================
-async function salvarClienteComAuditoria(clienteNovo) {
-  try {
-    // Carregar cliente anterior para auditoria
-    const clientes = await AuthManager.requisicaoSegura(`${CONFIG.API_URL}?acao=buscar&arquivo=clientes.json`)
-      .then(r => r.json());
+  // Marcar Produto Pronto
+  async function marcarProdutoPronto(cliente, pronto) {
+    try {
+      mostrarLoading();
+      
+      const estadoAnterior = cliente.ProdutoPronto;
+      cliente.ProdutoPronto = pronto;
+
+      const clientes = await buscarArquivo('clientes.json');
+      const idx = clientes.findIndex(c => c.Id === cliente.Id);
+      if (idx >= 0) {
+        clientes[idx] = cliente;
+      }
+
+      // ✅ Salvar no Drive e verificar se funcionou
+      const salvou = await salvarDadosComAuditoria(
+        'clientes.json',
+        clientes,
+        'auditoria',
+        'Atualizar',
+        'Cliente',
+        cliente.Id,
+        cliente.Nome,
+        `Produto Pronto marcado como ${pronto ? 'Sim' : 'Não'} via Site`,
+        JSON.stringify({ ProdutoPronto: estadoAnterior }),
+        JSON.stringify({ ProdutoPronto: pronto })
+      );
+
+      if (!salvou) {
+        ocultarLoading();
+        alert('❌ Erro ao salvar! Tente novamente.');
+        return;
+      }
+
+      // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
+
+      // 📌 SE MARCOU COMO PRONTO, REMOVE QUANTIDADE PENDENTE E DEDUZ DO ESTOQUE
+      if (pronto && cliente.Vendas && Array.isArray(cliente.Vendas)) {
+        for (const venda of cliente.Vendas) {
+          if (venda.Produtos && Array.isArray(venda.Produtos)) {
+            for (const produto of venda.Produtos) {
+              if (produto.Quantidade > 0) {
+                await removerQuantidadePendente(produto.Nome, produto.PesoUnidade, produto.Quantidade);
+              }
+            }
+          }
+        }
+      }
+
+      // ✨ NOVO: Recarregar do servidor para sincronizar
+      await recarregarClienteDoServidor();
+
+      // ✅ Atualizar UI localmente
+      renderizarProdutoPronto();
+      ocultarLoading();
+      alert('✅ Produto Pronto atualizado com sucesso!');
+    } catch (erro) {
+      console.error('Erro ao marcar produto pronto:', erro);
+      ocultarLoading();
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // Renderizar dados do cliente
+  function renderizarDados() {
+    const dadosGrid = document.getElementById('dadosGrid');
     
-    const clienteAntigo = clientes.find(c => c.Id === clienteNovo.Id);
+    const dados = [
+      { label: '🔑 ID', valor: clienteAtual.Id || '-' },
+      { label: '👤 Nome', valor: clienteAtual.Nome || '-' },
+      { label: '📧 Email', valor: clienteAtual.Email || '-' },
+      { label: '📱 Telefone 1', valor: clienteAtual.Telefone1 || '-' },
+      { label: '📱 Telefone 2', valor: clienteAtual.Telefone2 || '-' },
+      { label: '🏠 Endereço', valor: clienteAtual.Endereco || '-' },
+      { label: '🏘️ Cidade', valor: clienteAtual.Cidade || '-' },
+      { label: '🗺️ Estado', valor: clienteAtual.Estado || '-' },
+      { label: '📮 CEP', valor: clienteAtual.CEP || '-' },
+    ];
 
-    // Registrar auditoria
-    await registrarAtualizacaoCliente(clienteAntigo, clienteNovo);
+    let html = '';
+    dados.forEach(dado => {
+      html += `
+        <div class="dado-item">
+          <div class="dado-label">${dado.label}</div>
+          <div class="dado-valor">${dado.valor}</div>
+        </div>
+      `;
+    });
 
-    // Atualizar cliente na lista
-    const index = clientes.findIndex(c => c.Id === clienteNovo.Id);
-    if (index !== -1) {
-      clientes[index] = clienteNovo;
+    dadosGrid.innerHTML = html;
+  }
+
+  // Renderizar observações
+  function renderizarObservacoes() {
+    const container = document.getElementById('observacoesContainer');
+
+    // 🔧 Garantir que Observacoes é um array válido
+    if (!clienteAtual.Observacoes || !Array.isArray(clienteAtual.Observacoes)) {
+      clienteAtual.Observacoes = [];
     }
 
-    // Salvar arquivo
-    await salvarArquivoDrive("clientes.json", JSON.stringify(clientes, null, 2));
+    // 🔧 FILTRAR observações inválidas (undefined, vazias, etc)
+    const observacoesValidas = clienteAtual.Observacoes.filter(obs => 
+      obs && obs.Texto && String(obs.Texto).trim() !== '' && String(obs.Texto) !== 'undefined'
+    );
 
-    return true;
+    // 🔧 Se havia observações inválidas, remover do array
+    if (observacoesValidas.length !== clienteAtual.Observacoes.length) {
+      console.log(`⚠️ Removidas ${clienteAtual.Observacoes.length - observacoesValidas.length} observações inválidas`);
+      clienteAtual.Observacoes = observacoesValidas;
+    }
 
-  } catch (erro) {
-    console.error("❌ Erro ao salvar cliente:", erro);
-    return false;
+    if (clienteAtual.Observacoes.length === 0) {
+      container.innerHTML = '<p class="empty-message">Nenhuma observação</p>';
+      return;
+    }
+
+    let html = '';
+    clienteAtual.Observacoes.forEach((obs) => {
+      const textoLimpo = String(obs.Texto).trim();
+      html += `
+        <div class="observacao-item">
+          <div class="observacao-texto">${textoLimpo}</div>
+          <button class="observacao-btn" onclick="removerObservacao('${obs.Id}')">🗑️ Remover</button>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
   }
-}
+
+  // Renderizar vendas
+  function renderizarVendas() {
+    const container = document.getElementById('vendasContainer');
+
+    if (!clienteAtual.Vendas || clienteAtual.Vendas.length === 0) {
+      container.innerHTML = '<p class="empty-message">Nenhuma venda registrada</p>';
+      return;
+    }
+
+    let html = '';
+    clienteAtual.Vendas.forEach((venda, idx) => {
+      const dataVenda = new Date(venda.DataVenda).toLocaleDateString('pt-BR');
+      const valor = parseFloat(venda.ValorTotal || venda.Valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      
+      // Montar tabela de produtos
+      let produtosHtml = '';
+      if (venda.Produtos && Array.isArray(venda.Produtos)) {
+        // Calcular totais
+        let totalQtd = 0;
+        let totalPeso = 0;
+        let totalValor = 0;
+        
+        produtosHtml += `
+          <table style="width: 100%; margin-top: 10px; border-collapse: collapse;">
+            <thead>
+              <tr style="border-bottom: 1px solid rgba(31,163,122,.3);">
+                <th style="text-align: left; padding: 8px; color: #7cf0c2; font-size: 12px;">Produto</th>
+                <th style="text-align: center; padding: 8px; color: #7cf0c2; font-size: 12px;">Qtd</th>
+                <th style="text-align: center; padding: 8px; color: #7cf0c2; font-size: 12px;">Unidade</th>
+                <th style="text-align: center; padding: 8px; color: #7cf0c2; font-size: 12px;">Peso (KG)</th>
+                <th style="text-align: right; padding: 8px; color: #7cf0c2; font-size: 12px;">Valor UN</th>
+                <th style="text-align: right; padding: 8px; color: #7cf0c2; font-size: 12px;">Valor Total</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        venda.Produtos.forEach((prod) => {
+          const qtd = parseFloat(prod.Quantidade) || 0;
+          const unidade = prod.Unidade || 'UN';
+          const peso = parseFloat(prod.PesoUnidade || 0);
+          const valorProd = parseFloat(prod.Valor || 0);
+          
+          totalQtd += qtd;
+          totalPeso += peso;
+          totalValor += valorProd;
+          
+          // ✅ Se ValorUnitario estiver vazio/zero, calcular a partir de Valor Total / Qtd
+          let valorUnitario = parseFloat(prod.ValorUnitario || 0);
+          if (valorUnitario === 0 && qtd > 0 && prod.Valor) {
+            valorUnitario = parseFloat(prod.Valor) / qtd;
+          }
+          
+          const valorUN = valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+          const valorTotal = valorProd.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+          const pesoFormatado = peso.toLocaleString('pt-BR');
+          
+          produtosHtml += `
+            <tr style="border-bottom: 1px solid rgba(31,163,122,.15);">
+              <td style="padding: 8px; color: #7cf0c2;">${prod.Nome || '-'}</td>
+              <td style="text-align: center; padding: 8px; color: #7cf0c2;">${qtd}</td>
+              <td style="text-align: center; padding: 8px; color: #7cf0c2;">${unidade}</td>
+              <td style="text-align: center; padding: 8px; color: #7cf0c2;">${pesoFormatado}</td>
+              <td style="text-align: right; padding: 8px; color: #7cf0c2;">${valorUN}</td>
+              <td style="text-align: right; padding: 8px; color: #7cf0c2; font-weight: bold;">${valorTotal}</td>
+            </tr>
+          `;
+        });
+        
+        // Rodapé com totalizações
+        produtosHtml += `
+            <tr style="border-top: 2px solid #1fa37a; background: rgba(31,163,122,.15);">
+              <td style="padding: 10px; color: #1fa37a; font-weight: bold; text-align: right;">TOTAL:</td>
+              <td style="text-align: center; padding: 10px; color: #1fa37a; font-weight: bold;">${totalQtd}</td>
+              <td style="text-align: center; padding: 10px; color: #1fa37a; font-weight: bold;">-</td>
+              <td style="text-align: center; padding: 10px; color: #1fa37a; font-weight: bold;">${totalPeso.toLocaleString('pt-BR')}</td>
+              <td style="text-align: right; padding: 10px; color: #1fa37a; font-weight: bold;">-</td>
+              <td style="text-align: right; padding: 10px; color: #1fa37a; font-weight: bold; font-size: 14px;">${totalValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+            </tr>
+            </tbody>
+          </table>
+        `;
+      }
+
+      // Calcular informações de parcelas
+      let infoParcelaHtml = '';
+      if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+        const totalParcelas = venda.Parcelas.length;
+        const parcelasPagas = venda.Parcelas.filter(p => p.Pago).length;
+        const valorParcela = totalParcelas > 0 ? (parseFloat(venda.ValorTotal || venda.Valor || 0) / totalParcelas).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00';
+        infoParcelaHtml = `<span style="color: #8fb9ac; margin-left: 15px;">💳 ${totalParcelas} parcelas: ${valorParcela} • <span style="color: #32c832; font-weight: bold;">${parcelasPagas}</span>/<span style="color: #ff6b6b; font-weight: bold;">${totalParcelas}</span></span>`;
+      }
+
+      html += `
+        <div style="background: rgba(31,163,122,.1); padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 3px solid #1fa37a;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div>
+              <strong style="color: #1fa37a;">NF: ${venda.NumeroNF || '-'}</strong>
+              <span style="color: #8fb9ac; margin-left: 15px;">📅 ${dataVenda}</span>
+              <span style="color: #8fb9ac; margin-left: 15px;">💰 ${valor}</span>
+              ${infoParcelaHtml}
+              ${venda.QuantidadeAnimais ? `<span style="color: #8fb9ac; margin-left: 15px;">🐄 ${venda.QuantidadeAnimais} animais</span>` : ''}
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn" onclick="editarVenda(${idx})" style="padding: 8px 12px; font-size: 12px;">✏️ Editar</button>
+              <button class="btn" onclick="imprimirVenda(${idx})" style="padding: 8px 12px; font-size: 12px;">🖨️ Imprimir</button>
+              <button class="btn danger" onclick="deletarVenda(${idx})" style="padding: 8px 12px; font-size: 12px;">🗑️ Deletar</button>
+            </div>
+          </div>
+          ${produtosHtml}
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  }
+
+  // Editar cliente (formulário modal)
+  async function editarCliente() {
+    const clienteAntigo = JSON.parse(JSON.stringify(clienteAtual));
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      backdrop-filter: blur(5px);
+    `;
+
+    const form = document.createElement('div');
+    form.style.cssText = `
+      background: linear-gradient(180deg, rgba(14,31,26,.95), rgba(5,11,9,.95));
+      border: 2px solid rgba(31,163,122,.5);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 60px rgba(31,163,122,.3);
+    `;
+
+    form.innerHTML = `
+      <h2 style="color: #1fa37a; margin-bottom: 20px; text-align: center;">✏️ Editar Cliente</h2>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Nome</label>
+        <input type="text" id="editNome" value="${clienteAtual.Nome || ''}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Email</label>
+        <input type="email" id="editEmail" value="${clienteAtual.Email || ''}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Telefone 1</label>
+        <input type="text" id="editTelefone1" value="${clienteAtual.Telefone1 || ''}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Telefone 2</label>
+        <input type="text" id="editTelefone2" value="${clienteAtual.Telefone2 || ''}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Endereço</label>
+        <input type="text" id="editEndereco" value="${clienteAtual.Endereco || ''}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Cidade</label>
+        <input type="text" id="editCidade" value="${clienteAtual.Cidade || ''}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Estado</label>
+        <input type="text" id="editEstado" value="${clienteAtual.Estado || ''}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">CEP</label>
+        <input type="text" id="editCEP" value="${clienteAtual.CEP || ''}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: center;">
+        <button id="btnSalvar" class="btn" style="padding: 12px 30px;">💾 Salvar</button>
+        <button id="btnCancelar" class="btn danger" style="padding: 12px 30px;">✕ Cancelar</button>
+      </div>
+    `;
+
+    modal.appendChild(form);
+    fecharTodosModais();
+    document.body.appendChild(modal);
+
+    document.getElementById('btnCancelar').onclick = () => modal.remove();
+
+    document.getElementById('btnSalvar').onclick = async () => {
+      try {
+        mostrarLoading();
+        
+        clienteAtual.Nome = document.getElementById('editNome').value || clienteAtual.Nome;
+        clienteAtual.Email = document.getElementById('editEmail').value || clienteAtual.Email;
+        clienteAtual.Telefone1 = document.getElementById('editTelefone1').value || clienteAtual.Telefone1;
+        clienteAtual.Telefone2 = document.getElementById('editTelefone2').value || clienteAtual.Telefone2;
+        clienteAtual.Endereco = document.getElementById('editEndereco').value || clienteAtual.Endereco;
+        clienteAtual.Cidade = document.getElementById('editCidade').value || clienteAtual.Cidade;
+        clienteAtual.Estado = document.getElementById('editEstado').value || clienteAtual.Estado;
+        clienteAtual.CEP = document.getElementById('editCEP').value || clienteAtual.CEP;
+
+        const clientes = await buscarArquivo('clientes.json');
+        const idx = clientes.findIndex(c => c.Id === clienteAtual.Id);
+        if (idx >= 0) {
+          clientes[idx] = clienteAtual;
+        }
+
+        // ✅ Salvar no Drive e verificar se funcionou
+        const salvou = await salvarDadosComAuditoria(
+          'clientes.json',
+          clientes,
+          'auditoria',
+          'Atualizar',
+          'Cliente',
+          clienteAtual.Id,
+          clienteAtual.Nome,
+          'Cliente atualizado via Site',
+          JSON.stringify(clienteAntigo),
+          JSON.stringify(clienteAtual)
+        );
+
+        if (!salvou) {
+          ocultarLoading();
+          alert('❌ Erro ao salvar! Tente novamente.');
+          return;
+        }
+
+        // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+        const cacheKey = 'arquivo_clientes.json_cache';
+        localStorage.removeItem(cacheKey);
+
+        // ✨ NOVO: Recarregar dados do servidor após salvar com sucesso
+        const recarregou = await recarregarClienteDoServidor();
+        
+        modal.remove();
+        renderizarDados();
+        renderizarStatus();
+        renderizarSatisfacao();
+        renderizarObservacoes();
+        renderizarVendas();
+        
+        ocultarLoading();
+        alert('✅ Cliente atualizado com sucesso!');
+      } catch (erro) {
+        console.error('Erro ao salvar cliente:', erro);
+        ocultarLoading();
+        alert('❌ Erro: ' + erro.message);
+      }
+    };
+  }
+
+  // Abrir WhatsApp
+  function abrirWhatsApp() {
+    const tel1 = clienteAtual.Telefone1 || '';
+    const tel2 = clienteAtual.Telefone2 || '';
+
+    if (!tel1 && !tel2) {
+      alert('❌ Cliente não possui telefone');
+      return;
+    }
+
+    // ✅ Se tem 2 telefones, perguntar qual usar
+    if (tel1 && tel2) {
+      const escolha = prompt(`Qual número deseja usar?\n\n1️⃣ ${tel1}\n2️⃣ ${tel2}\n\nDigite 1 ou 2:`);
+      
+      if (escolha === '1') {
+        abrirWhatsAppComNumero(tel1);
+      } else if (escolha === '2') {
+        abrirWhatsAppComNumero(tel2);
+      } else {
+        alert('❌ Opção inválida');
+      }
+      return;
+    }
+
+    // Se tem só 1, usar esse
+    const telefone = tel1 || tel2;
+    abrirWhatsAppComNumero(telefone);
+  }
+
+  // Função auxiliar para abrir WhatsApp com o número
+  function abrirWhatsAppComNumero(numero) {
+    const numeroLimpo = numero.replace(/\D/g, '');
+    if (!numeroLimpo) {
+      alert('❌ Número de telefone inválido');
+      return;
+    }
+    window.open(`https://wa.me/55${numeroLimpo}`, '_blank');
+  }
+
+  // Abrir Cotação
+  function abrirCotacao() {
+    sessionStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
+    window.open('cotacao.html', '_blank');
+  }
+
+  // Agendar Ligação para Cliente
+  function agendarLigacaoCliente() {
+    // Salvar os dados do cliente em sessionStorage para pré-preenchimento
+    sessionStorage.setItem('clienteParaAgendarLigacao', JSON.stringify({
+      nomeCliente: clienteAtual.Nome,
+      telefone: clienteAtual.Telefone1 || clienteAtual.Telefone2 || '',
+      email: clienteAtual.Email || '',
+      id: clienteAtual.Id || ''
+    }));
+    
+    // Redirecionar para a planilha de agendamento
+    window.location.href = 'agendar-ligacoes.html';
+  }
+
+  // Modal para compartilhar link de assinatura
+  function mostrarModalAssinaturaComLink(urlAssinatura) {
+    // Criar HTML do modal
+    const modalHtml = `
+      <div id="modalAssinatura" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      ">
+        <div style="
+          background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+          border: 1px solid rgba(31,163,122,.25);
+          border-radius: 20px;
+          padding: 40px;
+          max-width: 500px;
+          width: 90%;
+          backdrop-filter: blur(14px);
+          color: #e5f3ee;
+        ">
+          <h2 style="color: #1fa37a; margin-bottom: 20px; text-align: center;">
+            ✅ Contrato Criado com Sucesso!
+          </h2>
+          
+          <p style="margin-bottom: 20px; text-align: center; font-size: 16px;">
+            Compartilhe este link com o cliente:
+          </p>
+          
+          <div style="
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 14px;
+            border: 1px solid rgba(31,163,122,.3);
+          ">
+            ${urlAssinatura}
+          </div>
+          
+          <div style="display: flex; gap: 10px; justify-content: center;">
+            <button onclick="copiarLinkAssinatura('${urlAssinatura}')" style="
+              background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+              color: #7cf0c2;
+              border: 1px solid rgba(31,163,122,.3);
+              padding: 12px 24px;
+              border-radius: 8px;
+              cursor: pointer;
+              font-weight: 600;
+              transition: all 0.3s ease;
+            " onmouseover="this.style.background='linear-gradient(145deg, rgba(31,163,122,.5), rgba(31,163,122,.3))'" onmouseout="this.style.background='linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15))'">
+              📋 Copiar Link
+            </button>
+            
+            <button onclick="abrirWhatsAppComLink('${urlAssinatura}')" style="
+              background: linear-gradient(145deg, rgba(37,211,102,.3), rgba(37,211,102,.15));
+              color: #7cf0c2;
+              border: 1px solid rgba(37,211,102,.3);
+              padding: 12px 24px;
+              border-radius: 8px;
+              cursor: pointer;
+              font-weight: 600;
+              transition: all 0.3s ease;
+            " onmouseover="this.style.background='linear-gradient(145deg, rgba(37,211,102,.5), rgba(37,211,102,.3))'" onmouseout="this.style.background='linear-gradient(145deg, rgba(37,211,102,.3), rgba(37,211,102,.15))'">
+              💬 WhatsApp
+            </button>
+            
+            <button onclick="fecharModalAssinatura()" style="
+              background: linear-gradient(145deg, rgba(220,53,69,.3), rgba(220,53,69,.15));
+              color: #ff9aa2;
+              border: 1px solid rgba(220,53,69,.3);
+              padding: 12px 24px;
+              border-radius: 8px;
+              cursor: pointer;
+              font-weight: 600;
+              transition: all 0.3s ease;
+            " onmouseover="this.style.background='linear-gradient(145deg, rgba(220,53,69,.5), rgba(220,53,69,.3))'" onmouseout="this.style.background='linear-gradient(145deg, rgba(220,53,69,.3), rgba(220,53,69,.15))'">
+              ✕ Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Inserir modal no DOM
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  }
+
+  // Copiar link para clipboard
+  function copiarLinkAssinatura(link) {
+    navigator.clipboard.writeText(link).then(() => {
+      alert('✅ Link copiado para a área de transferência!');
+    }).catch(() => {
+      alert('❌ Erro ao copiar link');
+    });
+  }
+
+  // Abrir WhatsApp com link
+  function abrirWhatsAppComLink(link) {
+    const tel1 = clienteAtual.Telefone1 || '';
+    const tel2 = clienteAtual.Telefone2 || '';
+
+    if (!tel1 && !tel2) {
+      alert('❌ Cliente não possui telefone');
+      return;
+    }
+
+    let numero = tel1;
+    
+    // Se tem 2 telefones, perguntar qual usar
+    if (tel1 && tel2) {
+      const escolha = prompt(`Qual número deseja usar?\n\n1️⃣ ${tel1}\n2️⃣ ${tel2}\n\nDigite 1 ou 2:`);
+      if (escolha === '1') {
+        numero = tel1;
+      } else if (escolha === '2') {
+        numero = tel2;
+      } else {
+        alert('❌ Opção inválida');
+        return;
+      }
+    }
+
+    const numeroLimpo = numero.replace(/\D/g, '');
+    const mensagem = `Olá ${clienteAtual.Nome}! Clique neste link para assinar seu contrato:\n\n${link}`;
+    const mensagemCodificada = encodeURIComponent(mensagem);
+    
+    window.open(`https://wa.me/55${numeroLimpo}?text=${mensagemCodificada}`, '_blank');
+    
+    // Fechar modal após abrir WhatsApp
+    fecharModalAssinatura();
+  }
+
+  // Fechar modal
+  function fecharModalAssinatura() {
+    const modal = document.getElementById('modalAssinatura');
+    if (modal) {
+      modal.remove();
+    }
+  }
+
+  // ========== ASSINATURA DE DOCUMENTOS ==========
+  async function abrirAssinaturaPDF() {
+    try {
+      // Validar se tem vendas
+      if (!clienteAtual.Vendas || clienteAtual.Vendas.length === 0) {
+        alert('⚠️ Cliente não possui vendas para criar contrato');
+        return;
+      }
+
+      // Pegar última venda
+      const ultimaVenda = clienteAtual.Vendas[clienteAtual.Vendas.length - 1];
+      
+      // Preparar dados para o contrato
+      const dadosContrato = {
+        cliente: {
+          id: clienteAtual.Id,
+          nome: clienteAtual.Nome,
+          cpf: clienteAtual.CPF || '',
+          email: clienteAtual.Email || '',
+          telefone1: clienteAtual.Telefone1 || '',
+          telefone2: clienteAtual.Telefone2 || '',
+          endereco: clienteAtual.Endereco || '',
+          cidade: clienteAtual.Cidade || '',
+          estado: clienteAtual.Estado || '',
+          cep: clienteAtual.CEP || ''
+        },
+        venda: {
+          numeroNF: ultimaVenda.NumeroNF || '',
+          dataVenda: ultimaVenda.DataVenda || '',
+          produtos: ultimaVenda.Produtos || [],
+          valorTotal: ultimaVenda.ValorTotal || 0,
+          quantidadeAnimais: ultimaVenda.QuantidadeAnimais || 0
+        }
+      };
+
+      console.log('📄 Dados do contrato:', dadosContrato);
+
+      // Salvar dados no sessionStorage para a página de assinatura (fallback)
+      sessionStorage.setItem('dadosContratoParaAssinatura', JSON.stringify(dadosContrato));
+
+      // ✅ MOSTRAR MODAL IMEDIATAMENTE (não espera resposta do servidor)
+      const urlAssinatura = `https://www.bovipremium.com.br/assinatura/`;
+      mostrarModalAssinaturaComLink(urlAssinatura);
+
+      // Enviar para Google Apps Script salvar na pasta ~cliente~ (em background)
+      salvarContratoParaAssinatura(dadosContrato).then(resultado => {
+        console.log('✅ Contrato salvo no Google Drive:', resultado);
+      }).catch(erro => {
+        console.error('⚠️ Erro ao salvar no Drive:', erro);
+      });
+
+    } catch (erro) {
+      console.error('❌ Erro ao abrir assinatura:', erro);
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // Salvar contrato na pasta site/~cliente~ do Google Drive
+  async function salvarContratoParaAssinatura(dadosContrato) {
+    try {
+      // Usar CONFIG.API_URL (centralizado em config.js)
+      if (!CONFIG || !CONFIG.API_URL) {
+        console.warn('⚠️ CONFIG.API_URL não configurada');
+        return false;
+      }
+
+      // Converter dados para URL parameters - Google Apps Script espera: acao=salvarDadosContrato
+      const url = new URL(CONFIG.API_URL);
+      url.searchParams.append('acao', 'salvarDadosContrato');
+      url.searchParams.append('clienteId', dadosContrato.cliente.id);
+      url.searchParams.append('dados', JSON.stringify(dadosContrato));
+
+      console.log('📤 Enviando dados do contrato para Google Apps Script...');
+      console.log('🔗 URL: ' + CONFIG.API_URL);
+      console.log('📋 Dados:', JSON.stringify(dadosContrato).substring(0, 100) + '...');
+
+      const response = await AuthManager.requisicaoSegura(url.toString());
+
+      if (!response.ok) {
+        throw new Error(`Erro na resposta: ${response.status}`);
+      }
+
+      // Resposta vem como texto, não JSON
+      const textoResposta = await response.text();
+      console.log('📝 Resposta bruta:', textoResposta.substring(0, 200));
+
+      try {
+        const resultado = JSON.parse(textoResposta);
+        
+        if (resultado.sucesso || resultado.sucesso === 'true') {
+          console.log('✅ Dados salvos na pasta site/');
+          console.log('📁 Arquivo: ' + resultado.nomeArquivo);
+          console.log('⏱️ Será deletado automaticamente em 12 minutos');
+          return true;
+        } else {
+          console.warn('⚠️ Aviso ao salvar:', resultado.mensagem);
+          return false;
+        }
+      } catch (parseError) {
+        console.warn('⚠️ Erro ao fazer parse da resposta:', parseError);
+        return false;
+      }
+
+    } catch (erro) {
+      console.warn('⚠️ Erro ao salvar dados do contrato:', erro.message);
+      return false;
+    }
+  }
+
+  // ========== NOVA VENDA - FORMULÁRIO COMPLETO ==========
+  async function novaVenda() {
+    const modal = criarModalVenda(null, null);
+    fecharTodosModais();
+    document.body.appendChild(modal);
+  }
+
+  // ========== EDITAR VENDA - FORMULÁRIO COMPLETO ==========
+  async function editarVenda(idx) {
+    const venda = clienteAtual.Vendas[idx];
+    const modal = criarModalVenda(venda, idx);
+    fecharTodosModais();
+    document.body.appendChild(modal);
+  }
+
+  // Criar modal de venda (novo ou editar)
+  function criarModalVenda(vendaEditando, vendaIdx) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      z-index: 2000;
+      overflow-y: auto;
+      padding: 20px;
+      backdrop-filter: blur(5px);
+    `;
+
+    const form = document.createElement('div');
+    form.style.cssText = `
+      background: linear-gradient(180deg, rgba(14,31,26,.95), rgba(5,11,9,.95));
+      border: 2px solid rgba(31,163,122,.5);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 900px;
+      width: 100%;
+      margin: 20px auto;
+      box-shadow: 0 10px 60px rgba(31,163,122,.3);
+    `;
+
+    const titulo = vendaEditando ? `✏️ Editar Venda - ${clienteAtual.Nome}` : `➕ Nova Venda - ${clienteAtual.Nome}`;
+    
+    form.innerHTML = `
+      <h2 style="color: #1fa37a; margin-bottom: 20px; text-align: center;">${titulo}</h2>
+      
+      <!-- Dados da Venda -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+        <div>
+          <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Número NF</label>
+          <input type="text" id="vendaNumeroNF" value="${vendaEditando?.NumeroNF || ''}" placeholder="Ex: 12345" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+        </div>
+
+        <div>
+          <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Qtd. Animais</label>
+          <input type="number" id="vendaQtdAnimais" value="${vendaEditando?.QuantidadeAnimais || ''}" min="0" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+        </div>
+
+        <div>
+          <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Tipo de Venda</label>
+          <select id="vendaTipo" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+            <option value="PIX" ${vendaEditando?.TipoVenda === 'PIX' ? 'selected' : ''}>PIX</option>
+            <option value="Dinheiro" ${vendaEditando?.TipoVenda === 'Dinheiro' ? 'selected' : ''}>Dinheiro</option>
+            <option value="Boleto" ${vendaEditando?.TipoVenda === 'Boleto' ? 'selected' : ''}>Boleto</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Data da Venda</label>
+          <input type="date" id="vendaDataVenda" value="${vendaEditando?.DataVenda || new Date().toISOString().split('T')[0]}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+        </div>
+      </div>
+
+      <!-- PRODUTOS -->
+      <h3 style="color: #1fa37a; margin-top: 25px; margin-bottom: 15px;">📦 PRODUTOS E VALORES</h3>
+      <div id="produtosContainer" style="margin-bottom: 20px; max-height: 300px; overflow-y: auto; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; padding: 10px;">
+        <!-- Preenchido por JavaScript -->
+      </div>
+      <button type="button" id="btnAdicionarProduto" class="btn" style="padding: 8px 16px; margin-bottom: 20px;">➕ Adicionar Produto</button>
+
+      <!-- Valor Total -->
+      <div style="margin-bottom: 20px; background: rgba(31,163,122,.1); padding: 15px; border-radius: 8px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Valor Total da Venda</label>
+        <input type="number" id="vendaValorTotal" value="${vendaEditando?.ValorTotal || 0}" step="0.01" min="0" readonly style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box; font-weight: bold;">
+      </div>
+
+      <!-- Número de Parcelas -->
+      <div style="margin-bottom: 20px;">
+        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase;">Número de Parcelas</label>
+        <select id="vendaNumeroParcelas" onchange="gerarParcelasVenda()" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+          <option value="1" ${vendaEditando?.NumeroParcelas === 1 ? 'selected' : ''}>1 Parcela</option>
+          <option value="2" ${vendaEditando?.NumeroParcelas === 2 ? 'selected' : ''}>2 Parcelas</option>
+          <option value="3" ${vendaEditando?.NumeroParcelas === 3 ? 'selected' : ''}>3 Parcelas</option>
+          <option value="4" ${vendaEditando?.NumeroParcelas === 4 ? 'selected' : ''}>4 Parcelas</option>
+          <option value="6" ${vendaEditando?.NumeroParcelas === 6 ? 'selected' : ''}>6 Parcelas</option>
+          <option value="12" ${vendaEditando?.NumeroParcelas === 12 ? 'selected' : ''}>12 Parcelas</option>
+        </select>
+      </div>
+
+      <!-- PARCELAS -->
+      <h3 style="color: #1fa37a; margin-top: 25px; margin-bottom: 15px;">📅 PARCELAS</h3>
+      <div id="parcelasContainer" style="margin-bottom: 20px; max-height: 300px; overflow-y: auto; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; padding: 10px;">
+        <!-- Preenchido por JavaScript -->
+      </div>
+
+      <!-- Botões -->
+      <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+        <button id="btnSalvarVenda" class="btn" style="padding: 12px 30px;">💾 Salvar Venda</button>
+        <button id="btnCancelarVenda" class="btn danger" style="padding: 12px 30px;">✕ Cancelar</button>
+      </div>
+    `;
+
+    modal.appendChild(form);
+
+    // Event Listeners
+    document.getElementById('btnCancelarVenda').onclick = () => modal.remove();
+    document.getElementById('btnSalvarVenda').onclick = () => salvarVenda(vendaIdx, modal, vendaEditando);
+    document.getElementById('btnAdicionarProduto').onclick = () => adicionarLinhaProduto();
+
+    // Inicializar produtos e parcelas
+    setTimeout(() => {
+      if (vendaEditando && vendaEditando.Produtos && vendaEditando.Produtos.length > 0) {
+        // Preencher produtos existentes
+        vendaEditando.Produtos.forEach((prod, i) => {
+          if (i > 0) adicionarLinhaProduto();
+          preencherProduto(i, prod);
+        });
+      } else {
+        // Adicionar primeira linha de produto
+        adicionarLinhaProduto();
+      }
+
+      // Gerar parcelas
+      gerarParcelasVenda();
+    }, 100);
+
+    return modal;
+  }
+
+  // Adicionar linha de produto ao formulário
+  function adicionarLinhaProduto() {
+    const container = document.getElementById('produtosContainer');
+    const linhaIdx = container.children.length;
+
+    const linha = document.createElement('div');
+    linha.style.cssText = `
+      display: grid;
+      grid-template-columns: 60px 120px 80px 80px 80px 100px 100px 100px;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding: 10px;
+      background: rgba(31,163,122,.05);
+      border-radius: 8px;
+    `;
+    linha.id = `produtoLinha${linhaIdx}`;
+
+    linha.innerHTML = `
+      <input type="number" class="produtoUN" placeholder="UN" min="0" style="padding: 8px; border: 1px solid rgba(31,163,122,.3); border-radius: 4px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      <input type="text" class="produtoNome" placeholder="Produto" style="padding: 8px; border: 1px solid rgba(31,163,122,.3); border-radius: 4px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      <input type="number" class="produtoPeso" placeholder="KG" step="0.01" min="0" style="padding: 8px; border: 1px solid rgba(31,163,122,.3); border-radius: 4px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      <input type="number" class="produtoValorUN" placeholder="Vlr UN" step="0.01" min="0" style="padding: 8px; border: 1px solid rgba(31,163,122,.3); border-radius: 4px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;" onchange="atualizarValorProdutoForm(${linhaIdx})">
+      <input type="number" class="produtoValor" placeholder="Valor Total" step="0.01" min="0" style="padding: 8px; border: 1px solid rgba(31,163,122,.3); border-radius: 4px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;" onchange="atualizarValorUnitarioDoTotal(${linhaIdx})">
+      <input type="text" class="produtoNCM" placeholder="NCM" maxlength="8" style="padding: 8px; border: 1px solid rgba(31,163,122,.3); border-radius: 4px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      <input type="text" class="produtoCST" placeholder="CST/CSOSN" maxlength="4" style="padding: 8px; border: 1px solid rgba(31,163,122,.3); border-radius: 4px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      <input type="text" class="produtoCFOP" placeholder="CFOP" maxlength="4" style="padding: 8px; border: 1px solid rgba(31,163,122,.3); border-radius: 4px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+    `;
+
+    container.appendChild(linha);
+  }
+
+  // Preencher produto existente
+  function preencherProduto(idx, produto) {
+    const linha = document.getElementById(`produtoLinha${idx}`);
+    if (!linha) return;
+
+    linha.querySelector('.produtoUN').value = produto.Quantidade || '';
+    linha.querySelector('.produtoNome').value = produto.Nome || '';
+    linha.querySelector('.produtoPeso').value = produto.PesoUnidade || '';
+    linha.querySelector('.produtoValorUN').value = produto.ValorUnitario || '';
+    linha.querySelector('.produtoValor').value = produto.Valor || '';
+    linha.querySelector('.produtoNCM').value = produto.NCM || '00000000';
+    linha.querySelector('.produtoCST').value = produto.CSOSN_CST || '102';
+    linha.querySelector('.produtoCFOP').value = produto.CFOP || '5102';
+  }
+
+  // Atualizar valor do produto
+  function atualizarValorProdutoForm(linhaIdx) {
+    const linha = document.getElementById(`produtoLinha${linhaIdx}`);
+    if (!linha) return;
+
+    const un = parseFloat(linha.querySelector('.produtoUN').value) || 0;
+    const valorUN = parseFloat(linha.querySelector('.produtoValorUN').value) || 0;
+    const valor = un * valorUN;
+
+    linha.querySelector('.produtoValor').value = valor.toFixed(2);
+    atualizarValorTotalVenda();
+  }
+
+  // ✅ NOVO: Recalcular ValorUN quando o Valor Total muda
+  function atualizarValorUnitarioDoTotal(linhaIdx) {
+    const linha = document.getElementById(`produtoLinha${linhaIdx}`);
+    if (!linha) return;
+
+    const un = parseFloat(linha.querySelector('.produtoUN').value) || 0;
+    const valor = parseFloat(linha.querySelector('.produtoValor').value) || 0;
+    
+    if (un > 0 && valor > 0) {
+      const valorUN = valor / un;
+      linha.querySelector('.produtoValorUN').value = valorUN.toFixed(2);
+    }
+    
+    atualizarValorTotalVenda();
+  }
+
+  // Atualizar valor total da venda
+  function atualizarValorTotalVenda() {
+    const container = document.getElementById('produtosContainer');
+    if (!container) return;
+    
+    let total = 0;
+
+    // Somar todos os produtos
+    container.querySelectorAll('[id^="produtoLinha"]').forEach(linha => {
+      const valor = parseFloat(linha.querySelector('.produtoValor').value) || 0;
+      total += valor;
+    });
+
+    const inputTotal = document.getElementById('vendaValorTotal');
+    if (inputTotal) {
+      inputTotal.value = total.toFixed(2);
+    }
+  }
+
+  // Gerar parcelas
+  function gerarParcelasVenda() {
+    const numeroParcelas = parseInt(document.getElementById('vendaNumeroParcelas').value);
+    const valorTotal = parseFloat(document.getElementById('vendaValorTotal').value) || 0;
+    const container = document.getElementById('parcelasContainer');
+    
+    container.innerHTML = '';
+
+    const valorParcela = valorTotal / numeroParcelas;
+    let dataPrimeiraParcela = new Date();
+    dataPrimeiraParcela.setDate(dataPrimeiraParcela.getDate() + 30);
+
+    for (let i = 0; i < numeroParcelas; i++) {
+      const dataVenc = new Date(dataPrimeiraParcela);
+      dataVenc.setMonth(dataVenc.getMonth() + i);
+
+      const linhaParc = document.createElement('div');
+      linhaParc.style.cssText = `
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 10px;
+        padding: 10px;
+        background: rgba(31,163,122,.05);
+        border-radius: 8px;
+      `;
+
+      linhaParc.innerHTML = `
+        <div>
+          <label style="color: #8fb9ac; font-size: 10px;">Parcela ${i + 1}</label>
+          <input type="date" id="parcDataVenc${i}" value="${dataVenc.toISOString().split('T')[0]}" style="width: 100%; padding: 8px; border: 1px solid rgba(31,163,122,.3); border-radius: 4px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+        </div>
+        <div>
+          <label style="color: #8fb9ac; font-size: 10px;">Valor</label>
+          <input type="number" id="parcValor${i}" value="${(i === numeroParcelas - 1 ? valorTotal - (valorParcela * i) : valorParcela).toFixed(2)}" step="0.01" style="width: 100%; padding: 8px; border: 1px solid rgba(31,163,122,.3); border-radius: 4px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+        </div>
+        <div>
+          <label style="color: #8fb9ac; font-size: 10px;">Pago</label>
+          <input type="checkbox" id="parcPago${i}" style="width: 20px; height: 20px; cursor: pointer;">
+        </div>
+      `;
+
+      container.appendChild(linhaParc);
+    }
+  }
+
+  // Salvar venda
+  async function salvarVenda(vendaIdx, modal, vendaEditando) {
+    try {
+      const numeroNF = document.getElementById('vendaNumeroNF').value?.trim();
+      const qtdAnimais = parseInt(document.getElementById('vendaQtdAnimais').value) || 0;
+      const tipoVenda = document.getElementById('vendaTipo').value;
+      const dataVenda = document.getElementById('vendaDataVenda').value;
+      const numeroParcelas = parseInt(document.getElementById('vendaNumeroParcelas').value);
+
+      if (!numeroNF) {
+        alert('⚠️ Número NF obrigatório');
+        return;
+      }
+
+      // Coletar produtos
+      const produtos = [];
+      document.querySelectorAll('[id^="produtoLinha"]').forEach(linha => {
+        const un = parseFloat(linha.querySelector('.produtoUN').value) || 0;
+        const nome = linha.querySelector('.produtoNome').value?.trim();
+        const peso = parseFloat(linha.querySelector('.produtoPeso').value) || 0;
+        let valorUN = parseFloat(linha.querySelector('.produtoValorUN').value) || 0;
+        const valor = parseFloat(linha.querySelector('.produtoValor').value) || 0;
+        const ncm = linha.querySelector('.produtoNCM').value || '00000000';
+        const cst = linha.querySelector('.produtoCST').value || '102';
+        const cfop = linha.querySelector('.produtoCFOP').value || '5102';
+
+        if (nome) {
+          // ✅ SE ValorUnitario vazio E tem Quantidade E Valor, calcular
+          if ((valorUN === 0 || valorUN === '') && un > 0 && valor > 0) {
+            valorUN = valor / un;
+          }
+
+          produtos.push({
+            Quantidade: un,
+            Nome: nome,
+            PesoUnidade: peso,
+            ValorUnitario: valorUN,
+            Valor: valor,
+            NCM: ncm,
+            CSOSN_CST: cst,
+            CFOP: cfop,
+            Unidade: 'UN'
+          });
+        }
+      });
+
+      if (produtos.length === 0) {
+        alert('⚠️ Adicione ao menos um produto');
+        return;
+      }
+
+      // Coletar parcelas
+      const parcelas = [];
+      for (let i = 0; i < numeroParcelas; i++) {
+        const dataVenc = document.getElementById(`parcDataVenc${i}`)?.value;
+        const valor = parseFloat(document.getElementById(`parcValor${i}`)?.value) || 0;
+        const pago = document.getElementById(`parcPago${i}`)?.checked || false;
+
+        if (dataVenc && valor > 0) {
+          parcelas.push({
+            Numero: i + 1,
+            DataVencimento: dataVenc,
+            Valor: valor,
+            Pago: pago,
+            DataPagamento: pago ? new Date().toISOString().split('T')[0] : null
+          });
+        }
+      }
+
+      if (parcelas.length === 0) {
+        alert('⚠️ Configure ao menos uma parcela');
+        return;
+      }
+
+      // Criar ou atualizar venda
+      let venda;
+      if (vendaEditando && vendaIdx !== null) {
+        // Editar
+        venda = clienteAtual.Vendas[vendaIdx];
+        venda.NumeroNF = numeroNF;
+        venda.QuantidadeAnimais = qtdAnimais;
+        venda.TipoVenda = tipoVenda;
+        venda.DataVenda = dataVenda;
+        venda.Produtos = produtos;
+        venda.Parcelas = parcelas;
+      } else {
+        // Criar novo
+        venda = {
+          Id: Date.now().toString(),
+          NumeroNF: numeroNF,
+          QuantidadeAnimais: qtdAnimais,
+          DataVenda: dataVenda,
+          TipoVenda: tipoVenda,
+          Produtos: produtos,
+          NumeroParcelas: numeroParcelas,
+          Parcelas: parcelas,
+          ValorTotal: produtos.reduce((sum, p) => sum + p.Valor, 0)
+        };
+        clienteAtual.Vendas.push(venda);
+      }
+
+      const clientes = await buscarArquivo('clientes.json');
+      const idx = clientes.findIndex(c => c.Id === clienteAtual.Id);
+      if (idx >= 0) {
+        clientes[idx] = clienteAtual;
+      }
+
+      // ✅ Salvar no Drive e verificar se funcionou
+      const salvou = await salvarDadosComAuditoria(
+        'clientes.json',
+        clientes,
+        'auditoria',
+        vendaEditando ? 'Atualizar' : 'Criar',
+        'Venda',
+        venda.Id,
+        venda.NumeroNF,
+        vendaEditando ? 'Venda atualizada via Site' : 'Nova venda criada via Site',
+        vendaEditando ? JSON.stringify(vendaEditando) : '',
+        JSON.stringify(venda)
+      );
+
+      if (!salvou) {
+        alert('❌ Erro ao salvar! Tente novamente.');
+        return;
+      }
+
+      // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
+
+      // 📌 SE NÃO ESTÁ MARCADO COMO PRODUTO PRONTO, ADICIONA QUANTIDADE PENDENTE
+      if (!clienteAtual.ProdutoPronto) {
+        for (const produto of produtos) {
+          if (produto.Quantidade > 0) {
+            await adicionarQuantidadePendente(produto.Nome, produto.PesoUnidade, produto.Quantidade);
+          }
+        }
+      }
+
+      modal.remove();
+      renderizarVendas();
+      renderizarStatus();
+      alert(vendaEditando ? '✅ Venda atualizada com sucesso!' : '✅ Venda criada com sucesso!');
+    } catch (erro) {
+      console.error('Erro ao salvar venda:', erro);
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // Deletar Venda
+  async function deletarVenda(idx) {
+    if (!confirm('Tem certeza que deseja deletar esta venda?')) return;
+
+    const senha = prompt('Digite a palavra-chave para confirmar:', '');
+    if (senha !== 'Excluir') {
+      alert('❌ Palavra-chave incorreta');
+      return;
+    }
+
+    try {
+      const vendaDeletada = JSON.parse(JSON.stringify(clienteAtual.Vendas[idx]));
+      clienteAtual.Vendas.splice(idx, 1);
+
+      const clientes = await buscarArquivo('clientes.json');
+      const clienteIdx = clientes.findIndex(c => c.Id === clienteAtual.Id);
+      if (clienteIdx >= 0) {
+        clientes[clienteIdx] = clienteAtual;
+      }
+
+      // ✅ Salvar no Drive e verificar se funcionou
+      const salvou = await salvarDadosComAuditoria(
+        'clientes.json',
+        clientes,
+        'auditoria',
+        'Deletar',
+        'Venda',
+        vendaDeletada.Id,
+        vendaDeletada.NumeroNF,
+        'Venda deletada via Site',
+        JSON.stringify(vendaDeletada),
+        ''
+      );
+
+      if (!salvou) {
+        alert('❌ Erro ao salvar! Tente novamente.');
+        return;
+      }
+
+      // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
+
+      renderizarVendas();
+      renderizarStatus();
+      alert('✅ Venda deletada!');
+    } catch (erro) {
+      console.error('Erro ao deletar venda:', erro);
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // Imprimir Venda - Função definida em imprimir-vendas.js
+
+  // Adicionar observação
+  async function adicionarObservacao() {
+    const texto = prompt('Observação:', '');
+    if (!texto || !texto.trim()) {
+      alert('❌ Observação não pode estar vazia!');
+      return;
+    }
+
+    try {
+      // 🔧 Garantir que Observacoes existe e é um array
+      if (!clienteAtual.Observacoes || !Array.isArray(clienteAtual.Observacoes)) {
+        clienteAtual.Observacoes = [];
+      }
+
+      const novaObs = {
+        Id: Date.now().toString(),
+        Texto: String(texto).trim(), // 🔧 Garantir que é string limpa
+        DataCriacao: new Date().toISOString().split('T')[0]
+      };
+
+      console.log('📝 Nova observação:', novaObs);
+
+      clienteAtual.Observacoes.push(novaObs);
+
+      const clientes = await buscarArquivo('clientes.json');
+      const idx = clientes.findIndex(c => c.Id === clienteAtual.Id);
+      if (idx >= 0) {
+        clientes[idx] = clienteAtual;
+      }
+
+      // ✅ Salvar no Drive
+      await salvarDadosComAuditoria(
+        'clientes.json',
+        clientes,
+        'auditoria',
+        'Criar',
+        'Observação',
+        novaObs.Id,
+        'Observação',
+        'Observação adicionada ao cliente via Site',
+        '',
+        JSON.stringify(novaObs)
+      );
+
+      // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
+
+      renderizarObservacoes();
+      alert('✅ Observação adicionada com sucesso!');
+    } catch (erro) {
+      console.error('❌ Erro ao adicionar observação:', erro);
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // Remover observação
+  async function removerObservacao(obsId) {
+    if (!confirm('Tem certeza que deseja remover esta observação?')) return;
+
+    try {
+      // 🔧 Garantir que Observacoes existe
+      if (!clienteAtual.Observacoes || !Array.isArray(clienteAtual.Observacoes)) {
+        clienteAtual.Observacoes = [];
+      }
+
+      const idx = clienteAtual.Observacoes.findIndex(o => o.Id === obsId);
+      if (idx < 0) {
+        alert('❌ Observação não encontrada');
+        return;
+      }
+
+      const obsRemovida = JSON.parse(JSON.stringify(clienteAtual.Observacoes[idx]));
+      clienteAtual.Observacoes.splice(idx, 1);
+
+      console.log('🗑️ Observação removida:', obsRemovida);
+
+      const clientes = await buscarArquivo('clientes.json');
+      const clienteIdx = clientes.findIndex(c => c.Id === clienteAtual.Id);
+      if (clienteIdx >= 0) {
+        clientes[clienteIdx] = clienteAtual;
+      }
+
+      // ✅ Salvar no Drive
+      await salvarDadosComAuditoria(
+        'clientes.json',
+        clientes,
+        'auditoria',
+        'Deletar',
+        'Observação',
+        obsId,
+        'Observação',
+        'Observação removida do cliente via Site',
+        JSON.stringify(obsRemovida),
+        ''
+      );
+
+      // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
+
+      renderizarObservacoes();
+      alert('✅ Observação removida com sucesso!');
+    } catch (erro) {
+      console.error('❌ Erro ao remover observação:', erro);
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // Mostrar modal com link de assinatura e botão copiar + WhatsApp
+  function mostrarModalAssinaturaComLink(urlAssinatura) {
+    // 🔧 Garantir que não existam outros modais
+    fecharTodosModais();
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-assinatura-link';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      backdrop-filter: blur(8px);
+    `;
+
+    const conteudo = document.createElement('div');
+    conteudo.style.cssText = `
+      background: linear-gradient(180deg, rgba(14,31,26,1), rgba(5,11,9,1));
+      border: 2px solid rgba(31,163,122,.5);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 450px;
+      width: 90%;
+      box-shadow: 0 20px 80px rgba(0,0,0,0.8), 0 0 30px rgba(31,163,122,0.2);
+      text-align: center;
+      animation: modalFadeIn 0.3s ease-out;
+    `;
+
+    // Adicionar animação simples
+    const styleAnim = document.createElement('style');
+    styleAnim.textContent = `
+      @keyframes modalFadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    `;
+    document.head.appendChild(styleAnim);
+
+    conteudo.innerHTML = `
+      <div style="margin-bottom: 25px;">
+        <div style="font-size: 56px; margin-bottom: 15px;">🔗</div>
+        <h2 style="color: #1fa37a; margin-bottom: 12px; font-size: 22px; font-weight: 800;">Link Pronto para Enviar!</h2>
+        <p style="color: #8fb9ac; margin-bottom: 20px; font-size: 14px; line-height: 1.5;">O link da assinatura foi gerado. Clique no botão abaixo para copiar e abrir o WhatsApp do cliente.</p>
+      </div>
+
+      <div style="background: rgba(31,163,122,.1); border: 1px dashed rgba(31,163,122,.4); border-radius: 12px; padding: 15px; margin-bottom: 25px; word-break: break-all;">
+        <div style="color: #7cf0c2; font-size: 13px; font-family: monospace;">${urlAssinatura}</div>
+      </div>
+
+      <div style="display: flex; gap: 12px; flex-direction: column;">
+        <button id="btnCopiarWhatsApp" class="btn" style="padding: 16px; font-size: 15px; background: #1fa37a; color: white;">
+          📋 Copiar e Mandar para Cliente
+        </button>
+        <button id="btnFecharModal" style="background: transparent; border: none; color: #8fb9ac; cursor: pointer; font-size: 13px; text-decoration: underline; margin-top: 5px;">
+          Fechar sem enviar
+        </button>
+      </div>
+    `;
+
+    modal.appendChild(conteudo);
+    document.body.appendChild(modal);
+
+    // Focar no botão principal
+    setTimeout(() => document.getElementById('btnCopiarWhatsApp').focus(), 100);
+
+    // Evento Copiar e WhatsApp
+    document.getElementById('btnCopiarWhatsApp').onclick = function() {
+      const btn = this;
+      btn.innerText = '✅ Copiado!';
+      btn.style.background = '#28a745';
+
+      // Copiar link
+      const tempInput = document.createElement('input');
+      tempInput.value = urlAssinatura;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+
+      // Pequeno delay para o usuário ver o feedback de "Copiado" antes de abrir o WhatsApp
+      setTimeout(() => {
+        modal.remove();
+        abrirWhatsApp(); // Abre o WhatsApp usando a função existente
+      }, 600);
+    };
+
+    // Evento Fechar
+    document.getElementById('btnFecharModal').onclick = function() {
+      modal.remove();
+    };
+  }
+
+  // Voltar para clientes
+  function voltarParaClientes() {
+    window.location.href = 'index.html?modulo=clientes';
+  }
+
+  // ============================================
+  // SISTEMA DE FC (Favorito/Cliente) - BOTÃO ÚNICO
+  // ============================================
+  
+  // Verificar se cliente está marcado
+  function estaMarcadoFC() {
+    let fcList = JSON.parse(localStorage.getItem('fcClientes') || '[]');
+    return fcList.includes(clienteAtual.Nome);
+  }
+
+  // Marcar cliente como FC
+  function marcarClienteFC() {
+    let fcList = JSON.parse(localStorage.getItem('fcClientes') || '[]');
+    if (!fcList.includes(clienteAtual.Nome)) {
+      fcList.push(clienteAtual.Nome);
+    }
+    localStorage.setItem('fcClientes', JSON.stringify(fcList));
+    renderizarBotaoFC();
+  }
+
+  // Desmarcar cliente como FC (requer senha)
+  function desmarcarClienteFC() {
+    const senha = prompt('🔐 Digite a palavra-chave para desmarcar FC:\n\n(Mesma palavra usada para deletar)', '');
+    
+    if (senha !== 'Excluir') {
+      alert('❌ Palavra-chave incorreta!');
+      return false;
+    }
+
+    let fcList = JSON.parse(localStorage.getItem('fcClientes') || '[]');
+    fcList = fcList.filter(nome => nome !== clienteAtual.Nome);
+    localStorage.setItem('fcClientes', JSON.stringify(fcList));
+    renderizarBotaoFC();
+    return true;
+  }
+
+  // Toggle FC - marca ou desmarcar
+  function toggleFC(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (estaMarcadoFC()) {
+      // Já está marcado - pedir senha para desmarcar
+      desmarcarClienteFC();
+    } else {
+      // Marcar direto
+      marcarClienteFC();
+      alert('✅ Cliente marcado com FC!');
+    }
+  }
+
+  // Renderizar botão FC com a cor correta
+  function renderizarBotaoFC() {
+    const btn = document.getElementById('btnFC');
+    if (!btn) return;
+
+    if (estaMarcadoFC()) {
+      btn.style.background = '#1fa37a';
+      btn.style.color = '#fff';
+      btn.style.border = '2px solid #0f6b52';
+      btn.title = '✅ Cliente marcado com FC - Clique para desmarcar';
+    } else {
+      btn.style.background = '#f0f0f0';
+      btn.style.color = '#666';
+      btn.style.border = '2px solid #ddd';
+      btn.title = '⭕ Clique para marcar como FC';
+    }
+  }
+
+  // Inicializar quando o DOM estiver pronto
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      carregarCliente();
+      setTimeout(renderizarBotaoFC, 500);
+    });
+  } else {
+    carregarCliente();
+    setTimeout(renderizarBotaoFC, 500);
+  }
+
+  // ===== NOVA VENDA PARA CLIENTE ATUAL =====
+  function novaVendaCliente() {
+    if (!clienteAtual || !clienteAtual.Id) {
+      alert('❌ Cliente não identificado');
+      return;
+    }
+
+    console.log('🛒 Abrindo nova venda para cliente:', clienteAtual.Nome, '(ID:', clienteAtual.Id, ')');
+
+    // Armazenar cliente em sessionStorage para vendas-cliente.html acessar
+    sessionStorage.setItem('clienteParaVenda', JSON.stringify(clienteAtual));
+    sessionStorage.setItem('clienteParaVendaId', clienteAtual.Id);
+
+    // Redirecionar para página de nova venda
+    window.location.href = 'vendas-cliente.html';
+  }
+
+  // ===== GERAR RASTREIO =====
+  function gerarRastreio() {
+    if (!clienteAtual || !clienteAtual.Id) {
+      alert('❌ Cliente não identificado');
+      return;
+    }
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      backdrop-filter: blur(5px);
+      padding: 20px;
+    `;
+
+    const form = document.createElement('div');
+    form.style.cssText = `
+      background: linear-gradient(180deg, rgba(14,31,26,.95), rgba(5,11,9,.95));
+      border: 2px solid rgba(31,163,122,.5);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 60px rgba(31,163,122,.3);
+    `;
+
+    const proximaSemana = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    form.innerHTML = `
+      <h2 style="color: #1fa37a; margin-bottom: 20px; text-align: center;">🚚 Gerar Rastreio</h2>
+      
+      <div style="background: rgba(31,163,122,.1); border-left: 3px solid #1fa37a; padding: 12px; margin-bottom: 20px; border-radius: 6px;">
+        <p style="color: #7cf0c2; margin: 0; font-size: 12px;">Preencha os dados para gerar o código de rastreio.</p>
+      </div>
+
+      <!-- Cidade de Saída -->
+      <div style="margin-bottom: 18px;">
+        <label style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 6px;">📍 Cidade de Saída</label>
+        <input type="text" id="inputCidadeSaida" placeholder="Ex: anapolis-go" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      </div>
+
+      <!-- Cidade Atual (onde está hoje) -->
+      <div style="margin-bottom: 18px;">
+        <label style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 6px;">📌 Cidade Atual (Destino)</label>
+        <input type="text" id="inputCidadeAtual" placeholder="Ex: brasilia-df" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+        <small style="color: #8fb9ac; font-size: 10px; margin-top: 4px; display: block;">Onde o objeto chegará</small>
+      </div>
+
+      <!-- Data de Chegada Prevista -->
+      <div style="margin-bottom: 18px;">
+        <label style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 6px;">� Data Prevista de Chegada</label>
+        <input type="date" id="inputDataChegada" value="${proximaSemana}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+      </div>
+
+      <!-- Número de Paradas -->
+      <div style="margin-bottom: 18px;">
+        <label style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 6px;">🛣️ Qtd. de Paradas (Cidades Intermediárias)</label>
+        <input type="number" id="inputParadas" min="0" max="10" value="2" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
+        <small style="color: #8fb9ac; font-size: 10px; margin-top: 4px; display: block;">Exemplo: 2 = Saída → Cidade1 → Cidade2 → Destino</small>
+      </div>
+
+      <!-- Botões -->
+      <div style="display: flex; gap: 10px; justify-content: center; margin-top: 25px;">
+        <button id="btnProcessarRastreio" class="btn" style="padding: 12px 28px; background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15)); color: #7cf0c2; border-color: rgba(31,163,122,.3); font-weight: 700; flex: 1;">✅ OK</button>
+        <button id="btnCancelarRastreio" class="btn danger" style="padding: 12px 28px;">✕ Cancelar</button>
+      </div>
+    `;
+
+    modal.appendChild(form);
+    fecharTodosModais();
+    document.body.appendChild(modal);
+
+    document.getElementById('btnCancelarRastreio').onclick = () => modal.remove();
+    document.getElementById('btnProcessarRastreio').onclick = () => processarRastreioComMaps(modal);
+  }
+
+  // Processar rastreio COM Nominatim funcionando
+  async function processarRastreioComMaps(modal) {
+    try {
+      const cidadeSaida = document.getElementById('inputCidadeSaida').value?.trim();
+      const cidadeDestino = document.getElementById('inputCidadeAtual').value?.trim();
+      const dataChegada = document.getElementById('inputDataChegada').value;
+      const numParadas = parseInt(document.getElementById('inputParadas').value) || 2;
+
+      // Validações básicas
+      if (!cidadeSaida || !cidadeDestino) {
+        alert('⚠️ Preencha cidade de saída e destino');
+        return;
+      }
+      if (!dataChegada) {
+        alert('⚠️ Informe a data de chegada');
+        return;
+      }
+
+      // Validar datas
+      const dataChegadaObj = new Date(dataChegada);
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+
+      if (dataChegadaObj < hoje) {
+        alert('⚠️ A data de chegada deve ser a partir de hoje ou após');
+        return;
+      }
+
+      if (dataChegadaObj.getDay() === 0) {
+        alert('⚠️ A data de chegada não pode ser domingo');
+        return;
+      }
+
+      // Mostrar loading e processar
+      mostrarLoading();
+      console.log('🚀 Iniciando busca de cidades...');
+
+      // AQUI VAI FAZER O NOMINATIM REALMENTE FUNCIONAR
+      const rota = await gerarRotaComNominatim(cidadeSaida, cidadeDestino, numParadas);
+      
+      console.log('✅ Rota gerada:', rota);
+
+      // Gerar histórico
+      const historico = gerarHistoricoRastreioInteligente(rota, dataChegadaObj);
+
+      ocultarLoading();
+
+      // Mostrar preview
+      modal.remove();
+      mostrarModalEdicaoRastreioSimples(historico, rota, dataChegadaObj);
+
+    } catch (erro) {
+      console.error('❌ Erro:', erro);
+      ocultarLoading();
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // ===== NOMINATIM - FUNCIONA DE VERDADE =====
+  
+  // Gerar rota COM Nominatim - função principal
+  async function gerarRotaComNominatim(cidadeSaida, cidadeDestino, numParadas) {
+    try {
+      console.log("📍 Iniciando busca de rota...");
+      console.log('  Saída:', cidadeSaida);
+      console.log('  Destino:', cidadeDestino);
+      console.log('  Paradas:', numParadas);
+
+      // Buscar coordenadas
+      console.log('\n🔄 Buscando Saída...');
+      const coordSaida = await nominatimBuscarCidade(cidadeSaida);
+      
+      console.log('\n🔄 Buscando Destino...');
+      const coordDestino = await nominatimBuscarCidade(cidadeDestino);
+
+
+      if (!coordSaida) {
+        throw new Error(`Saída "${cidadeSaida}" não encontrada. Tente: "Anápolis" ou "Goiás"`);
+      }
+      if (!coordDestino) {
+        throw new Error(`Destino "${cidadeDestino}" não encontrada. Tente: "Brasília" ou "Goiânia"`);
+      }
+
+      console.log('✅ Coordenadas encontradas:');
+      console.log('  ', coordSaida.nome, '→', coordSaida.lat.toFixed(2), ',', coordSaida.lon.toFixed(2));
+      console.log('  ', coordDestino.nome, '→', coordDestino.lat.toFixed(2), ',', coordDestino.lon.toFixed(2));
+
+      // Montar rota com saída
+      let rota = [coordSaida.nome];
+
+      // Gerar paradas intermediárias
+      if (numParadas > 0) {
+        console.log('\n🛣️  Gerando paradas intermediárias...');
+        for (let i = 1; i <= numParadas; i++) {
+          // Calcular posição intermediária
+          const fracao = i / (numParadas + 1);
+          const lat = coordSaida.lat + (coordDestino.lat - coordSaida.lat) * fracao;
+          const lon = coordSaida.lon + (coordDestino.lon - coordSaida.lon) * fracao;
+
+          console.log(`  Parada ${i}: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+
+          // Buscar cidade nessas coordenadas
+          const cidadeIntermediaria = await nominatimReverseGeocode(lat, lon);
+          
+          if (cidadeIntermediaria && cidadeIntermediaria !== rota[rota.length - 1]) {
+            rota.push(cidadeIntermediaria);
+            console.log(`    ✅ ${cidadeIntermediaria}`);
+          } else {
+            console.log(`    ⚠️  Não encontrou cidade diferente`);
+          }
+        }
+      }
+
+      // Adicionar destino final
+      if (rota[rota.length - 1] !== coordDestino.nome) {
+        rota.push(coordDestino.nome);
+      }
+
+      console.log('\n🎯 ROTA FINAL:', rota);
+      return rota;
+
+    } catch (erro) {
+      console.error('❌ Erro em gerarRotaComNominatim:', erro);
+      throw erro;
+    }
+  }
+
+  // Buscar cidade via Nominatim Search
+  async function nominatimBuscarCidade(nomeCidade) {
+    try {
+      // Limpar nome: remover estado (GO, DF, SP, etc)
+      const cidadeLimpa = nomeCidade
+        .replace(/\s*-\s*(go|sp|mg|ba|df|rj|pr|sc|rs|pe|pa|mt|ms|ce|pi|ma|to|al|se|es|pb|rn|ac|am|ap|rr|br)\s*$/i, '')
+        .replace(/\s*\(.*?\)\s*/g, '')
+        .trim();
+
+      // Melhorar busca: adicionar estado se disponível
+      let queryBusca = cidadeLimpa;
+      if (nomeCidade.includes('-')) {
+        const estado = nomeCidade.split('-')[1]?.trim().toLowerCase();
+        if (estado) {
+          queryBusca = cidadeLimpa + ' ' + estado;
+        }
+      }
+
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(queryBusca)}&countrycode=br&format=json&limit=3`;
+      
+      console.log('🔍 Buscando:', cidadeLimpa);
+      console.log('   Query:', queryBusca);
+      console.log('   URL:', url);
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error(`⚠️ HTTP ${response.status}`);
+        return null;
+      }
+
+      const dados = await response.json();
+
+      if (dados && dados.length > 0) {
+        // Procurar por municipalidade (city, town, village)
+        let resultado = null;
+        for (let cidade of dados) {
+          if (['city', 'town', 'village'].includes(cidade.type)) {
+            resultado = {
+              nome: cidade.name || cidadeLimpa,
+              lat: parseFloat(cidade.lat),
+              lon: parseFloat(cidade.lon)
+            };
+            break;
+          }
+        }
+        
+        // Se não encontrar municipalidade, usar o primeiro
+        if (!resultado && dados[0].name) {
+          resultado = {
+            nome: dados[0].name || cidadeLimpa,
+            lat: parseFloat(dados[0].lat),
+            lon: parseFloat(dados[0].lon)
+          };
+        }
+        
+        if (resultado) {
+          console.log(`✅ Encontrado: ${resultado.nome}`);
+          return resultado;
+        }
+      }
+
+      console.warn(`⚠️ Nenhum resultado para "${cidadeLimpa}"`);
+      return null;
+    } catch (erro) {
+      console.error('❌ Erro em nominatimBuscarCidade:', erro);
+      return null;
+    }
+  }
+
+  // Reverse Geocoding via Nominatim
+  async function nominatimReverseGeocode(lat, lon) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+      
+      const response = await fetch(url);
+      const dados = await response.json();
+
+      if (dados && dados.address) {
+        const cidade = dados.address.city || dados.address.town || dados.address.village;
+        if (cidade) {
+          return cidade;
+        }
+      }
+
+      return null;
+    } catch (erro) {
+      console.error('❌ Erro em nominatimReverseGeocode:', erro);
+      return null;
+    }
+  }
+
+  // Gerar histórico inteligente de rastreio (com datas começando de hoje)
+  function gerarHistoricoRastreioInteligente(rota, dataChegada) {
+    let historico = [];
+    
+    // Data de hoje (02/04/2026)
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    // Formatar data de chegada
+    let dataEntrega = new Date(dataChegada);
+    dataEntrega.setHours(10, 30, 0, 0);
+
+    // Se for domingo, passa para segunda
+    if (dataEntrega.getDay() === 0) {
+      dataEntrega.setDate(dataEntrega.getDate() + 1);
+    }
+
+    // 1. PREVISÃO DE ENTREGA (primeiro evento)
+    historico.push({
+      text: `PREVISÃO DE ENTREGA - ${formatarDataRastreio(dataEntrega).split(' ')[0]}`,
+      time: formatarDataRastreio(hoje)
+    });
+
+    // 2. Retirada (hoje)
+    let dataSaida = new Date(hoje);
+    dataSaida.setHours(9, 0, 0, 0);
+    historico.push({
+      text: `Objeto retirado pela transportadora - ${rota[0]}`,
+      time: formatarDataRastreio(dataSaida)
+    });
+
+    // 3. Primeira parada (saída)
+    let dataAtual = new Date(hoje);
+    dataAtual.setHours(16, 30, 0, 0);
+    historico.push({
+      text: `Objeto está em - ${rota[0]}`,
+      time: formatarDataRastreio(dataAtual)
+    });
+
+    // 4. Eventos intermediários (paradas entre saída e atual)
+    if (rota.length > 2) {
+      for (let i = 1; i < rota.length - 1; i++) {
+        // Saída em rota
+        dataAtual = adicionarDiasUteis(dataAtual, 1);
+        dataAtual.setHours(8, 45, 0, 0);
+        historico.push({
+          text: `Rota para - ${rota[i]}`,
+          time: formatarDataRastreio(dataAtual)
+        });
+
+        // Chegada na parada
+        dataAtual = adicionarDiasUteis(dataAtual, 1);
+        dataAtual.setHours(14, 15, 0, 0);
+        historico.push({
+          text: `Objeto está em - ${rota[i]}`,
+          time: formatarDataRastreio(dataAtual)
+        });
+      }
+    }
+
+    // 5. Último trajeto (para cidade atual)
+    if (rota.length > 1) {
+      dataAtual = adicionarDiasUteis(dataAtual, 1);
+      dataAtual.setHours(8, 45, 0, 0);
+      historico.push({
+        text: `Rota para - ${rota[rota.length - 1]}`,
+        time: formatarDataRastreio(dataAtual)
+      });
+
+      // 6. Chegada na cidade atual
+      dataAtual = adicionarDiasUteis(dataAtual, 1);
+      dataAtual.setHours(10, 45, 0, 0);
+      historico.push({
+        text: `Objeto está em - ${rota[rota.length - 1]}`,
+        time: formatarDataRastreio(dataAtual)
+      });
+    }
+
+    return historico;
+  }
+
+  // Adicionar dias úteis (pula fins de semana)
+  function adicionarDiasUteis(data, diasUteis) {
+    let resultado = new Date(data);
+    let diasAdicionados = 0;
+
+    while (diasAdicionados < diasUteis) {
+      resultado.setDate(resultado.getDate() + 1);
+      // Se não for domingo (0) nem sábado (6), conta
+      if (resultado.getDay() !== 0 && resultado.getDay() !== 6) {
+        diasAdicionados++;
+      }
+    }
+
+    return resultado;
+  }
+
+  // Subtrair dias úteis (pula finais de semana)
+  function subtrairDiasUteis(data, diasUteis) {
+    let resultado = new Date(data);
+    let diasSubtraidos = 0;
+
+    while (diasSubtraidos < diasUteis) {
+      resultado.setDate(resultado.getDate() - 1);
+      // Se não for domingo (0) nem sábado (6), conta
+      if (resultado.getDay() !== 0 && resultado.getDay() !== 6) {
+        diasSubtraidos++;
+      }
+    }
+
+    return resultado;
+  }
+
+  // Formatar data para rastreio
+  function formatarDataRastreio(data) {
+    const dia = String(data.getDate()).padStart(2, '0');
+    const mes = String(data.getMonth() + 1).padStart(2, '0');
+    const ano = data.getFullYear();
+    const horas = String(data.getHours()).padStart(2, '0');
+    const minutos = String(data.getMinutes()).padStart(2, '0');
+    
+    return `${dia}/${mes}/${ano} ${horas}:${minutos}`;
+  }
+
+  // Modal de edição/preview com campos editáveis
+  function mostrarModalEdicaoRastreioSimples(historico, rota, dataChegada) {
+    // Gerar código automaticamente
+    const codigo = gerarCodigoRastreioAuto();
+    let historicoEditavel = JSON.parse(JSON.stringify(historico));
+    let rotaEditavel = [...rota];
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      backdrop-filter: blur(5px);
+      padding: 20px;
+    `;
+
+    const conteudo = document.createElement('div');
+    conteudo.style.cssText = `
+      background: linear-gradient(180deg, rgba(14,31,26,.95), rgba(5,11,9,.95));
+      border: 2px solid rgba(31,163,122,.5);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 700px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 60px rgba(31,163,122,.3);
+    `;
+
+    // Formatar rota
+    const rotaFormatada = Array.isArray(rotaEditavel) ? rotaEditavel.join(' → ') : rotaEditavel;
+
+    let historicoHtml = '';
+    historicoEditavel.forEach((evento, idx) => {
+      const [data, hora] = evento.time.split(' ');
+      
+      // Extrair cidade do texto (procura por padrão "- CIDADE-UF")
+      let cidade = '';
+      const matchCidade = evento.text.match(/- ([A-ZÁÉÍÓÚÃÕç\s]+)-([A-Z]{2})/);
+      if (matchCidade) {
+        cidade = matchCidade[1].trim() + '-' + matchCidade[2];
+      }
+      
+      historicoHtml += `
+        <div style="background: rgba(31,163,122,.05); border-radius: 8px; padding: 12px; margin-bottom: 12px; border-left: 3px solid #1fa37a;">
+          <div style="color: #7cf0c2; font-weight: 600; margin-bottom: 8px;">${idx + 1}. ${evento.text}</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 8px;">
+            <input type="date" id="data_${idx}" value="${data.split('/').reverse().join('-')}" style="background: rgba(0,0,0,.3); border: 1px solid rgba(31,163,122,.3); color: #7cf0c2; padding: 6px; border-radius: 4px; font-size: 12px;">
+            <input type="time" id="hora_${idx}" value="${hora}" style="background: rgba(0,0,0,.3); border: 1px solid rgba(31,163,122,.3); color: #7cf0c2; padding: 6px; border-radius: 4px; font-size: 12px;">
+            <input type="text" id="cidade_${idx}" placeholder="Cidade-UF" value="${cidade}" style="background: rgba(0,0,0,.3); border: 1px solid rgba(31,163,122,.3); color: #7cf0c2; padding: 6px; border-radius: 4px; font-size: 12px;">
+          </div>
+        </div>
+      `;
+    });
+
+    conteudo.innerHTML = `
+      <h2 style="color: #1fa37a; margin-bottom: 15px; text-align: center;">✏️ Editar Rastreio</h2>
+      
+      <div style="background: rgba(31,163,122,.1); border-left: 3px solid #1fa37a; padding: 12px; margin-bottom: 20px; border-radius: 6px;">
+        <p style="color: #7cf0c2; margin: 0; font-size: 12px;">Edite datas e horas conforme necessário. Clique em OK para salvar.</p>
+      </div>
+
+      <div style="background: rgba(31,163,122,.1); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        <div style="margin-bottom: 10px;">
+          <span style="color: #8fb9ac; font-size: 10px; text-transform: uppercase;">Código de Rastreio:</span>
+          <div style="color: #1fa37a; font-weight: 800; font-size: 18px; font-family: monospace; margin-top: 4px; letter-spacing: 2px;">${codigo}</div>
+        </div>
+        <div>
+          <span style="color: #8fb9ac; font-size: 10px; text-transform: uppercase;">Rota Montada:</span>
+          <div style="color: #7cf0c2; font-size: 13px; margin-top: 2px; word-break: break-word;">${rotaFormatada}</div>
+        </div>
+      </div>
+
+      <h3 style="color: #1fa37a; margin: 20px 0 15px 0; font-size: 13px;">📍 Editar Histórico</h3>
+      <div style="background: rgba(0,0,0,.3); padding: 15px; border-radius: 8px; max-height: 350px; overflow-y: auto;">
+        ${historicoHtml}
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: center; margin-top: 25px;">
+        <button id="btnConfirmarRastreio" class="btn" style="padding: 12px 28px; background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15)); color: #7cf0c2; border-color: rgba(31,163,122,.3); font-weight: 700; flex: 1;">✅ OK - Salvar</button>
+        <button id="btnCancelarEdicao" class="btn danger" style="padding: 12px 28px;">✕ Cancelar</button>
+      </div>
+    `;
+
+    modal.appendChild(conteudo);
+    fecharTodosModais();
+    document.body.appendChild(modal);
+
+    // Atualizar histórico editável quando o usuário muda os campos
+    historicoEditavel.forEach((evento, idx) => {
+      const inputData = modal.querySelector(`#data_${idx}`);
+      const inputHora = modal.querySelector(`#hora_${idx}`);
+      const inputCidade = modal.querySelector(`#cidade_${idx}`);
+      
+      inputData.addEventListener('change', () => {
+        if (inputData.value && inputHora.value) {
+          const [ano, mes, dia] = inputData.value.split('-');
+          historicoEditavel[idx].time = `${dia}/${mes}/${ano} ${inputHora.value}`;
+        }
+      });
+      
+      inputHora.addEventListener('change', () => {
+        if (inputData.value && inputHora.value) {
+          const [ano, mes, dia] = inputData.value.split('-');
+          historicoEditavel[idx].time = `${dia}/${mes}/${ano} ${inputHora.value}`;
+        }
+      });
+      
+      inputCidade.addEventListener('change', () => {
+        if (inputCidade.value.trim()) {
+          // Normalizar a cidade: remover espaços extras e garantir formato "Cidade-UF"
+          let cidadeNormalizada = inputCidade.value.trim();
+          
+          // Se não tiver hífen, tentar adicionar (ex: "goiania go" → "Goiania-GO")
+          if (!cidadeNormalizada.includes('-')) {
+            const partes = cidadeNormalizada.split(/\s+/);
+            if (partes.length >= 2) {
+              // Última parte é UF
+              const uf = partes[partes.length - 1].toUpperCase();
+              const cidade = partes.slice(0, -1).join(' ');
+              cidadeNormalizada = `${cidade}-${uf}`;
+            }
+          }
+          
+          // Converter para formato padrão: Primeira letra maiúscula, resto minúscula
+          const [cidade, uf] = cidadeNormalizada.split('-');
+          if (cidade && uf) {
+            cidadeNormalizada = `${cidade.charAt(0).toUpperCase()}${cidade.slice(1).toLowerCase()}-${uf.toUpperCase()}`;
+          }
+          
+          // Atualizar o texto do evento com a nova cidade
+          const textoAntigo = historicoEditavel[idx].text;
+          
+          // Procurar por padrão "- ALGUMA_COISA" ou "- ALGUMA_COISA-UF"
+          let novoTexto;
+          if (textoAntigo.includes(' - ')) {
+            // Substitui após o último " - "
+            const partes = textoAntigo.split(' - ');
+            const prefixo = partes.slice(0, -1).join(' - ');
+            novoTexto = `${prefixo} - ${cidadeNormalizada}`;
+          } else {
+            novoTexto = textoAntigo;
+          }
+          
+          historicoEditavel[idx].text = novoTexto;
+          inputCidade.value = cidadeNormalizada; // Atualizar o campo com valor normalizado
+          
+          console.log(`✏️ Evento ${idx + 1} atualizado: "${textoAntigo}" → "${novoTexto}"`);
+        }
+      });
+    });
+
+    document.getElementById('btnCancelarEdicao').onclick = () => {
+      modal.remove();
+      gerarRastreio(); // Voltar ao primeiro formulário
+    };
+
+    document.getElementById('btnConfirmarRastreio').onclick = async () => {
+      await salvarRastreioNoCliente(codigo, historicoEditavel, rotaEditavel, modal);
+    };
+  }
+
+  // Gerar código de rastreio automaticamente
+  function gerarCodigoRastreioAuto() {
+    const prefixo = 'BR';
+    const numero = Math.floor(Math.random() * 10000000000).toString().padStart(10, '0');
+    return prefixo + numero;
+  }
+
+  // Salvar rastreio APENAS em rastreamento.json (NÃO em clientes.json)
+  async function salvarRastreioNoCliente(codigo, historico, rota, modal) {
+    try {
+      mostrarLoading();
+
+      // 🚀 GERAR JSON NO FORMATO CORRETO
+      const rastreamentoData = {
+        [codigo]: {
+          "status": historico.map(evento => ({
+            "text": evento.text,
+            "time": evento.time
+          }))
+        }
+      };
+
+      console.log('📤 Dados a salvar:', JSON.stringify(rastreamentoData, null, 2));
+
+      // SALVAR EM rastreamento.json NO GOOGLE DRIVE
+      try {
+        const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+        
+        const response = await fetch(CONFIG.API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            'acao': 'salvarRastreamento',
+            'arquivo': 'rastreamento.json',
+            'codigo': codigo,
+            'dados': JSON.stringify(rastreamentoData),
+            'deviceId': deviceId
+          })
+        });
+
+        if (!response.ok) {
+          console.error('❌ Erro HTTP ao salvar rastreamento:', response.status);
+          ocultarLoading();
+          alert('❌ Erro ao salvar rastreamento');
+          return;
+        }
+
+        const resultado = await response.json();
+        
+        if (!resultado.sucesso) {
+          console.error('❌ Erro do servidor:', resultado.erro);
+          ocultarLoading();
+          alert('❌ Erro: ' + resultado.erro);
+          return;
+        }
+
+        console.log('✅ Rastreamento salvo com sucesso em rastreamento.json');
+
+      } catch (erroRastreamento) {
+        console.error('❌ Erro ao salvar rastreamento:', erroRastreamento);
+        ocultarLoading();
+        alert('❌ Erro ao salvar: ' + erroRastreamento.message);
+        return;
+      }
+
+      modal.remove();
+      ocultarLoading();
+
+      // Mostrar sucesso
+      mostrarModalSucessoRastreioSimples(codigo);
+
+    } catch (erro) {
+      console.error('❌ Erro ao salvar:', erro);
+      ocultarLoading();
+      alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // Modal de sucesso
+  function mostrarModalSucessoRastreioSimples(codigo) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1001;
+      backdrop-filter: blur(5px);
+      padding: 20px;
+    `;
+
+    const conteudo = document.createElement('div');
+    conteudo.style.cssText = `
+      background: linear-gradient(180deg, rgba(14,31,26,.95), rgba(5,11,9,.95));
+      border: 2px solid rgba(31,163,122,.5);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 60px rgba(31,163,122,.3);
+    `;
+
+    conteudo.innerHTML = `
+      <div style="font-size: 56px; margin-bottom: 20px;">🎉</div>
+      <h2 style="color: #1fa37a; margin: 0 0 10px 0; font-size: 24px;">Rastreio Criado!</h2>
+      
+      <div style="background: rgba(31,163,122,.1); padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <span style="color: #8fb9ac; font-size: 10px; text-transform: uppercase;">Código de Rastreio</span>
+        <div style="color: #1fa37a; font-weight: 800; font-size: 18px; font-family: monospace; margin-top: 8px;">${codigo}</div>
+      </div>
+
+      <p style="color: #7cf0c2; font-size: 13px; margin-bottom: 20px;">
+        Rastreio salvo com sucesso no banco de dados.
+      </p>
+
+      <div style="display: flex; gap: 10px; flex-direction: column;">
+        <button onclick="copiarCodigoRastreio('${codigo}')" class="btn" style="padding: 12px; background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15)); color: #7cf0c2; border-color: rgba(31,163,122,.3); width: 100%; font-weight: 600;">
+          📋 Copiar Código
+        </button>
+        <button onclick="this.closest('div').parentElement.parentElement.remove()" class="btn danger" style="padding: 12px; width: 100%;">
+          ✕ Fechar
+        </button>
+      </div>
+    `;
+
+    modal.appendChild(conteudo);
+    document.body.appendChild(modal);
+  }
+
+  // Copiar código
+  function copiarCodigoRastreio(codigo) {
+    navigator.clipboard.writeText(codigo).then(() => {
+      alert('✅ Código copiado!');
+    });
+  }
+</script>
+<script src="alertas-ligacoes.js"></script>
+<script src="sidebar-dock.js"></script>
+</body>
+</html>
