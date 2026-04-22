@@ -290,6 +290,33 @@
     }
 
     /* ============ MODAL ============ */
+        /* --- COLOQUE AQUI (Autocomplete) --- */
+    .autocomplete-suggestions {
+      position: absolute;
+      background: #0f2a22;
+      border: 1px solid rgba(31,163,122,0.3);
+      border-top: none;
+      z-index: 9999;
+      max-height: 200px;
+      overflow-y: auto;
+      width: 100%;
+      border-radius: 0 0 10px 10px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    }
+    .autocomplete-suggestion {
+      padding: 10px 15px;
+      cursor: pointer;
+      color: #e5f3ee;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+    .autocomplete-suggestion:hover {
+      background: rgba(31,163,122,0.2);
+      color: #7cf0c2;
+    }
+    .form-group { position: relative; }
+    /* ----------------------------------- */
+
     .modal {
       display: none;
       position: fixed;
@@ -712,6 +739,46 @@
     let transportesExibindo = [];
     let editandoId = null;
     let clientesMap = {};
+    let listaClientesGlobal = []; // Nova variável
+
+    function configurarAutocompleteCliente() {
+      const input = document.getElementById('nomeCliente');
+      // Remove container antigo se existir para não duplicar
+      const antigo = input.parentNode.querySelector('.autocomplete-suggestions');
+      if (antigo) antigo.remove();
+
+      const sugestoesContainer = document.createElement('div');
+      sugestoesContainer.className = 'autocomplete-suggestions';
+      input.parentNode.appendChild(sugestoesContainer);
+
+      input.addEventListener('input', function() {
+        const valor = this.value.toLowerCase();
+        sugestoesContainer.innerHTML = '';
+        if (!valor) return;
+
+        const filtrados = listaClientesGlobal.filter(c => 
+          c.Nome.toLowerCase().includes(valor)
+        ).slice(0, 5);
+
+        filtrados.forEach(cliente => {
+          const div = document.createElement('div');
+          div.className = 'autocomplete-suggestion';
+          div.innerHTML = `<strong>${cliente.Nome}</strong>  
+<small>${cliente.Cidade} - ${cliente.Estado}</small>`;
+          div.onclick = function() {
+            input.value = cliente.Nome;
+            document.getElementById('cidade').value = cliente.Cidade || '';
+            document.getElementById('estado').value = cliente.Estado || '';
+            sugestoesContainer.innerHTML = '';
+          };
+          sugestoesContainer.appendChild(div);
+        });
+      });
+
+      document.addEventListener('click', (e) => {
+        if (e.target !== input) sugestoesContainer.innerHTML = '';
+      });
+    }
 
     // ============ CARREGAR DADOS DO BACKEND ============
     async function carregarTransportes() {
@@ -728,6 +795,7 @@
         console.log('📥 Buscando transporte.json...');
         transportes = await buscarArquivo("transporte.json");
         
+        
         // Garantir que é um array
         if (!Array.isArray(transportes)) {
           transportes = [];
@@ -738,6 +806,15 @@
         // Carregar clientes.json para referência
         console.log('📥 Buscando clientes.json...');
         const clientes = await buscarArquivo("clientes.json");
+                // --- ADICIONE ESTAS DUAS LINHAS AQUI ---
+        listaClientesGlobal = clientes; 
+        configurarAutocompleteCliente();
+        // ---------------------------------------
+
+        clientes.forEach(c => {
+          clientesMap[c.Id] = c;
+        });
+
         clientes.forEach(c => {
           clientesMap[c.Id] = c;
         });
