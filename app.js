@@ -109,26 +109,19 @@ async function carregarComissaoUsuario() {
       return;
     }
 
-    // Obter configuração de comissão do localStorage PRIMEIRO
-    let configMetas = JSON.parse(localStorage.getItem('configMetas') || '{}');
-    
-    // Se localStorage vazio ou antigo, carregar do Drive
-    if (!configMetas.comissao) {
-      try {
-        const configDoArquivo = await buscarArquivo('configMetas.json');
-        if (configDoArquivo && configDoArquivo.comissao !== undefined) {
-          configMetas = configDoArquivo;
-          localStorage.setItem('configMetas', JSON.stringify(configMetas));
-          console.log('✅ ConfigMetas carregada do Drive:', configMetas);
-        }
-      } catch (e) {
-        console.warn('⚠️ Não conseguiu carregar configMetas.json do Drive');
-      }
+    // Obter configuração de comissão do Drive (com fallback para localStorage)
+    let configMetas = {};
+    try {
+      configMetas = await buscarArquivo('configmetas.json');
+      if (!configMetas || typeof configMetas !== 'object') configMetas = {};
+      // Salvar no localStorage para outras partes do sistema
+      localStorage.setItem('configMetas', JSON.stringify(configMetas));
+    } catch(e) {
+      configMetas = JSON.parse(localStorage.getItem('configMetas') || '{}');
     }
-    
     const percentualComissao = parseFloat(configMetas.comissao) || 0;
-    console.log('💰 ConfigMetas:', configMetas);
-    console.log('💰 Percentual Comissão:', percentualComissao + '%');
+    console.log('💰 ConfigMetas carregada:', configMetas);
+    console.log('💰 Percentual Comissão:', percentualComissao);
 
     // ✅ Usar cache global de clientes (carregar uma única vez)
     const clientes = await carregarClientesUmaVez();
@@ -144,8 +137,7 @@ async function carregarComissaoUsuario() {
     const anoAtual = agora.getFullYear();
     
     let vendidoMes = 0;
-    let faturamentoTotal = 0; // Total de TODOS os vendedores
-    let totalPendente = 0; // Total de parcelas não pagas
+    let faturamentoTotal = 0; // 🆕 Total de TODOS os vendedores
 
     // Percorrer clientes e suas vendas
     clientes.forEach(cliente => {
@@ -168,15 +160,6 @@ async function carregarComissaoUsuario() {
           if (vendedorVenda === usuarioLogado.nome && mesVenda === mesAtual && anoVenda === anoAtual) {
             vendidoMes += valorVenda;
           }
-
-          // Calcular total de parcelas não pagas (todos os vendedores)
-          if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
-            venda.Parcelas.forEach(parcela => {
-              if (!parcela.Pago) {
-                totalPendente += parseFloat(parcela.Valor) || 0;
-              }
-            });
-          }
         });
       }
     });
@@ -194,16 +177,14 @@ async function carregarComissaoUsuario() {
     const elementoVendido = document.getElementById('usuarioVendido');
     const elementoComissao = document.getElementById('usuarioComissaoValor');
     const elementoFaturamento = document.getElementById('usuarioFaturamento');
+    const labelFaturamento = document.getElementById('usuarioFaturamentoLabel');
     const labelMes = document.getElementById('usuarioVendidoLabel');
-    const divTotalPendente = document.getElementById('usuarioTotalPendenteDiv');
-    const elementoTotalPendente = document.getElementById('usuarioTotalPendente');
 
     if (containerComissao && elementoVendido && elementoComissao) {
       // Formatar valores com R$
       const vendidoFormatado = vendidoMes.toLocaleString('pt-BR', {minimumFractionDigits: 2});
       const comissaoFormatada = comissao.toLocaleString('pt-BR', {minimumFractionDigits: 2});
       const faturamentoFormatado = faturamentoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
-      const totalPendenteFormatado = totalPendente.toLocaleString('pt-BR', {minimumFractionDigits: 2});
       
       elementoVendido.textContent = `R$ ${vendidoFormatado}`;
       elementoComissao.textContent = `R$ ${comissaoFormatada}`;
@@ -213,28 +194,19 @@ async function carregarComissaoUsuario() {
         elementoFaturamento.textContent = `R$ ${faturamentoFormatado}`;
       }
       
-      // 🆕 Mostrar Total Pendente apenas para Admin
-      const ehAdmin = usuarioLogado && (usuarioLogado.nome === 'Admin' || usuarioLogado.modulos?.includes('Administrador'));
-      if (divTotalPendente && elementoTotalPendente && ehAdmin) {
-        elementoTotalPendente.textContent = `R$ ${totalPendenteFormatado}`;
-        divTotalPendente.style.display = 'block';
-      } else if (divTotalPendente) {
-        divTotalPendente.style.display = 'none';
-      }
-      
       // Atualizar label do mês
       if (labelMes) {
         labelMes.textContent = `Vendido (${mesNome})`;
       }
-      
-      // Mostrar o container se houver vendas ou se percentual está configurado
-      if (vendidoMes > 0 || percentualComissao > 0) {
-        containerComissao.style.display = 'block';
+      if (labelFaturamento) {
+        labelFaturamento.textContent = `Vendido mês (${mesNome})`;
       }
+
+      // Mostrar o container sempre que tiver vendas
+      containerComissao.style.display = 'block';
 
       console.log(`💰 Comissão do usuário ${usuarioLogado.nome}: Vendido R$ ${vendidoMes.toFixed(2)}, Comissão R$ ${comissao.toFixed(2)} (${percentualComissao}%)`);
       console.log(`📊 Faturamento Total (${mesNome}): R$ ${faturamentoTotal.toFixed(2)}`);
-      console.log(`⚠️ Total Pendente (${mesNome}): R$ ${totalPendente.toFixed(2)}`);
     }
 
   } catch (erro) {
@@ -314,12 +286,6 @@ async function carregarMenu() {
       descricao: "Revisar e organizar contatos",
       arquivo: "revisao-contatos.html",
       tipo: "revisao-contatos"
-    },
-    "Relatório Vendedor": {
-      icone: "📈",
-      descricao: "Desempenho e metas de vendedores",
-      arquivo: "relatorio-vendedor.html",
-      tipo: "relatorio-vendedor"
     }
   };
 
@@ -514,11 +480,6 @@ async function carregarModulo(nome, tipo, arquivo) {
       window.location.href = "revisao-contatos.html";
       return;
     }
-    // PÁGINA ESPECIAL DE RELATÓRIO VENDEDOR
-    else if (tipo === "relatorio-vendedor") {
-      window.location.href = "relatorio-vendedor.html";
-      return;
-    }
     else if (arquivo) {
       // Limpar botões de ação (exceto para pagamentos)
       botoesAcao.innerHTML = "";
@@ -700,7 +661,7 @@ function renderizarTabela(tipo, dados) {
   // Definir colunas por tipo (baseado no C#)
   const colunasPorTipo = {
     clientes: ["Id", "Nome", "CPF", "Telefone1"],
-    insumos: ["Nome", "Quantidade", "QuantidadePendente", "Valor", "Unidade"],
+    insumos: ["Nome", "Quantidade", "Valor", "Unidade"],
     transporte: ["NomeCliente", "Cidade", "Estado", "CodigoRastreio", "ValorFrete", "Status"],
     pagamentos: ["ClienteNome", "ClienteCPF", "NumeroNF", "DataVencimento", "Valor", "Pago", "DataPagamento"],
     receitas: ["Nome", "Tipo", "PesoPadrao", "CustoPorKg", "Descricao"]
@@ -722,18 +683,11 @@ function renderizarTabela(tipo, dados) {
     const classe = tipo === "pagamentos" ? "click-pagamento" : "";
     const onclick = tipo === "pagamentos" ? `onclick="abrirDetalhePagamento('${item.Nome}')"` : (tipo === "clientes" ? `onclick="abrirDetalhesCliente('${item.Nome}')"` : "");
     const cursor = (tipo === 'pagamentos' || tipo === 'clientes') ? 'cursor: pointer;' : '';
-    const dataCliente = tipo === "clientes" ? `data-cliente="${item.Nome}"` : "";
     
-    html += `<tr class="${classe}" ${onclick} ${dataCliente} style="${cursor}" title="${tipo === 'clientes' ? 'Clique para detalhes' : 'Clique para detalhes'}">`;
+    html += `<tr class="${classe}" ${onclick} style="${cursor}" title="${tipo === 'clientes' ? 'Clique para detalhes' : 'Clique para detalhes'}">`;
     colunas.forEach(col => {
       const valor = obterValor(item, col, tipo);
-      
-      // 📌 COLORIR EM VERMELHO QUANTIDADE PENDENTE DE INSUMOS
-      if (tipo === "insumos" && col === "QuantidadePendente" && item.QuantidadePendente && item.QuantidadePendente > 0) {
-        html += `<td style="background-color: #ffcccc; color: #c33; font-weight: bold; text-align: center;">${valor}</td>`;
-      } else {
-        html += `<td>${valor}</td>`;
-      }
+      html += `<td>${valor}</td>`;
     });
     
     // Adicionar status para clientes
@@ -758,51 +712,6 @@ function renderizarTabela(tipo, dados) {
   
   // Adicionar tabela ao final do conteúdo (após os filtros)
   conteudo.insertAdjacentHTML('beforeend', html);
-
-  // Adicionar evento para clique direito em clientes (abrir em nova aba)
-  if (tipo === "clientes") {
-    setTimeout(() => {
-      const tabela = conteudo.querySelector('table');
-      if (tabela) {
-        const linhas = tabela.querySelectorAll('tbody tr[data-cliente]');
-        linhas.forEach(linha => {
-          linha.addEventListener('mousedown', function(e) {
-            // Detectar clique direito (button 2) ou Ctrl/Cmd + clique (button 0 com ctrl/cmd)
-            if (e.button === 2 || (e.button === 0 && (e.ctrlKey || e.metaKey))) {
-              e.preventDefault();
-              const nomeCliente = this.getAttribute('data-cliente');
-              abrirClienteNovaAba(nomeCliente);
-            }
-          });
-          
-          // Bloquear menu de contexto para permitir ação customizada
-          linha.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-            const nomeCliente = this.getAttribute('data-cliente');
-            abrirClienteNovaAba(nomeCliente);
-          });
-        });
-      }
-    }, 50);
-  }
-}
-
-// ============================================
-// FUNÇÃO: ABRIR CLIENTE EM NOVA ABA
-// ============================================
-function abrirClienteNovaAba(nomeCliente) {
-  carregarClientesUmaVez().then(clientes => {
-    const cliente = Array.isArray(clientes) ? 
-      clientes.find(c => c.Nome === nomeCliente) : 
-      null;
-
-    if (cliente) {
-      const clienteJSON = JSON.stringify(cliente);
-      localStorage.setItem('clienteSelecionado', clienteJSON);
-      sessionStorage.setItem('clienteSelecionado', clienteJSON);
-      window.open('clientes-detalhes.html', '_blank');
-    }
-  });
 }
 
 // ============================================
@@ -2087,14 +1996,7 @@ function renderizarTabelaPagamentosFiltered(clientes) {
         const dataVencimento = new Date(p.DataVencimento);
         if (dataDe && dataVencimento < new Date(dataDe)) return false;
         if (dataAte && dataVencimento > new Date(dataAte)) return false;
-        
-        // Considerar pagamento parcial no filtro de valor
-        let valorParaFiltrar = p.Valor;
-        if (p.ValorPago > 0) {
-          valorParaFiltrar = p.ValorPago;
-        }
-        if (valorParaFiltrar < valorMin || valorParaFiltrar > valorMax) return false;
-        
+        if (p.Valor < valorMin || p.Valor > valorMax) return false;
         return true;
       });
 
@@ -2174,13 +2076,8 @@ function aplicarFiltrosPagamentos() {
           if (dataAte && dataVencimento > new Date(dataAte)) continue;
         }
 
-        // Filtro de valor - CONSIDERAR PAGAMENTO PARCIAL
-        let valorParaFiltrar = parcela.Valor;
-        if (parcela.ValorPago > 0) {
-          // Se houve pagamento parcial, usar o valor pago para filtrar
-          valorParaFiltrar = parcela.ValorPago;
-        }
-        if (valorParaFiltrar < valorMin || valorParaFiltrar > valorMax) continue;
+        // Filtro de valor
+        if (parcela.Valor < valorMin || parcela.Valor > valorMax) continue;
 
         // Se chegou aqui, este cliente passa pelos filtros
         return true;
@@ -2244,23 +2141,13 @@ function renderizarFiltrosClientes() {
       </div>
 
       <div>
-        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Data Cadastro Início</label>
+        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Data Início</label>
         <input type="date" id="filtroDataInicioCliente" onchange="aplicarFiltrosClientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
       </div>
 
       <div>
-        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Data Cadastro Fim</label>
+        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Data Fim</label>
         <input type="date" id="filtroDataFimCliente" onchange="aplicarFiltrosClientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
-      </div>
-
-      <div>
-        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Data Venda Início</label>
-        <input type="date" id="filtroDataVendaInicioCliente" onchange="aplicarFiltrosClientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
-      </div>
-
-      <div>
-        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Data Venda Fim</label>
-        <input type="date" id="filtroDataVendaFimCliente" onchange="aplicarFiltrosClientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
       </div>
 
       <div>
@@ -2279,15 +2166,6 @@ function renderizarFiltrosClientes() {
           <option value="satisfeitos">Satisfeitos</option>
           <option value="insatisfeitos">Insatisfeitos</option>
           <option value="nao-informado">Não Informado</option>
-        </select>
-      </div>
-
-      <div>
-        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Ordenar</label>
-        <select id="filtroOrdenacaoCliente" onchange="aplicarFiltrosClientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
-          <option value="">Padrão</option>
-          <option value="venda_asc">Venda: Mais Antiga Primeiro</option>
-          <option value="venda_desc">Venda: Mais Recente Primeiro</option>
         </select>
       </div>
 
@@ -2310,11 +2188,8 @@ function aplicarFiltrosClientes() {
   const minVendas = parseInt(document.getElementById("filtroMinVendas")?.value) || 0;
   const dataInicio = document.getElementById("filtroDataInicioCliente")?.value || "";
   const dataFim = document.getElementById("filtroDataFimCliente")?.value || "";
-  const dataVendaInicio = document.getElementById("filtroDataVendaInicioCliente")?.value || "";
-  const dataVendaFim = document.getElementById("filtroDataVendaFimCliente")?.value || "";
   const produtoPronto = document.getElementById("filtroProdutoPronto")?.value || "";
   const satisfacao = document.getElementById("filtroSatisfacao")?.value || "";
-  const ordenacao = document.getElementById("filtroOrdenacaoCliente")?.value || "";
 
   const filtrados = window.dadosOriginais.filter(cliente => {
     // Filtro de nome
@@ -2324,29 +2199,12 @@ function aplicarFiltrosClientes() {
     const numVendas = cliente.Vendas ? cliente.Vendas.length : 0;
     if (minVendas > 0 && numVendas < minVendas) return false;
 
-    // Filtro de datas de cadastro (se tiver campo de data no cliente, filtrar)
+    // Filtro de datas (se tiver campo de data no cliente, filtrar)
     if (dataInicio && cliente.DataCadastro) {
       if (new Date(cliente.DataCadastro) < new Date(dataInicio)) return false;
     }
     if (dataFim && cliente.DataCadastro) {
       if (new Date(cliente.DataCadastro) > new Date(dataFim)) return false;
-    }
-
-    // Filtro de data de venda (verifica em todas as vendas)
-    if (dataVendaInicio || dataVendaFim) {
-      if (!cliente.Vendas || cliente.Vendas.length === 0) return false;
-      
-      const temVendaNoPeriodo = cliente.Vendas.some(venda => {
-        const dataVenda = venda.DataVenda ? new Date(venda.DataVenda) : null;
-        if (!dataVenda) return false;
-        
-        if (dataVendaInicio && dataVenda < new Date(dataVendaInicio)) return false;
-        if (dataVendaFim && dataVenda > new Date(dataVendaFim)) return false;
-        
-        return true;
-      });
-      
-      if (!temVendaNoPeriodo) return false;
     }
 
     // Filtro de produto pronto
@@ -2366,23 +2224,6 @@ function aplicarFiltrosClientes() {
     return true;
   });
 
-  // Aplicar ordenação
-  if (ordenacao === "venda_asc") {
-    // Mais antiga primeiro
-    filtrados.sort((a, b) => {
-      const dataA = a.Vendas && a.Vendas.length > 0 ? new Date(a.Vendas[0].DataVenda) : new Date("9999-12-31");
-      const dataB = b.Vendas && b.Vendas.length > 0 ? new Date(b.Vendas[0].DataVenda) : new Date("9999-12-31");
-      return dataA - dataB;
-    });
-  } else if (ordenacao === "venda_desc") {
-    // Mais recente primeiro
-    filtrados.sort((a, b) => {
-      const dataA = a.Vendas && a.Vendas.length > 0 ? new Date(a.Vendas[0].DataVenda) : new Date("1900-01-01");
-      const dataB = b.Vendas && b.Vendas.length > 0 ? new Date(b.Vendas[0].DataVenda) : new Date("1900-01-01");
-      return dataB - dataA;
-    });
-  }
-
   renderizarTabela("clientes", filtrados);
 }
 
@@ -2394,11 +2235,8 @@ function limparFiltrosClientes() {
   document.getElementById("filtroMinVendas").value = "";
   document.getElementById("filtroDataInicioCliente").value = "";
   document.getElementById("filtroDataFimCliente").value = "";
-  document.getElementById("filtroDataVendaInicioCliente").value = "";
-  document.getElementById("filtroDataVendaFimCliente").value = "";
   document.getElementById("filtroProdutoPronto").value = "";
   document.getElementById("filtroSatisfacao").value = "";
-  document.getElementById("filtroOrdenacaoCliente").value = "";
   
   renderizarTabela("clientes", window.dadosOriginais);
 }
