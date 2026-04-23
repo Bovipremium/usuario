@@ -72,7 +72,7 @@ async function buscarArquivo(nomeArquivo) {
     if (cached && timestampCached) {
       const agora = new Date().getTime();
       const idade = agora - parseInt(timestampCached);
-      const cacheValido = idade < 5 * 60 * 1000; // 5 minutos
+      const cacheValido = idade < 1000; // 1 segundo
       
       if (cacheValido) {
         console.log(`📦 ${nomeArquivo} carregado do CACHE LOCAL (${(idade/1000).toFixed(1)}s atrás)`);
