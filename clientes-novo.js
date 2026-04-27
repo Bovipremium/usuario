@@ -137,31 +137,83 @@ function aplicarMascaras() {
   // Máscara Telefone
   document.getElementById('telefone1').addEventListener('input', function(e) {
     let value = e.target.value.replace(/\D/g, '');
-    value = value.replace(/(\d{2})(\d)/, '($1) $2');
-    value = value.replace(/(\d{5})(\d)/, '$1-$2');
+    if (value.length > 11) value = value.slice(0, 11);
+    if (value.length <= 10) {
+      value = value.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+    } else {
+      value = value.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+    }
     e.target.value = value;
+  });
+
+  document.getElementById('telefone1').addEventListener('blur', function(e) {
+    const nums = e.target.value.replace(/\D/g, '');
+    if (nums.length < 10) {
+      e.target.setCustomValidity('Telefone inválido. Use o formato (DDD) 9XXXX-XXXX');
+      e.target.reportValidity();
+    } else if (nums.length === 11 && nums[2] !== '9') {
+      e.target.setCustomValidity('Celular deve ter 9 como primeiro dígito após o DDD');
+      e.target.reportValidity();
+    } else {
+      e.target.setCustomValidity('');
+    }
   });
   
   document.getElementById('telefone2').addEventListener('input', function(e) {
     let value = e.target.value.replace(/\D/g, '');
-    value = value.replace(/(\d{2})(\d)/, '($1) $2');
-    value = value.replace(/(\d{5})(\d)/, '$1-$2');
+    if (value.length > 11) value = value.slice(0, 11);
+    if (value.length <= 10) {
+      value = value.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+    } else {
+      value = value.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+    }
     e.target.value = value;
+  });
+
+  document.getElementById('telefone2').addEventListener('blur', function(e) {
+    const nums = e.target.value.replace(/\D/g, '');
+    if (nums.length === 0) {
+      e.target.setCustomValidity(''); // Telefone 2 é opcional
+      return;
+    }
+    if (nums.length < 10) {
+      e.target.setCustomValidity('Telefone inválido. Use o formato (DDD) 9XXXX-XXXX');
+      e.target.reportValidity();
+    } else if (nums.length === 11 && nums[2] !== '9') {
+      e.target.setCustomValidity('Celular deve ter 9 como primeiro dígito após o DDD');
+      e.target.reportValidity();
+    } else {
+      e.target.setCustomValidity('');
+    }
   });
 }
 
 // ===== VALIDAR FORM =====
 function validarFormCliente() {
-  const campos = ['nome', 'cpf', 'endereco', 'numeroEndereco', 'bairro', 'cidade', 'estado', 'telefone1', 'tipo', 'vendedor'];
+const campos = ['nome', 'cpf', 'endereco', 'numeroEndereco', 'bairro', 'cidade', 'estado', 'telefone1', 'tipo', 'vendedor'];
   const erros = [];
-  
+
   campos.forEach(campo => {
     const elemento = document.getElementById(campo);
     if (!elemento.value.trim()) {
       erros.push(`${elemento.previousElementSibling?.textContent || campo} é obrigatório`);
     }
   });
-  
+
+  // Validar telefone1
+  const tel1 = document.getElementById('telefone1').value.replace(/\D/g, '');
+  if (tel1.length < 10) {
+    erros.push('Telefone inválido. Mínimo DDD + 8 dígitos. Ex: (62) 99218-9644');
+  } else if (tel1.length === 11 && tel1[2] !== '9') {
+    erros.push('Celular deve ter 9 como primeiro dígito após o DDD. Ex: (62) 99218-9644');
+  }
+
+  // Validar telefone2 (se preenchido)
+  const tel2 = document.getElementById('telefone2').value.replace(/\D/g, '');
+  if (tel2.length > 0 && tel2.length < 10) {
+    erros.push('Telefone 2 inválido. Mínimo DDD + 8 dígitos. Ex: (62) 99218-9644');
+  }
+
   return { valido: erros.length === 0, erros };
 }
 
