@@ -454,75 +454,6 @@
     }
   }
 
-  // ✅ FUNÇÃO PARA SALVAR CLIENTES NO GOOGLE DRIVE
-  async function salvarClientesNoGoogleDrive(clientes) {
-    try {
-      const dadosJson = JSON.stringify(clientes);
-      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
-
-      console.log('📤 Enviando para Google Drive:', {
-        acao: 'salvar',
-        arquivo: 'clientes.json',
-        deviceId: deviceId,
-        tamanho: dadosJson.length
-      });
-
-      const response = await fetch(CONFIG.API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: new URLSearchParams({
-          'acao': 'salvar',
-          'arquivo': 'clientes.json',
-          'dados': dadosJson,
-          'deviceId': deviceId
-        })
-      });
-
-      console.log('📡 Status da resposta:', response.status, response.ok);
-
-      if (!response.ok) {
-        console.error('❌ Resposta HTTP não OK:', response.status);
-        return false;
-      }
-
-      let resultado;
-      try {
-        const textoResposta = await response.text();
-        console.log('📨 Resposta bruta do servidor:', textoResposta.substring(0, 1000));
-        
-        if (textoResposta && textoResposta.trim()) {
-          try {
-            resultado = JSON.parse(textoResposta);
-            console.log('✅ Parsed como JSON com sucesso');
-          } catch (parseError) {
-            resultado = { success: textoResposta.includes('sucesso') || textoResposta.includes('success') };
-          }
-        } else {
-          resultado = { success: true, mensagem: 'Salvo' };
-        }
-      } catch (e) {
-        console.log('❌ Erro ao ler resposta:', e.message);
-        resultado = { success: true };
-      }
-
-      const sucesso = resultado && (resultado.success === true || resultado.sucesso === true);
-      
-      if (!sucesso) {
-        console.error('❌ Servidor não confirmou sucesso:', resultado);
-        return false;
-      }
-
-      console.log('✅ Arquivo salvo no Google Drive!');
-      return true;
-
-    } catch (erro) {
-      console.error('❌ Erro ao salvar:', erro);
-      return false;
-    }
-  }
-
   // Carregar cliente ao abrir página
   async function carregarCliente() {
     let clienteJson = sessionStorage.getItem('clienteSelecionado');
@@ -673,16 +604,10 @@
       }
 
       // ✅ Salvar no Drive e verificar se funcionou
-      const salvou = await salvarClientesNoGoogleDrive(clientes);
-
-      if (!salvou) {
-        ocultarLoading();
-        alert('❌ Erro ao salvar! Tente novamente.');
-        return;
-      }
-
-      // ✅ Registrar auditoria em background (não bloqueia)
-      registrarAuditoria(
+      const salvou = await salvarDadosComAuditoria(
+        'clientes.json',
+        clientes,
+        'auditoria',
         'Atualizar',
         'Cliente',
         clienteAtual.Id,
@@ -692,11 +617,15 @@
         JSON.stringify(clienteAtual)
       );
 
+      if (!salvou) {
+        ocultarLoading();
+        alert('❌ Erro ao salvar! Tente novamente.');
+        return;
+      }
+
       // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
-      const chaveCache = `cache_clientes.json`;
-      const chaveTimestamp = `cache_ts_clientes.json`;
-      localStorage.removeItem(chaveCache);
-      localStorage.removeItem(chaveTimestamp);
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
 
       // ✨ NOVO: Recarregar do servidor para sincronizar
       await recarregarClienteDoServidor();
@@ -717,39 +646,20 @@
     try {
       mostrarLoading();
       
-      console.log('🔄 Iniciando marcarProdutoPronto:', { clienteId: cliente.Id, pronto });
-      
       const estadoAnterior = cliente.ProdutoPronto;
       cliente.ProdutoPronto = pronto;
-      clienteAtual = cliente; // ✅ GARANTIR que clienteAtual está atualizado
 
-      let clientes = await buscarArquivo('clientes.json');
-      
-      // ✅ VALIDAÇÃO: Garantir que é um array
-      if (!Array.isArray(clientes)) {
-        console.error('❌ clientes não é array:', clientes);
-        clientes = [];
-      }
-      
+      const clientes = await buscarArquivo('clientes.json');
       const idx = clientes.findIndex(c => c.Id === cliente.Id);
       if (idx >= 0) {
         clientes[idx] = cliente;
       }
 
-      console.log('📝 Preparado para salvar:', { idx, ProdutoPronto: pronto });
-
-      // ✅ SALVAR USANDO FUNÇÃO LOCAL (NÃO AUDITORIA)
-      const salvou = await salvarClientesNoGoogleDrive(clientes);
-      console.log('💾 Resultado da gravação:', salvou);
-
-      if (!salvou) {
-        ocultarLoading();
-        alert('❌ Erro ao salvar! Tente novamente.');
-        return;
-      }
-
-      // ✅ Registrar auditoria em background (não bloqueia)
-      registrarAuditoria(
+      // ✅ Salvar no Drive e verificar se funcionou
+      const salvou = await salvarDadosComAuditoria(
+        'clientes.json',
+        clientes,
+        'auditoria',
         'Atualizar',
         'Cliente',
         cliente.Id,
@@ -759,39 +669,38 @@
         JSON.stringify({ ProdutoPronto: pronto })
       );
 
+      if (!salvou) {
+        ocultarLoading();
+        alert('❌ Erro ao salvar! Tente novamente.');
+        return;
+      }
+
       // 🗑️ LIMPAR CACHE para forçar recarregamento do servidor
-      const chaveCache = `cache_clientes.json`;
-      const chaveTimestamp = `cache_ts_clientes.json`;
-      const chaveAntiga = 'arquivo_clientes.json_cache';
-      localStorage.removeItem(chaveCache);
-      localStorage.removeItem(chaveTimestamp);
-      localStorage.removeItem(chaveAntiga);
-      console.log('🗑️ Cache limpo');
+      const cacheKey = 'arquivo_clientes.json_cache';
+      localStorage.removeItem(cacheKey);
 
       // 📌 SE MARCOU COMO PRONTO, REMOVE QUANTIDADE PENDENTE E DEDUZ DO ESTOQUE
-      // ℹ️ Comentado - funcionalidade não implementada neste contexto
-      // if (pronto && cliente.Vendas && Array.isArray(cliente.Vendas)) {
-      //   for (const venda of cliente.Vendas) {
-      //     if (venda.Produtos && Array.isArray(venda.Produtos)) {
-      //       for (const produto of venda.Produtos) {
-      //         if (produto.Quantidade > 0) {
-      //           await removerQuantidadePendente(produto.Nome, produto.PesoUnidade, produto.Quantidade);
-      //         }
-      //       }
-      //     }
-      //   }
-      // }
+      if (pronto && cliente.Vendas && Array.isArray(cliente.Vendas)) {
+        for (const venda of cliente.Vendas) {
+          if (venda.Produtos && Array.isArray(venda.Produtos)) {
+            for (const produto of venda.Produtos) {
+              if (produto.Quantidade > 0) {
+                await removerQuantidadePendente(produto.Nome, produto.PesoUnidade, produto.Quantidade);
+              }
+            }
+          }
+        }
+      }
 
       // ✨ NOVO: Recarregar do servidor para sincronizar
-      const recarregou = await recarregarClienteDoServidor();
-      console.log('🔄 Recarregado do servidor:', recarregou);
+      await recarregarClienteDoServidor();
 
       // ✅ Atualizar UI localmente
       renderizarProdutoPronto();
       ocultarLoading();
       alert('✅ Produto Pronto atualizado com sucesso!');
     } catch (erro) {
-      console.error('❌ Erro ao marcar produto pronto:', erro);
+      console.error('Erro ao marcar produto pronto:', erro);
       ocultarLoading();
       alert('❌ Erro: ' + erro.message);
     }
@@ -2143,7 +2052,7 @@
 
   // Voltar para clientes
   function voltarParaClientes() {
-    window.location.href = 'clientes.html';
+    window.location.href = 'index.html?modulo=clientes';
   }
 
   // ============================================
