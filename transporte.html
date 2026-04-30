@@ -805,17 +805,25 @@
         
         // Carregar clientes.json para referência
         console.log('📥 Buscando clientes.json...');
-        const clientes = await buscarArquivo("clientes.json");
-                // --- ADICIONE ESTAS DUAS LINHAS AQUI ---
-        listaClientesGlobal = clientes; 
+        let clientes = await buscarArquivo("clientes.json");
+        
+        console.log('📊 Clientes retornados:', clientes);
+        console.log('📊 É array?', Array.isArray(clientes));
+        
+        // Garantir que é array
+        if (!Array.isArray(clientes)) {
+          clientes = clientes.dados || clientes[0] || [];
+        }
+        
+        // Preencher lista global para autocomplete
+        listaClientesGlobal = clientes;
+        console.log('✅ listaClientesGlobal preenchida com', listaClientesGlobal.length, 'clientes');
+        
+        // Configurar autocomplete DEPOIS de ter os clientes
         configurarAutocompleteCliente();
-        // ---------------------------------------
 
-        clientes.forEach(c => {
-          clientesMap[c.Id] = c;
-        });
-
-        clientes.forEach(c => {
+        // Criar mapa de clientes por ID (sem duplicação)
+        listaClientesGlobal.forEach(c => {
           clientesMap[c.Id] = c;
         });
         console.log('✅ Clientes carregados:', clientes.length, 'registros');
