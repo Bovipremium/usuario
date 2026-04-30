@@ -4,16 +4,16 @@
 // Auto-hide after 10 seconds
 
 const MODULOS_DOCK = [
-  { nome: 'Clientes', tipo: 'modulos', icon: '👥', url: 'index.html' },
-  { nome: 'Insumos', tipo: 'modulos', icon: '📦', url: 'index.html' },
-  { nome: 'Transporte', tipo: 'modulos', icon: '🚚', url: 'index.html' },
-  { nome: 'Pagamentos', tipo: 'modulos', icon: '💳', url: 'index.html' },
-  { nome: 'Receitas', tipo: 'modulos', icon: '📈', url: 'index.html' },
-  { nome: 'Despesas', tipo: 'modulos', icon: '💸', url: 'index.html' },
+  { nome: 'Inicio', tipo: 'modulos', icon: '🏠', url: 'Index.html' },
+  { nome: 'Clientes', tipo: 'modulos', icon: '👥', url: 'clientes.html' },
+  { nome: 'Insumos', tipo: 'modulos', icon: '📦', url: 'insumos.html' },
+  { nome: 'Transporte', tipo: 'modulos', icon: '🚚', url: 'transporte.html' },
+  { nome: 'Pagamentos', tipo: 'modulos', icon: '💳', url: 'pagamentos.html' },
+  { nome: 'Receitas', tipo: 'modulos', icon: '📈', url: 'receitas.html' },
+  { nome: 'Despesas', tipo: 'modulos', icon: '💸', url: 'despesas.html' },
   { nome: 'WhatsApp', tipo: 'modulos', icon: '📞', url: 'agendar-ligacoes.html' },
   { nome: 'Carteira', tipo: 'modulos', icon: '📞', url: 'revisao-numeros.html' },
   { nome: 'Admin', tipo: 'modulos', icon: '⚙️', url: 'usuarios-admin.html' },
-  { nome: 'Auditoria', tipo: 'modulos', icon: '📋', url: 'auditoria.html' },
 ];
 
 let hideTimeout = null;
