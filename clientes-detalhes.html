@@ -679,15 +679,20 @@
       const cacheKey = 'arquivo_clientes.json_cache';
       localStorage.removeItem(cacheKey);
 
-      // 📌 SE MARCOU COMO PRONTO, REMOVE QUANTIDADE PENDENTE E DEDUZ DO ESTOQUE
-      if (pronto && cliente.Vendas && Array.isArray(cliente.Vendas)) {
-        for (const venda of cliente.Vendas) {
-          if (venda.Produtos && Array.isArray(venda.Produtos)) {
-            for (const produto of venda.Produtos) {
-              if (produto.Quantidade > 0) {
-                await removerQuantidadePendente(produto.Nome, produto.PesoUnidade, produto.Quantidade);
-              }
-            }
+      // 📌 SE MARCOU COMO PRONTO, PERGUNTA SE QUER DESCONTAR DOS INSUMOS
+      if (pronto && cliente.Vendas && Array.isArray(cliente.Vendas) && cliente.Vendas.length > 0) {
+        ocultarLoading();
+        const descontar = confirm('🔔 Deseja descontar a última venda dos insumos?');
+        
+        if (descontar) {
+          mostrarLoading();
+          const ultimaVenda = cliente.Vendas[cliente.Vendas.length - 1];
+          const desceu = await descontarDosInsumos(ultimaVenda);
+          
+          if (!desceu) {
+            ocultarLoading();
+            alert('⚠️ Erro ao descontar dos insumos, mas o produto foi marcado como pronto.');
+            return;
           }
         }
       }
@@ -703,6 +708,104 @@
       console.error('Erro ao marcar produto pronto:', erro);
       ocultarLoading();
       alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+  // 🔽 DESCONTAR DA ÚLTIMA VENDA DOS INSUMOS
+  async function descontarDosInsumos(venda) {
+    try {
+      console.log('📥 Descontando insumos da venda:', venda);
+      
+      if (!venda.Produtos || !Array.isArray(venda.Produtos)) {
+        console.warn('⚠️ Venda sem produtos');
+        return true;
+      }
+
+      // 📂 Carregar insumos.json
+      let insumos = await buscarArquivo('insumos.json');
+      if (!Array.isArray(insumos)) {
+        insumos = insumos.dados || [];
+      }
+
+      console.log(`📦 ${insumos.length} insumos carregados`);
+
+      // 🔄 PROCESSAR CADA PRODUTO DA VENDA
+      venda.Produtos.forEach(produtoVenda => {
+        const nomeProduto = (produtoVenda.Nome || '').trim();
+        const qtdVenda = parseFloat(produtoVenda.Quantidade) || 0;
+        const pesoProduto = (produtoVenda.PesoUnidade || '').trim();
+
+        console.log(`🔍 Procurando: Nome="${nomeProduto}", Peso="${pesoProduto}", Qtd=${qtdVenda}`);
+
+        if (!nomeProduto || qtdVenda <= 0) return;
+
+        // 🎯 ENCONTRAR INSUMO QUE CORRESPONDE
+        let encontrado = false;
+        for (let i = 0; i < insumos.length; i++) {
+          const insumo = insumos[i];
+          const nomeInsumo = (insumo.Nome || '').trim();
+          const descricaoInsumo = (insumo.Descricao || '').trim();
+          const pesoInsumo = (insumo.Peso || '').trim();
+
+          // ✅ REGRA DE MATCHING:
+          // 1. Se o produto tem NOME: procura por insumo com mesmo NOME + PESO
+          // 2. Se o produto NÃO tem NOME: procura por insumo SEM NOME, por DESCRIÇÃO
+          
+          let match = false;
+          if (nomeProduto) {
+            // Produto tem nome - procurar por nome + peso
+            match = nomeInsumo === nomeProduto && pesoInsumo === pesoProduto;
+          } else if (descricaoInsumo === pesoProduto) {
+            // Produto não tem nome (é balde) - procurar por descrição
+            match = !nomeInsumo || nomeInsumo === '';
+          }
+
+          if (match) {
+            const qtdAtual = parseFloat(insumo.Qtd) || 0;
+            const qtdNova = Math.max(0, qtdAtual - qtdVenda);
+            
+            console.log(`✅ ENCONTRADO: ${nomeInsumo || 'SEM NOME'} - ${descricaoInsumo} (${pesoInsumo})`);
+            console.log(`   Qtd: ${qtdAtual} → ${qtdNova}`);
+            
+            insumos[i].Qtd = qtdNova;
+            encontrado = true;
+            break;
+          }
+        }
+
+        if (!encontrado) {
+          console.warn(`⚠️ Insumo não encontrado para: "${nomeProduto}" (Peso: ${pesoProduto})`);
+        }
+      });
+
+      // 💾 SALVAR INSUMOS ATUALIZADOS
+      const salvou = await salvarDadosComAuditoria(
+        'insumos.json',
+        insumos,
+        'auditoria',
+        'Atualizar',
+        'Insumo',
+        'MULTIPLOS',
+        'Desconto de Venda',
+        'Insumos descontados - Produto Marcado como Pronto',
+        JSON.stringify({}),
+        JSON.stringify(insumos)
+      );
+
+      if (!salvou) {
+        console.error('❌ Erro ao salvar insumos');
+        return false;
+      }
+
+      console.log('✅ Insumos descontados com sucesso!');
+
+      // 🗑️ LIMPAR CACHE
+      localStorage.removeItem('arquivo_insumos.json_cache');
+
+      return true;
+    } catch (erro) {
+      console.error('❌ Erro ao descontar insumos:', erro);
+      return false;
     }
   }
 
