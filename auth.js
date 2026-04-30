@@ -76,14 +76,17 @@ async function buscarArquivo(nomeArquivo) {
       
       if (cacheValido) {
         console.log(`📦 ${nomeArquivo} carregado do CACHE LOCAL (${(idade/1000).toFixed(1)}s atrás)`);
-        return JSON.parse(cached);
+        const dados = JSON.parse(cached);
+        console.log(`   → Cache contém ${Array.isArray(dados) ? dados.length : 'objeto'} itens`);
+        return dados;
       }
     }
     
     // ✅ PASSO 2: Se cache expirou, buscar do Drive
     console.log(`📥 Buscando ${nomeArquivo} do Drive...`);
     const url = `${API_URL}?acao=buscar&arquivo=${encodeURIComponent(nomeArquivo)}`;
-    // ⚠️ REMOVIDO timestamp que forçava recarregamento
+    console.log(`   → URL: ${url.substring(0, 80)}...`);
+    
     const response = await AuthManager.requisicaoSegura(url);
     
     if (!response.ok) {
@@ -91,6 +94,13 @@ async function buscarArquivo(nomeArquivo) {
     }
     
     const dados = await response.json();
+    console.log(`   → Resposta recebida, tipo: ${typeof dados}, é array? ${Array.isArray(dados)}`);
+    
+    if (Array.isArray(dados)) {
+      console.log(`   → Array com ${dados.length} itens`);
+    } else {
+      console.log(`   → Objeto com propriedades: ${Object.keys(dados).join(', ')}`);
+    }
     
     // ✅ PASSO 3: Salvar no cache LOCAL para próximas requisições
     localStorage.setItem(chaveCache, JSON.stringify(dados));
@@ -101,29 +111,8 @@ async function buscarArquivo(nomeArquivo) {
     
   } catch (erro) {
     console.error(`❌ Erro ao buscar ${nomeArquivo} do Drive:`, erro);
-    
-    // 🔄 FALLBACK: Tentar carregar arquivo local
-    const caminhosTentativa = [
-      `${nomeArquivo}`,
-      `/site/${nomeArquivo}`,
-      `./${nomeArquivo}`,
-      `/ProjetoEmpresarial1/site/${nomeArquivo}`
-    ];
-    
-    for (const caminho of caminhosTentativa) {
-      try {
-        console.log(`🔄 Tentando fallback: ${caminho}...`);
-        const fallbackResponse = await fetch(caminho);
-        if (fallbackResponse.ok) {
-          const dados = await fallbackResponse.json();
-          console.log(`✅ ${nomeArquivo} carregado de ${caminho}`);
-          return dados;
-        }
-      } catch (fallbackErro) {
-        console.warn(`⚠️ Tentativa falhou para ${caminho}`);
-      }
-    }
-    
+    console.error(`   → Mensagem: ${erro.message}`);
+    // ❗️ REMOVED FALLBACK: Forçar busca apenas via Drive/API. If it fails, propagate error so callers know.
     throw erro;
   }
 }
