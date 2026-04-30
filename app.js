@@ -112,12 +112,13 @@ async function carregarComissaoUsuario() {
     // Obter configuração de comissão do Drive (com fallback para localStorage)
     let configMetas = {};
     try {
-      configMetas = await buscarArquivo('configmetas.json');
+      const nomeConfigMetas = CONFIG.ARQUIVOS.CONFIG_METAS || 'configMetas.json';
+      configMetas = await buscarArquivo(nomeConfigMetas);
       if (!configMetas || typeof configMetas !== 'object') configMetas = {};
       // Salvar no localStorage para outras partes do sistema
       localStorage.setItem('configMetas', JSON.stringify(configMetas));
     } catch(e) {
-      configMetas = JSON.parse(localStorage.getItem('configMetas') || '{}');
+    configMetas = JSON.parse(localStorage.getItem('configMetas') || '{}');
     }
     const percentualComissao = parseFloat(configMetas.comissao) || 0;
     console.log('💰 ConfigMetas carregada:', configMetas);
@@ -230,13 +231,13 @@ async function carregarMenu() {
     "Clientes": {
       icone: "👥",
       descricao: "Gerenciar clientes",
-      arquivo: "clientes.json",
+      arquivo: "clientes.html",
       tipo: "clientes"
     },
     "Insumos": {
       icone: "📦",
       descricao: "Controlar insumos",
-      arquivo: "insumos.json",
+      arquivo: "insumos.html",
       tipo: "insumos"
     },
     "Transporte": {
@@ -248,7 +249,7 @@ async function carregarMenu() {
     "Pagamentos": {
       icone: "💰",
       descricao: "Controlar pagamentos",
-      arquivo: "clientes.json",
+      arquivo: "pagamentos.html",
       tipo: "pagamentos"
     },
     "Receitas": {
@@ -387,63 +388,10 @@ async function carregarModulo(nome, tipo, arquivo) {
       // Dashboard vazio por enquanto
       mostrarDashboard();
     } 
-    // TRATAMENTO ESPECIAL PARA PAGAMENTOS
+    // PÁGINA ESPECIAL DE PAGAMENTOS
     else if (tipo === "pagamentos") {
-      // ✅ Usar cache global de clientes (carregar uma única vez)
-      const clientes = await carregarClientesUmaVez();
-      
-      tipoAtivo = tipo;
-      dadosAtivos = Array.isArray(clientes) ? clientes : [];
-      
-      // Armazenar dados de filtro
-      window.todosClientesPagamentos = dadosAtivos;
-      
-      // Botões para abrir relatório E DESPESAS (LADO DO TÍTULO)
-      const botoes = `
-        <button onclick="abrirDespesasModulo()" style="padding: 10px 20px; background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%); color: white; border: none; border-radius: 5px; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; white-space: nowrap;">
-          💸 Despesas
-        </button>
-        <button onclick="abrirContasModulo()" style="padding: 10px 20px; background: linear-gradient(135deg, #1fa37a 0%, #0f6b52 100%); color: white; border: none; border-radius: 5px; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; white-space: nowrap;">
-          💰 Contas
-        </button>
-        <button onclick="abrirRelatorioPagamentos()" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 5px; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; white-space: nowrap;">
-          📊 Relatório
-        </button>
-      `;
-      botoesAcao.innerHTML = botoes;
-      
-      // Renderizar tabela de pagamentos (agrupado por cliente) PRIMEIRO
-      renderizarTabelaPagamentos(dadosAtivos);
-      
-      // Depois inserir os filtros ACIMA da tabela
-      renderizarFiltrosPagamentos();
-      
-      searchBox.classList.remove("hidden");
-      buscaInput.value = "";
-      buscaInput.onkeyup = () => filtrarDadosPagamentos();
-      
-      // 🎯 ADICIONAR EVENTO DE ENTER COM AUTO-SCROLL PARA PAGAMENTOS
-      buscaInput.onkeypress = (event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          filtrarDadosPagamentos();
-          
-          // Auto-scroll para o primeiro resultado encontrado
-          setTimeout(() => {
-            const tabela = conteudo.querySelector('table');
-            if (tabela) {
-              const primeiroVisivel = tabela.querySelector('tbody tr:not([style*="display: none"])');
-              if (primeiroVisivel) {
-                primeiroVisivel.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'center'
-                });
-                console.log('✅ Auto-scroll para primeiro resultado (Pagamentos)');
-              }
-            }
-          }, 100);
-        }
-      };
+      window.location.href = "pagamentos.html";
+      return;
     }
     // PÁGINA ESPECIAL DE TRANSPORTE
     else if (tipo === "transporte") {
@@ -483,6 +431,17 @@ async function carregarModulo(nome, tipo, arquivo) {
     else if (arquivo) {
       // Limpar botões de ação (exceto para pagamentos)
       botoesAcao.innerHTML = "";
+
+      // Se o arquivo for uma página HTML separada, redirecionar para ela
+      try {
+        if (typeof arquivo === 'string' && arquivo.trim().toLowerCase().endsWith('.html')) {
+          console.log(`🔀 Redirecionando para página separada: ${arquivo}`);
+          window.location.href = arquivo;
+          return;
+        }
+      } catch (e) {
+        console.warn('⚠️ Erro ao avaliar redirecionamento de arquivo:', e);
+      }
       
       // Buscar dados do arquivo JSON
       const dados = await buscarArquivo(arquivo);
