@@ -1084,6 +1084,7 @@
       <button class="aba-botao ativo" onclick="mudarAba('usuarios')">👥 Usuários</button>
       <button class="aba-botao" onclick="mudarAba('auditoria')">🔍 Auditoria</button>
       <button class="aba-botao" onclick="mudarAba('metas')">⚙️ Metas</button>
+      <button class="aba-botao" onclick="mudarAba('backup')">💾 Backup</button>
     </div>
 
     <!-- ========== ABA 1: USUÁRIOS ========== -->
@@ -1263,6 +1264,74 @@
             <h3 id="resumoProLaboreMinima" style="color: #9c27b0; font-size: 24px; font-weight: 700;">R$ 0,00</h3>
           </div>
 
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== ABA 4: BACKUP ========== -->
+    <div id="aba-backup" class="aba-conteudo">
+      <!-- SEÇÃO DE BACKUP MANUAL -->
+      <div style="background: linear-gradient(180deg, rgba(76,175,80,.15), rgba(76,175,80,.05)); border: 1px solid rgba(76,175,80,.3); border-radius: 12px; padding: 30px; margin-bottom: 30px;">
+        <h3 style="color: #4caf50; margin-bottom: 10px;">💾 Backup Manual</h3>
+        <p style="color: #aaa; margin-bottom: 20px;">Crie um backup instantâneo de todos os dados do sistema.</p>
+        
+        <button class="btn btn-add" onclick="criarBackupManual()" style="padding: 14px 28px; font-size: 15px;">
+          💾 Criar Backup Agora
+        </button>
+        <div id="statusBackupManual" style="margin-top: 15px; color: #999; font-size: 13px;"></div>
+      </div>
+
+      <!-- SEÇÃO DE RESTAURAÇÃO BACKUP -->
+      <div style="background: linear-gradient(180deg, rgba(33,150,243,.15), rgba(33,150,243,.05)); border: 1px solid rgba(33,150,243,.3); border-radius: 12px; padding: 30px; margin-bottom: 30px;">
+        <h3 style="color: #2196f3; margin-bottom: 10px;">🔄 Restaurar Backup</h3>
+        <p style="color: #aaa; margin-bottom: 20px;">Faça upload de um arquivo de backup ZIP para restaurar os dados.</p>
+        
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
+          <div style="flex: 1; min-width: 250px;">
+            <label style="display: block; color: #7cf0c2; font-size: 12px; font-weight: 600; margin-bottom: 8px; text-transform: uppercase;">Selecionar Arquivo ZIP</label>
+            <input 
+              type="file" 
+              id="inputBackupZip" 
+              accept=".zip" 
+              style="width: 100%; padding: 12px; background: rgba(255,255,255,.08); border: 1px solid rgba(33,150,243,.3); border-radius: 8px; color: #e5f3ee; cursor: pointer;"
+            >
+          </div>
+          <div style="display: flex; align-items: flex-end; gap: 10px;">
+            <button type="button" class="btn btn-add" onclick="restaurarBackupArquivo()">
+              📤 Upload e Restaurar
+            </button>
+            <button type="button" class="btn btn-back" onclick="document.getElementById('inputBackupZip').value = ''; document.getElementById('statusBackupRestauracao').innerHTML = '';">
+              ✕ Limpar
+            </button>
+          </div>
+        </div>
+        <div id="statusBackupRestauracao" style="margin-top: 15px; color: #999; font-size: 13px;"></div>
+      </div>
+
+      <!-- HISTÓRICO DE BACKUPS -->
+      <div style="background: linear-gradient(180deg, rgba(255,193,7,.15), rgba(255,193,7,.05)); border: 1px solid rgba(255,193,7,.3); border-radius: 12px; padding: 30px;">
+        <h3 style="color: #ffc107; margin-bottom: 20px;">📋 Últimos Backups (Máx. 5)</h3>
+        
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Data/Hora</th>
+                <th>Arquivo</th>
+                <th>Tamanho</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaBackups">
+              <tr>
+                <td colspan="5" class="loading">
+                  <div class="spinner"></div>
+                  Carregando backups...
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
