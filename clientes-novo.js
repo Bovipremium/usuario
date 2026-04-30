@@ -1,257 +1,494 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <link rel="icon" type="image/png" href="assets/img/logo.png">
-  <link rel="stylesheet" href="sidebar-dock.css">
-  <title>Novo Cliente</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%); min-height: 100vh; color: #e5f3ee; padding: 20px; }
-    .container { max-width: 1400px; margin: 0 auto; }
-    .header { background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08)); border: 1px solid rgba(31,163,122,.25); border-radius: 20px; padding: 20px 30px; margin-bottom: 30px; backdrop-filter: blur(14px); box-shadow: 0 20px 40px rgba(0,0,0,.45); display: flex; justify-content: space-between; align-items: center; }
-    .header h1 { color: #1fa37a; font-size: 28px; font-weight: 700; }
-    .btn { background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15)); color: #7cf0c2; border: 1px solid rgba(31,163,122,.3); padding: 10px 20px; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.3s; }
-    .btn:hover { background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25)); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(31,163,122,.2); }
-    .btn-primary { background: linear-gradient(145deg, rgba(212,175,55,.3), rgba(212,175,55,.15)); color: #d4af37; border-color: rgba(212,175,55,.3); }
-    .form-section { background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02)); border: 1px solid rgba(31,163,122,.25); border-radius: 16px; padding: 25px; margin-bottom: 20px; backdrop-filter: blur(14px); }
-    .form-section h3 { color: #1fa37a; margin-bottom: 20px; font-size: 16px; font-weight: 700; border-bottom: 1px solid rgba(31,163,122,.2); padding-bottom: 12px; }
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 15px; }
-    label { color: #8fb9ac; font-size: 11px; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; display: block; }
-    input, select, textarea { background: rgba(15,42,34,.5); border: 1px solid rgba(31,163,122,.2); color: #e5f3ee; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-family: 'Inter', sans-serif; width: 100%; transition: all 0.3s; }
-    input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(31,163,122,.4); box-shadow: 0 0 0 3px rgba(31,163,122,.1); }
-    .form-group { margin-bottom: 0; }
-    .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(31,163,122,.2); }
-    .alert { padding: 12px 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid; display: none; }
-    .alert.show { display: block; }
-    .alert.success { background: rgba(50,200,50,.15); border-color: rgba(50,200,50,.3); color: #32c832; }
-    .alert.error { background: rgba(255,107,107,.15); border-color: rgba(255,107,107,.3); color: #ff6b6b; }
-    .loader-container { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; backdrop-filter: blur(4px); }
-    .loader-container.hidden { display: none; }
-    .spinner { width: 60px; height: 60px; border: 4px solid rgba(31, 163, 122, 0.2); border-top: 4px solid #1fa37a; border-radius: 50%; animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .loader-text { color: #7cf0c2; font-size: 16px; font-weight: 500; }
-    .required { color: #d4af37; }
-    @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } label { font-size: 10px; } input, select, textarea { font-size: 12px; } }
-  </style>
-</head>
-<body>
-<div id="loaderContainer" class="loader-container hidden">
-  <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
-    <div class="spinner"></div>
-    <div class="loader-text">👤 Criando cliente...</div>
-    <div style="color: #5fa39c; font-size: 12px;">Enviando dados para o servidor</div>
-  </div>
-</div>
+// ===== INICIALIZAÇÃO =====
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log("🚀 Inicializando página de novo cliente...");
+  
+  // Carregar lista de vendedores
+  await carregarVendedores();
+  
+  // Adicionar listener ao form
+  document.getElementById('formCliente').addEventListener('submit', handleFormSubmit);
+  
+  // Máscaras
+  aplicarMascaras();
+});
 
-<div class="container">
-  <div class="header">
-    <div>
-      <h1>👤 Novo Cliente</h1>
-      <p style="color: #8fb9ac; font-size: 13px; margin-top: 5px;">Preencha os dados para registrar um novo cliente</p>
-    </div>
-    <div style="display: flex; gap: 12px;">
-      <button class="btn" onclick="goBack()">← Voltar</button>
-    </div>
-  </div>
-
-  <div id="alertContainer"></div>
-
-  <form id="formCliente">
-    <!-- INFORMAÇÕES BÁSICAS -->
-    <div class="form-section">
-      <h3>📋 Informações Básicas</h3>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="nome">Nome Completo <span class="required">*</span></label>
-          <input type="text" id="nome" name="nome" placeholder="Ex: João da Silva" required>
-        </div>
-        <div class="form-group">
-          <label for="tipo">Tipo de Cliente <span class="required">*</span></label>
-          <select id="tipo" name="tipo" required>
-            <option value="">Selecione...</option>
-            <option value="0">Pessoa Física</option>
-            <option value="1">Pessoa Jurídica</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="cpf">CPF/CNPJ <span class="required">*</span></label>
-          <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" required>
-        </div>
-        <div class="form-group">
-          <label for="inscricao">Inscrição Estadual</label>
-          <input type="text" id="inscricao" name="inscricao" placeholder="Opcional">
-        </div>
-      </div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="representanteNome">Representante (Nome)</label>
-          <input type="text" id="representanteNome" name="representanteNome" placeholder="Nome do representante">
-        </div>
-        <div class="form-group">
-          <label for="representanteCPF">Representante (CPF)</label>
-          <input type="text" id="representanteCPF" name="representanteCPF" placeholder="000.000.000-00">
-        </div>
-      </div>
-    </div>
-
-    <!-- ENDEREÇO -->
-    <div class="form-section">
-      <h3>📍 Endereço</h3>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="cep">CEP <span class="required">*</span></label>
-          <input type="text" id="cep" name="cep" placeholder="00000-000" required>
-        </div>
-      </div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="endereco">Rua/Avenida <span class="required">*</span></label>
-          <input type="text" id="endereco" name="endereco" placeholder="Ex: Rua das Flores" required>
-        </div>
-        <div class="form-group">
-          <label for="numeroEndereco">Número <span class="required">*</span></label>
-          <input type="text" id="numeroEndereco" name="numeroEndereco" placeholder="123" required>
-        </div>
-      </div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="complementoEndereco">Complemento</label>
-          <input type="text" id="complementoEndereco" name="complementoEndereco" placeholder="Apto, sala, etc">
-        </div>
-        <div class="form-group">
-          <label for="bairro">Bairro <span class="required">*</span></label>
-          <input type="text" id="bairro" name="bairro" placeholder="Ex: Centro" required>
-        </div>
-      </div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="cidade">Cidade <span class="required">*</span></label>
-          <input type="text" id="cidade" name="cidade" placeholder="Ex: São Paulo" required>
-        </div>
-        <div class="form-group">
-          <label for="estado">Estado <span class="required">*</span></label>
-          <select id="estado" name="estado" required>
-            <option value="">Selecione...</option>
-            <option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option><option value="AM">AM</option>
-            <option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option>
-            <option value="GO">GO</option><option value="MA">MA</option><option value="MT">MT</option><option value="MS">MS</option>
-            <option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option><option value="PR">PR</option>
-            <option value="PE">PE</option><option value="PI">PI</option><option value="RJ">RJ</option><option value="RN">RN</option>
-            <option value="RS">RS</option><option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option>
-            <option value="SP">SP</option><option value="SE">SE</option><option value="TO">TO</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- CONTATO -->
-    <div class="form-section">
-      <h3>📞 Contato</h3>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="telefone1">Telefone <span class="required">*</span></label>
-          <input type="tel" id="telefone1" name="telefone1" placeholder="(11) 99999-9999" required>
-        </div>
-        <div class="form-group">
-          <label for="telefone2">Telefone 2</label>
-          <input type="tel" id="telefone2" name="telefone2" placeholder="(11) 99999-9999">
-        </div>
-      </div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="email">E-mail</label>
-          <input type="email" id="email" name="email" placeholder="contato@exemplo.com">
-        </div>
-      </div>
-    </div>
-
-    <!-- INFORMAÇÕES COMERCIAIS -->
-    <div class="form-section">
-      <h3>💼 Informações Comerciais</h3>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="vendedor">Vendedor <span class="required">*</span></label>
-          <select id="vendedor" name="vendedor" required>
-            <option value="">Selecione...</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="midia">Mídia/Origem</label>
-          <input type="text" id="midia" name="midia" placeholder="Como conheceu?">
-        </div>
-      </div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="satisfacao">Satisfação</label>
-          <select id="satisfacao" name="satisfacao">
-            <option value="0">Não Avaliado</option>
-            <option value="1">Satisfeito</option>
-            <option value="2">Muito Satisfeito</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- OBSERVAÇÕES -->
-    <div class="form-section">
-      <h3>📝 Observações</h3>
-      <div class="form-group">
-        <label for="observacoes">Observações Internas</label>
-        <textarea id="observacoes" name="observacoes" placeholder="Anotações sobre o cliente..."></textarea>
-      </div>
-    </div>
-
-    <!-- BOTÕES -->
-    <div class="form-actions">
-      <button type="button" class="btn" onclick="goBack()" style="background: linear-gradient(145deg, rgba(255,107,107,.25), rgba(255,107,107,.1)); color: #ff6b6b;">✕ Cancelar</button>
-      <button type="submit" class="btn btn-primary">✅ Criar Cliente</button>
-    </div>
-  </form>
-</div>
-
-<script src="config.js"></script>
-<script src="auth.js"></script>
-<script src="clientes-novo.js"></script>
-<script src="sidebar-dock.js"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    if (typeof renderizarSidebarDock === 'function') renderizarSidebarDock();
-  });
-
-  // ===== AUTOCOMPLETE CEP (VIACEP API) =====
-  document.getElementById('cep').addEventListener('blur', async function() {
-    const cep = this.value.replace(/\D/g, '');
+// ===== CARREGAR VENDEDORES (MESMA FORMA DO usuarios-admin.js) =====
+async function carregarVendedores() {
+  try {
+    console.log("📥 Buscando vendedores em usuarios.json (via API)...");
     
-    if (cep.length !== 8) {
+    // Obter device ID do localStorage (mesmo que usuarios-admin.js faz)
+    const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+    
+    // Fazer requisição IGUAL ao usuarios-admin.js
+    const response = await fetch(
+      `${CONFIG.API_URL}?acao=buscar&arquivo=${CONFIG.ARQUIVOS.USUARIOS}&deviceId=${deviceId}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    let dados = await response.json();
+    console.log("📥 Resposta bruta da API:", dados);
+
+    // Se for string, tenta parsear (pode vir assim do backend)
+    if (typeof dados === 'string') {
+      try {
+        dados = JSON.parse(dados);
+      } catch (e) {
+        dados = [];
+      }
+    }
+
+    // Converter para array se necessário
+    const usuariosList = Array.isArray(dados) ? dados : [];
+    
+    console.log(`📊 ${usuariosList.length} usuário(s) encontrado(s) em usuarios.json`);
+    console.log("📥 Lista de usuários:", usuariosList);
+    
+    // Extrair apenas os nomes dos usuários
+    const vendedores = usuariosList
+      .filter(u => u && u.Nome && u.Nome.trim())
+      .map(u => u.Nome)
+      .sort();
+    
+    console.log(`✅ Vendedores extraídos:`, vendedores);
+    
+    // Preencher select
+    const selectVendedor = document.getElementById('vendedor');
+    selectVendedor.innerHTML = '<option value="">-- Selecione um vendedor --</option>';
+    
+    if (vendedores.length === 0) {
+      console.warn("⚠️ Nenhum usuário encontrado em usuarios.json");
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = '(Nenhum usuário cadastrado)';
+      selectVendedor.appendChild(option);
+      selectVendedor.disabled = true;
       return;
     }
     
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-      const dados = await response.json();
-      
-      if (dados.erro) {
-        console.warn("⚠️ CEP não encontrado");
-        return;
+    // Adicionar opções ao select
+    vendedores.forEach(vendedor => {
+      const option = document.createElement('option');
+      option.value = vendedor;
+      option.textContent = vendedor;
+      selectVendedor.appendChild(option);
+    });
+    
+    // 🎯 PRÉ-SELECIONAR USUÁRIO LOGADO
+    let usuarioLogado = obterUsuario();
+    if (!usuarioLogado || !usuarioLogado.nome) {
+      const usuarioLogadoStorage = localStorage.getItem('usuarioLogado');
+      if (usuarioLogadoStorage) {
+        usuarioLogado = JSON.parse(usuarioLogadoStorage);
       }
-      
-      document.getElementById('endereco').value = dados.logradouro || '';
-      document.getElementById('bairro').value = dados.bairro || '';
-      document.getElementById('cidade').value = dados.localidade || '';
-      document.getElementById('estado').value = dados.uf || '';
-      
-      console.log("✅ CEP preenchido automaticamente", dados);
-    } catch (erro) {
-      console.error("❌ Erro ao buscar CEP:", erro);
+    }
+    
+    const nomeUsuarioLogado = usuarioLogado?.nome || usuarioLogado?.Nome;
+    if (nomeUsuarioLogado && vendedores.includes(nomeUsuarioLogado)) {
+      selectVendedor.value = nomeUsuarioLogado;
+      console.log(`✅ Vendedor pré-selecionado: ${nomeUsuarioLogado}`);
+    }
+    
+    console.log(`✅ ${vendedores.length} vendedor(es) carregado(s) com sucesso!`);
+    
+  } catch (erro) {
+    console.error("❌ Erro ao carregar vendedores:", erro);
+    console.error("❌ Stack:", erro.stack);
+    
+    // Fallback: mostrar erro no select
+    const selectVendedor = document.getElementById('vendedor');
+    selectVendedor.innerHTML = '<option value="">❌ Erro ao carregar</option>';
+    selectVendedor.disabled = true;
+  }
+}
+
+// ===== APLICAR MÁSCARAS =====
+function aplicarMascaras() {
+  // Máscara CPF/CNPJ
+  document.getElementById('cpf').addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    
+    if (value.length <= 11) {
+      // CPF: 000.000.000-00
+      value = value.replace(/(\d{3})(\d)/, '$1.$2');
+      value = value.replace(/(\d{3})(\d)/, '$1.$2');
+      value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    } else {
+      // CNPJ: 00.000.000/0000-00
+      value = value.replace(/^(\d{2})(\d)/, '$1.$2');
+      value = value.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+      value = value.replace(/\.(\d{3})(\d)/, '.$1/$2');
+      value = value.replace(/(\d{4})(\d)/, '$1-$2');
+    }
+    
+    e.target.value = value;
+  });
+  
+  // Máscara CEP
+  document.getElementById('cep').addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    value = value.replace(/(\d{5})(\d)/, '$1-$2');
+    e.target.value = value;
+  });
+  
+  // Máscara Telefone
+  document.getElementById('telefone1').addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    if (value.length <= 10) {
+      value = value.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+    } else {
+      value = value.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+    }
+    e.target.value = value;
+  });
+
+  document.getElementById('telefone1').addEventListener('blur', function(e) {
+    const nums = e.target.value.replace(/\D/g, '');
+    if (nums.length < 10) {
+      e.target.setCustomValidity('Telefone inválido. Use o formato (DDD) 9XXXX-XXXX');
+      e.target.reportValidity();
+    } else if (nums.length === 11 && nums[2] !== '9') {
+      e.target.setCustomValidity('Celular deve ter 9 como primeiro dígito após o DDD');
+      e.target.reportValidity();
+    } else {
+      e.target.setCustomValidity('');
     }
   });
-</script>
-<script src="alertas-ligacoes.js"></script>
-<script src="sidebar-dock.js"></script>
-</body>
-</html>
+  
+  document.getElementById('telefone2').addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    if (value.length <= 10) {
+      value = value.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+    } else {
+      value = value.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+    }
+    e.target.value = value;
+  });
+
+  document.getElementById('telefone2').addEventListener('blur', function(e) {
+    const nums = e.target.value.replace(/\D/g, '');
+    if (nums.length === 0) {
+      e.target.setCustomValidity(''); // Telefone 2 é opcional
+      return;
+    }
+    if (nums.length < 10) {
+      e.target.setCustomValidity('Telefone inválido. Use o formato (DDD) 9XXXX-XXXX');
+      e.target.reportValidity();
+    } else if (nums.length === 11 && nums[2] !== '9') {
+      e.target.setCustomValidity('Celular deve ter 9 como primeiro dígito após o DDD');
+      e.target.reportValidity();
+    } else {
+      e.target.setCustomValidity('');
+    }
+  });
+}
+
+// ===== VALIDAR FORM =====
+function validarFormCliente() {
+const campos = ['nome', 'cpf', 'endereco', 'numeroEndereco', 'bairro', 'cidade', 'estado', 'telefone1', 'tipo', 'vendedor'];
+  const erros = [];
+
+  campos.forEach(campo => {
+    const elemento = document.getElementById(campo);
+    if (!elemento.value.trim()) {
+      erros.push(`${elemento.previousElementSibling?.textContent || campo} é obrigatório`);
+    }
+  });
+
+  // Validar telefone1
+  const tel1 = document.getElementById('telefone1').value.replace(/\D/g, '');
+  if (tel1.length < 10) {
+    erros.push('Telefone inválido. Mínimo DDD + 8 dígitos. Ex: (62) 99218-9644');
+  } else if (tel1.length === 11 && tel1[2] !== '9') {
+    erros.push('Celular deve ter 9 como primeiro dígito após o DDD. Ex: (62) 99218-9644');
+  }
+
+  // Validar telefone2 (se preenchido)
+  const tel2 = document.getElementById('telefone2').value.replace(/\D/g, '');
+  if (tel2.length > 0 && tel2.length < 10) {
+    erros.push('Telefone 2 inválido. Mínimo DDD + 8 dígitos. Ex: (62) 99218-9644');
+  }
+
+  return { valido: erros.length === 0, erros };
+}
+
+// ===== HANDLE FORM SUBMIT =====
+async function handleFormSubmit(e) {
+  e.preventDefault();
+  
+  console.log("🔄 Validando formulário...");
+  
+  const validacao = validarFormCliente();
+  
+  if (!validacao.valido) {
+    mostrarAlert('error', `❌ Erros encontrados:\n${validacao.erros.join('\n')}`);
+    return;
+  }
+  
+  // Desabilitar botão para evitar múltiplos cliques
+  const btnSubmit = e.target.querySelector('button[type="submit"]');
+  btnSubmit.disabled = true;
+  btnSubmit.textContent = '⏳ Salvando...';
+  // Mostrar loader full-screen
+  showLoader();
+  
+  try {
+    // Recolher dados do form
+    const novoCliente = montarObjCliente();
+    
+    console.log("📦 Novo cliente:", novoCliente);
+    
+    // Buscar clientes existentes (MESMA FORMA DO ADMIN)
+    console.log("📥 Carregando clientes do Drive...");
+    let clientes = await carregarClientesDrive();
+    clientes = Array.isArray(clientes) ? clientes : [];
+    
+    console.log(`📊 ${clientes.length} cliente(s) existente(s)`);
+    
+    // ===== VALIDAR CPF DUPLICADO =====
+    const cpfSemMascara = novoCliente.CPF.replace(/\D/g, '');
+    const clienteExistente = clientes.find(c => c.CPF.replace(/\D/g, '') === cpfSemMascara);
+    
+    if (clienteExistente) {
+      console.warn("⚠️ CPF já cadastrado no cliente ID:", clienteExistente.Id);
+      
+      // Re-habilitar botão
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = 'Criar Cliente';
+      hideLoader();
+      
+      // Mostrar alerta e sugerir ir para vendas do cliente existente
+      const irParaVendas = confirm(
+        `⚠️ CPF ${novoCliente.CPF} já está cadastrado para ${clienteExistente.Nome}!\n\n` +
+        `Deseja adicionar uma venda a este cliente em vez de criar um novo?\n\n` +
+        `Clique "OK" para ir para a página de vendas do cliente ${clienteExistente.Nome}.`
+      );
+      
+      if (irParaVendas) {
+        // Redirecionar para vendas-cliente.html com ID do cliente existente
+        sessionStorage.setItem('clienteNovoId', clienteExistente.Id);
+        sessionStorage.setItem('clienteNome', clienteExistente.Nome);
+        window.location.href = 'vendas-cliente.html';
+      }
+      
+      return;
+    }
+    
+    // Gerar novo ID
+    const novoId = clientes.length > 0 ? Math.max(...clientes.map(c => c.Id)) + 1 : 1;
+    novoCliente.Id = novoId;
+    
+    // Adicionar cliente
+    clientes.push(novoCliente);
+    
+    console.log(`💾 Salvando ${clientes.length} cliente(s) no Drive...`);
+    btnSubmit.textContent = '💾 Salvando no Drive...';
+    
+    // Salvar em arquivo (MESMA FORMA DO ADMIN)
+    const salvoComSucesso = await salvarClientesDrive(clientes);
+    
+    if (!salvoComSucesso) {
+      throw new Error("Falha ao salvar cliente no Drive");
+    }
+    
+    console.log(`✅ Cliente ${novoCliente.Nome} criado com sucesso! ID: ${novoId}`);
+    
+    // 📋 REGISTRAR EM AUDITORIA
+    if (typeof registrarCriacaoCliente === 'function') {
+      await registrarCriacaoCliente(novoCliente);
+    }
+    
+    // Esconder loader, mostrar confirmação e redirecionar
+    hideLoader();
+    btnSubmit.textContent = '✅ Redirecionando...';
+    mostrarAlert('success', `✅ Cliente criado! Abrindo página de vendas...`);
+    
+    // Guardar ID do cliente em sessionStorage ANTES de redirecionar
+    sessionStorage.setItem('clienteNovoId', novoId);
+    sessionStorage.setItem('clienteNome', novoCliente.Nome);
+    
+    // Redirecionar logo (sem aguardar muito)
+    setTimeout(() => {
+      window.location.href = 'vendas-cliente.html';
+    }, 800);
+    
+  } catch (erro) {
+    console.error("❌ Erro ao salvar cliente:", erro);
+    hideLoader();
+    mostrarAlert('error', `❌ Erro ao salvar cliente: ${erro.message}`);
+    
+    // Re-habilitar botão
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = '✅ Criar Cliente & Adicionar Venda';
+  }
+}
+
+// ===== LOADER HELPERS =====
+function showLoader() {
+  const el = document.getElementById('globalLoader');
+  if (el) el.classList.add('visible');
+}
+
+function hideLoader() {
+  const el = document.getElementById('globalLoader');
+  if (el) el.classList.remove('visible');
+}
+
+// ===== MONTAR OBJETO CLIENTE =====
+function montarObjCliente() {
+  const formData = new FormData(document.getElementById('formCliente'));
+  
+  return {
+    Id: 0, // Será atribuído ao salvar
+    Nome: formData.get('nome').trim(),
+    CPF: formData.get('cpf').trim(),
+    Inscricao: formData.get('inscricao').trim() || '',
+    RepresentanteNome: formData.get('representanteNome') ? formData.get('representanteNome').trim() : '',
+    RepresentanteCPF: formData.get('representanteCPF') ? formData.get('representanteCPF').trim() : '',
+    Endereco: formData.get('endereco').trim(),
+    Bairro: formData.get('bairro').trim(),
+    Cidade: formData.get('cidade').trim(),
+    Estado: formData.get('estado').trim(),
+    CEP: formData.get('cep').trim() || '',
+    Midia: formData.get('midia').trim() || '',
+    Vendedor: formData.get('vendedor').trim(),
+    Telefone1: formData.get('telefone1').trim() || '',
+    Telefone2: formData.get('telefone2').trim() || '',
+    Email: formData.get('email').trim() || '',
+    DataCadastro: new Date().toISOString(),
+    Vendas: [],
+    Observacoes: [],
+    ObservacoesCliente: [formData.get('observacoes').trim()].filter(o => o),
+    Anexos: [],
+    NumeroVendas: 0,
+    ProdutoPronto: false,
+    Satisfacao: parseInt(formData.get('satisfacao')) || 0,
+    NumeroEndereco: formData.get('numeroEndereco').trim(),
+    ComplementoEndereco: formData.get('complementoEndereco').trim() || '',
+    Tipo: parseInt(formData.get('tipo')) || 0
+  };
+}
+
+// ===== MOSTRAR ALERT =====
+function mostrarAlert(tipo, mensagem) {
+  const container = document.getElementById('alertContainer');
+  container.innerHTML = `
+    <div class="alert ${tipo} show">
+      ${mensagem}
+    </div>
+  `;
+  
+  // Auto-remover em 5 segundos
+  setTimeout(() => {
+    container.innerHTML = '';
+  }, 5000);
+}
+
+// ===== CARREGAR CLIENTES DO DRIVE (MESMA FORMA DO ADMIN) =====
+async function carregarClientesDrive() {
+  try {
+    const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+    
+    // Fazer requisição IGUAL ao admin
+    const response = await fetch(
+      `${CONFIG.API_URL}?acao=buscar&arquivo=${CONFIG.ARQUIVOS.CLIENTES}&deviceId=${deviceId}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    let dados = await response.json();
+    console.log("📥 Clientes carregados:", dados);
+
+    // Se for string, tenta parsear
+    if (typeof dados === 'string') {
+      try {
+        dados = JSON.parse(dados);
+      } catch (e) {
+        dados = [];
+      }
+    }
+
+    return Array.isArray(dados) ? dados : [];
+
+  } catch (erro) {
+    console.error("❌ Erro ao carregar clientes:", erro);
+    return [];
+  }
+}
+
+// ===== SALVAR CLIENTES NO DRIVE (MESMA FORMA DO ADMIN) =====
+async function salvarClientesDrive(clientes) {
+  try {
+    const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+    const dadosJson = JSON.stringify(clientes);
+
+    console.log('📤 Enviando dados para salvar:', {
+      acao: 'salvar',
+      arquivo: CONFIG.ARQUIVOS.CLIENTES,
+      tamanhoDados: dadosJson.length,
+      clientesCount: clientes.length
+    });
+
+    const response = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        'acao': 'salvar',
+        'arquivo': CONFIG.ARQUIVOS.CLIENTES,
+        'dados': dadosJson,
+        'deviceId': deviceId
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro HTTP: ${response.status}`);
+    }
+
+    let resultado;
+    try {
+      resultado = await response.json();
+    } catch (e) {
+      // Se não for JSON válido, trata como sucesso se resposta for OK
+      const texto = await response.text();
+      console.log('⚠️ Resposta não JSON:', texto);
+      resultado = { success: true, mensagem: texto };
+    }
+
+    console.log('📤 Resultado salvar:', resultado);
+
+    // Checar de múltiplas formas se foi sucesso
+    const foiSucesso = resultado.success === true || 
+                       resultado.success === 'true' || 
+                       resultado.sucesso === true ||
+                       resultado.mensagem === 'Arquivo salvo com sucesso' ||
+                       !resultado.erro;
+
+    if (foiSucesso) {
+      console.log('✅ Clientes salvos com sucesso!');
+      return true;
+    } else {
+      console.error('❌ Falha ao salvar clientes:', resultado);
+      return false;
+    }
+
+  } catch (erro) {
+    console.error('❌ Erro ao salvar clientes no Drive:', erro);
+    return false;
+  }
+}
+
+// ===== VOLTAR =====
+function goBack() {
+  if (confirm('Deseja voltar? Os dados não salvos serão perdidos.')) {
+    window.history.back();
+  }
+}
