@@ -3,97 +3,140 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pagamentos - Sistema Empresarial</title>
+  
+  <!-- 🔐 PROTEÇÃO DE ACESSO -->
+  <script>
+    const deviceId = localStorage.getItem('deviceId');
+    const autenticado = localStorage.getItem('autenticado');
+    if (!deviceId || autenticado !== 'true') {
+      window.location.replace('keygate.html');
+    }
+  </script>
+
+  <link rel="icon" type="image/png" href="assets/img/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="sidebar-dock.css">
-  <title>Pagamentos - Bovi Premium</title>
-   <link rel="icon" type="image/png" href="assets/img/logo.png">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">  <style>
+  
+  <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
-      min-height: 100vh;
+      background: radial-gradient(circle at top, #0e1f1a, #050b09 70%);
       color: #e5f3ee;
-      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 6%;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      z-index: 2;
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      font-size: 22px;
+      font-weight: 600;
+      z-index: 1;
+      color: #e5f3ee;
+    }
+
+    .logo-area img {
+      height: 48px;
+      max-width: 160px;
+      object-fit: contain;
+    }
+
+    .header-right {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .btn-voltar {
+      padding: 10px 20px;
+      background: rgba(255,255,255,.1);
+      color: #1fa37a;
+      border: 1px solid rgba(31,163,122,.3);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 600;
+    }
+
+    .btn-voltar:hover {
+      background: rgba(31,163,122,.15);
+      border-color: #1fa37a;
+    }
+
+    .btn-logout {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #1fa37a, #0f6b52);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn-logout:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(31,163,122,.3);
     }
 
     .container {
       max-width: 1400px;
       margin: 0 auto;
+      padding: 60px 6% 40px;
+      z-index: 1;
     }
 
-    .header {
-      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
-      border: 1px solid rgba(31,163,122,.25);
-      border-radius: 20px;
-      padding: 30px;
-      margin-bottom: 30px;
+    .content {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
       backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 22px;
+      padding: 40px;
+    }
+
+    .header-content {
       display: flex;
       justify-content: space-between;
       align-items: center;
-    }
-
-    .header h1 {
-      color: #1fa37a;
-      font-size: 32px;
-      font-weight: 700;
-    }
-
-    .btn {
-      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
-      color: #7cf0c2;
-      border: 1px solid rgba(31,163,122,.3);
-      padding: 12px 24px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      transition: all 0.3s;
-    }
-
-    .btn:hover {
-      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
-      transform: translateY(-2px);
-    }
-
-    .btn.danger {
-      background: linear-gradient(145deg, rgba(220,53,69,.3), rgba(220,53,69,.15));
-      color: #ff9999;
-      border-color: rgba(220,53,69,.3);
-    }
-
-    .btn.danger:hover {
-      background: linear-gradient(145deg, rgba(220,53,69,.4), rgba(220,53,69,.25));
-    }
-
-    .content-card {
-      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 16px;
-      padding: 30px;
-      backdrop-filter: blur(14px);
       margin-bottom: 30px;
     }
 
-    .section-title {
+    .header-content h2 {
       color: #1fa37a;
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 20px;
-      border-bottom: 2px solid rgba(31,163,122,.3);
-      padding-bottom: 15px;
+      font-size: 1.8rem;
+      margin: 0;
     }
 
-    .filtros {
+    .filtros-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 15px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
       margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(255,255,255,.05);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.1);
     }
 
     .filtro-item {
@@ -102,651 +145,471 @@
     }
 
     .filtro-item label {
-      color: #8fb9ac;
-      font-size: 12px;
-      text-transform: uppercase;
+      display: block;
+      margin-bottom: 6px;
       font-weight: 600;
-      margin-bottom: 8px;
+      color: #8fb9ac;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .filtro-item input,
     .filtro-item select {
-      background: rgba(31,163,122,.1);
-      border: 1px solid rgba(31,163,122,.3);
-      border-radius: 8px;
-      color: #7cf0c2;
       padding: 10px;
-      font-family: inherit;
-    }
-
-    .parcelasGrid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-
-    .parcelaCard {
-      border-radius: 12px;
-      padding: 20px;
-      border: 2px solid rgba(31,163,122,.3);
-      cursor: pointer;
-      transition: all 0.3s;
-      position: relative;
-    }
-
-    .parcelaCard:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 30px rgba(31,163,122,.2);
-    }
-
-    .parcelaCard.pago {
-      background: linear-gradient(135deg, rgba(40,167,69,.2), rgba(40,167,69,.1));
-      border-color: rgba(40,167,69,.4);
-    }
-
-    .parcelaCard.pendente {
-      background: linear-gradient(135deg, rgba(255,150,150,.2), rgba(255,150,150,.1));
-      border-color: rgba(255,150,150,.4);
-    }
-
-    .parcelaCard.vencido {
-      background: linear-gradient(135deg, rgba(220,53,69,.2), rgba(220,53,69,.1));
-      border-color: rgba(220,53,69,.4);
-    }
-
-    .parcelaHeader {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-
-    .parcelaCliente {
-      color: #7cf0c2;
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .parcelaStatus {
-      padding: 4px 12px;
+      border: 1px solid rgba(255,255,255,.2);
       border-radius: 6px;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .parcelaStatus.pago {
-      background: rgba(40,167,69,.3);
-      color: #7cf0c2;
-    }
-
-    .parcelaStatus.pendente {
-      background: rgba(255,150,150,.3);
-      color: #ffc0c0;
-    }
-
-    .parcelaStatus.vencido {
-      background: rgba(220,53,69,.3);
-      color: #ff9999;
-    }
-
-    .parcelaInfo {
-      margin-bottom: 12px;
-    }
-
-    .parcelaInfo-label {
-      color: #8fb9ac;
-      font-size: 11px;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-
-    .parcelaInfo-valor {
-      color: #7cf0c2;
-      font-weight: 600;
-      font-size: 16px;
-    }
-
-    .parcelaInfo-data {
-      color: #8fb9ac;
+      background: rgba(255,255,255,.08);
+      color: #e5f3ee;
       font-size: 13px;
+      transition: all 0.3s;
     }
 
-    .parcelaBotoes {
-      display: flex;
-      gap: 8px;
-      margin-top: 15px;
+    .filtro-item input:focus,
+    .filtro-item select:focus {
+      outline: none;
+      border-color: #1fa37a;
+      background: rgba(31,163,122,.1);
     }
 
-    .parcelaBotoes button {
-      flex: 1;
-      padding: 8px;
-      font-size: 12px;
+    .btn-limpar {
+      padding: 10px 20px;
+      background: #6c757d;
+      color: white;
       border: none;
       border-radius: 6px;
       cursor: pointer;
-      transition: all 0.3s;
       font-weight: 600;
+      transition: all 0.3s;
+      align-self: flex-end;
+      margin-top: 24px;
     }
 
-    .btnTogglePago {
-      background: rgba(40,167,69,.3);
-      color: #7cf0c2;
-      border: 1px solid rgba(40,167,69,.4);
+    .btn-limpar:hover {
+      background: #5a6268;
+      transform: translateY(-2px);
     }
 
-    .btnTogglePago:hover {
-      background: rgba(40,167,69,.4);
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
     }
 
-    .btnEditar {
-      background: rgba(31,163,122,.3);
-      color: #7cf0c2;
-      border: 1px solid rgba(31,163,122,.4);
+    table thead {
+      background: rgba(31,163,122,.15);
+      border-bottom: 2px solid rgba(31,163,122,.5);
     }
 
-    .btnEditar:hover {
-      background: rgba(31,163,122,.4);
+    table th,
+    table td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      color: #e5f3ee;
+    }
+
+    table th {
+      color: #1fa37a;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    table tbody tr {
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    table tbody tr:hover {
+      background: rgba(31,163,122,.2);
+    }
+
+    /* Cores para status de pagamento */
+    .status-vermelho {
+      background: rgba(220, 50, 50, 0.25) !important;
+    }
+
+    .status-verde {
+      background: rgba(50, 200, 50, 0.25) !important;
+    }
+
+    .status-amarelo {
+      background: rgba(255, 200, 0, 0.25) !important;
     }
 
     .empty-message {
       text-align: center;
-      padding: 40px;
       color: #8fb9ac;
-      font-style: italic;
+      padding: 40px;
+      font-size: 16px;
+    }
+
+    .resumo-stats {
+      margin-top: 20px;
+      padding: 15px;
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: rgba(31,163,122,.08);
+      padding: 12px;
+      border-radius: 8px;
+      border-left: 3px solid #1fa37a;
+    }
+
+    .stat-card p {
+      color: #8fb9ac;
+      margin-bottom: 3px;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .stat-card h3 {
+      color: #1fa37a;
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .main-content {
+      margin-left: 60px;
     }
 
     @media (max-width: 768px) {
-      .header {
+      .filtros-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        padding: 15px;
+      }
+
+      .header-content {
         flex-direction: column;
-        gap: 20px;
-        text-align: center;
+        align-items: flex-start;
       }
 
-      .filtros {
+      .main-content {
+        margin-left: 50px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .filtros-grid {
         grid-template-columns: 1fr;
       }
 
-      .parcelasGrid {
-        grid-template-columns: 1fr;
+      .main-content {
+        margin-left: 45px;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      table th, table td {
+        padding: 10px 8px;
       }
     }
   </style>
 </head>
 <body>
+  <div class="sidebar-dock" id="sidebar"></div>
 
-<div class="container">
-  <!-- HEADER -->
   <div class="header">
-    <div>
-      <h1>💳 Gerenciamento de Pagamentos</h1>
+    <div class="logo-area">
+      <img src="assets/img/logo.png" alt="Logo">
+      Sistema Empresarial
     </div>
-    <button class="btn" onclick="voltarParaDashboard()">← Voltar</button>
-  </div>
-
-  <!-- FILTROS -->
-  <div class="content-card">
-    <div class="section-title">🔍 Filtros</div>
-    <div class="filtros">
-      <div class="filtro-item">
-        <label>Pesquisar Cliente</label>
-        <input type="text" id="filtroCliente" placeholder="Nome ou Email..." onchange="aplicarFiltros()">
-      </div>
-      <div class="filtro-item">
-        <label>Data De</label>
-        <input type="date" id="filtroDataDe" onchange="aplicarFiltros()">
-      </div>
-      <div class="filtro-item">
-        <label>Data Até</label>
-        <input type="date" id="filtroDataAte" onchange="aplicarFiltros()">
-      </div>
-      <div class="filtro-item">
-        <label>Status</label>
-        <select id="filtroStatus" onchange="aplicarFiltros()">
-          <option value="">Todos</option>
-          <option value="pago">Pagos</option>
-          <option value="pendente">Pendentes</option>
-          <option value="vencido">Vencidos</option>
-        </select>
-      </div>
-    </div>
-    <div style="display: flex; gap: 10px;">
-      <button class="btn" onclick="aplicarFiltros()">🔍 Pesquisar</button>
-      <button class="btn" onclick="limparFiltros()">✕ Limpar</button>
+    <div class="header-right">
+      <button class="btn-voltar" onclick="voltarDashboard()">← Dashboard</button>
+      <button class="btn-logout" onclick="fazerLogout()">Sair</button>
     </div>
   </div>
 
-  <!-- PARCELAS -->
-  <div class="content-card">
-    <div class="section-title">📅 Parcelas de Pagamento</div>
-    <div id="parcelasContainer" class="parcelasGrid">
-      <p class="empty-message">Carregando parcelas...</p>
+  <div class="main-content">
+    <div class="container">
+      <div class="content">
+        <div class="header-content">
+          <h2>💳 Pagamentos</h2>
+        </div>
+
+        <!-- FILTROS -->
+        <div class="filtros-grid">
+          <div class="filtro-item">
+            <label>Nome do Cliente</label>
+            <input type="text" id="filtroNome" placeholder="Pesquisar..." onkeyup="aplicarFiltros()" style="width: 100%;">
+          </div>
+
+          <div class="filtro-item">
+            <label>Data Venda (De)</label>
+            <input type="date" id="filtroDataVendaDe" onchange="aplicarFiltros()">
+          </div>
+
+          <div class="filtro-item">
+            <label>Data Venda (Até)</label>
+            <input type="date" id="filtroDataVendaAte" onchange="aplicarFiltros()">
+          </div>
+
+          <div class="filtro-item">
+            <label>Data Cadastro (De)</label>
+            <input type="date" id="filtroDataCadastroDe" onchange="aplicarFiltros()">
+          </div>
+
+          <div class="filtro-item">
+            <label>Data Cadastro (Até)</label>
+            <input type="date" id="filtroDataCadastroAte" onchange="aplicarFiltros()">
+          </div>
+
+          <div class="filtro-item">
+            <label>Mín. de Vendas</label>
+            <input type="number" id="filtroMinVendas" placeholder="0" onchange="aplicarFiltros()" min="0">
+          </div>
+
+          <div class="filtro-item">
+            <label>Status Pagamento</label>
+            <select id="filtroStatusPagamento" onchange="aplicarFiltros()">
+              <option value="">Todos</option>
+              <option value="pago">Pago</option>
+              <option value="pendente">Pendente</option>
+              <option value="vencido">Vencido</option>
+            </select>
+          </div>
+
+          <div style="display: flex; gap: 5px; align-items: flex-end;">
+            <button onclick="limparFiltros()" class="btn-limpar" style="flex: 1;">🔄 Limpar</button>
+          </div>
+        </div>
+
+        <div id="container-pagamentos">
+          <div class="empty-message">Carregando pagamentos...</div>
+        </div>
+      </div>
     </div>
   </div>
 
-</div>
-
-<script src="config.js"></script>
-<script src="auth-utils.js"></script>
-<script src="auth.js"></script>
-<script src="auditoria.js"></script>
-
-<script>
-  // 🔐 Definir deviceId para autenticação
-  const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="auth-utils.js"></script>
+  <script src="sidebar-dock.js"></script>
   
-  let todasParcelas = [];
-  let clientesData = [];
+  <script>
+    let clientesGlobal = [];
+    let clientesFiltrados = [];
 
-  async function carregarDados() {
-    try {
-      let clientesData_Raw = await buscarArquivo('clientes.json');
-      
-      // Verificar se usuário é admin
-      const usuarioLogado = JSON.parse(localStorage.getItem('usuario') || '{}');
-      const isAdmin = usuarioLogado.modulos && usuarioLogado.modulos.includes('Administrador');
-      
-      // Aplicar filtro de vendedor se não for admin
-      if (!isAdmin && usuarioLogado.nome) {
-        const vendedorLogado = usuarioLogado.nome.trim().toLowerCase();
-        const vendedoresVisualizacao = (usuarioLogado.VendedoresVisualizacao || []).map(v => v.trim().toLowerCase());
+    function voltarDashboard() {
+      window.location.href = 'index.html';
+    }
+
+    function fazerLogout() {
+      localStorage.removeItem('autenticado');
+      localStorage.removeItem('token');
+      localStorage.removeItem('deviceId');
+      window.location.replace('keygate.html');
+    }
+
+    async function carregarPagamentos() {
+      try {
+        console.log('📥 Carregando clientes.json via buscarArquivo...');
+        let dados = await buscarArquivo('clientes.json');
         
-        // Usuário SEMPRE vê seus próprios clientes + clientes de vendedores que tem permissão
-        // ✅ NORMALIZADO: Comparação case-insensitive
-        clientesData_Raw = clientesData_Raw.filter(cliente => {
-          const vendedorCliente = (cliente.Vendedor || '').trim().toLowerCase();
-          // SEMPRE mostrar clientes do próprio vendedor
-          if (vendedorCliente === vendedorLogado) return true;
-          // ALÉM disso, mostrar clientes de vendedores em VendedoresVisualizacao
-          if (vendedoresVisualizacao.includes(vendedorCliente)) return true;
-          return false;
-        });
+        console.log('📊 Tipo de dados retornado:', typeof dados);
+        console.log('📊 É array?', Array.isArray(dados));
         
-        const detalhes = vendedoresVisualizacao.length > 0 
-          ? `${clientesData_Raw.length} clientes (seus + permitidos)`
-          : `${clientesData_Raw.length} clientes (apenas seus)`;
-        console.log(`✅ Filtrado: ${detalhes}`);
-      } else if (isAdmin) {
-        console.log(`✅ Admin logado: vendo todos os ${clientesData_Raw.length} clientes`);
-      }
-      
-      clientesData = clientesData_Raw;
-      
-      // Extrair todas as parcelas de todos os clientes
-      todasParcelas = [];
-      clientesData.forEach(cliente => {
-        if (cliente.Vendas && Array.isArray(cliente.Vendas)) {
-          cliente.Vendas.forEach(venda => {
-            if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
-              venda.Parcelas.forEach(parcela => {
-                todasParcelas.push({
-                  id: parcela.Id || venda.Id + '_' + parcela.DataVencimento,
-                  clienteId: cliente.Id,
-                  clienteNome: cliente.Nome,
-                  clienteEmail: cliente.Email,
-                  vendaId: venda.Id,
-                  vendaNumeroNF: venda.NumeroNF,
-                  dataVencimento: parcela.DataVencimento,
-                  dataPagamento: parcela.DataPagamento,
-                  valor: parcela.Valor,
-                  pago: parcela.Pago,
-                  numero: parcela.Numero || 1,
-                  parcela: parcela,
-                  venda: venda,
-                  cliente: cliente
-                });
-              });
-            }
-          });
+        if (!Array.isArray(dados)) {
+          console.warn('⚠️ Dados não é array, tentando extrair array...');
+          dados = dados.dados || dados[0] || [];
         }
+        
+        clientesGlobal = Array.isArray(dados) ? dados : [];
+        console.log(`✅ ${clientesGlobal.length} clientes carregados`);
+        
+        clientesFiltrados = [...clientesGlobal];
+        renderizarTabela();
+      } catch (error) {
+        console.error('❌ Erro ao carregar pagamentos:', error);
+        console.error('Stack trace:', error.stack);
+        document.getElementById('container-pagamentos').innerHTML = 
+          '<div class="empty-message">❌ Erro ao carregar pagamentos: ' + error.message + '</div>';
+      }
+    }
+
+    function renderizarTabela() {
+      const container = document.getElementById('container-pagamentos');
+      
+      if (clientesFiltrados.length === 0) {
+        container.innerHTML = '<div class="empty-message">📭 Nenhum cliente encontrado</div>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th style="min-width: 30px; text-align: center;">▶</th>
+              <th>Cliente</th>
+              <th style="text-align: center;">Nº Vendas</th>
+              <th style="text-align: center;">Total Boletos</th>
+              <th style="text-align: center;">Pagos</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-pagamentos">
+      `;
+
+      let totalClientes = 0;
+      let totalBoletos = 0;
+      let totalPagos = 0;
+
+      clientesFiltrados.forEach((cliente, idx) => {
+        if (!cliente.Vendas || cliente.Vendas.length === 0) return;
+
+        // Calcular totais
+        let numVendas = cliente.Vendas.length;
+        let totalBoletos = 0;
+        let totalPagos = 0;
+
+        cliente.Vendas.forEach(venda => {
+          if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
+            totalBoletos += venda.Parcelas.length;
+            totalPagos += venda.Parcelas.filter(p => p.Pago).length;
+          }
+        });
+
+        // Determinar cor baseado em pagamento
+        let corFundo = 'rgba(255,255,255,.02)';
+        if (totalBoletos > 0) {
+          if (totalPagos === 0) corFundo = 'rgba(220, 50, 50, 0.25)'; // VERMELHO
+          else if (totalPagos === totalBoletos) corFundo = 'rgba(50, 200, 50, 0.25)'; // VERDE
+          else corFundo = 'rgba(255, 200, 0, 0.25)'; // AMARELO
+        }
+
+        html += `<tr style="background-color: ${corFundo}; cursor: pointer;" onclick="abrirDetalhesCliente('${cliente.Nome}')">`;
+        html += `<td style="text-align: center;">▶</td>`;
+        html += `<td><strong>${cliente.Nome}</strong></td>`;
+        html += `<td style="text-align: center;">${numVendas}</td>`;
+        html += `<td style="text-align: center;">${totalBoletos}</td>`;
+        html += `<td style="text-align: center;"><strong>${totalPagos}</strong></td>`;
+        html += `</tr>`;
+
+        totalClientes++;
       });
 
-      renderizarParcelas(todasParcelas);
-    } catch (erro) {
-      console.error('Erro ao carregar dados:', erro);
-      alert('❌ Erro ao carregar pagamentos: ' + erro.message);
-    }
-  }
-
-  function renderizarParcelas(parcelas) {
-    const container = document.getElementById('parcelasContainer');
-    
-    // ✅ Limpar container completamente
-    container.innerHTML = '';
-
-    if (!parcelas || parcelas.length === 0) {
-      container.innerHTML = '<p class="empty-message">Nenhuma parcela encontrada</p>';
-      return;
-    }
-
-    let html = '';
-    parcelas.forEach((item) => {
-      const dataVenc = new Date(item.dataVencimento).toLocaleDateString('pt-BR');
-      const dataPag = item.dataPagamento ? new Date(item.dataPagamento).toLocaleDateString('pt-BR') : '-';
-      const valor = parseFloat(item.valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      html += `</tbody></table>`;
       
-      // Determinar status
-      const hoje = new Date();
-      const dataVencObj = new Date(item.dataVencimento);
-      dataVencObj.setHours(0, 0, 0, 0);
-      hoje.setHours(0, 0, 0, 0);
-      
-      let status = 'pendente';
-      let statusLabel = '⏰ Pendente';
-      let statusClass = 'pendente';
-
-      if (item.pago) {
-        status = 'pago';
-        statusLabel = '✅ Pago';
-        statusClass = 'pago';
-      } else if (dataVencObj < hoje) {
-        status = 'vencido';
-        statusLabel = '❌ Vencido';
-        statusClass = 'vencido';
-      }
-
+      // Adicionar resumo
       html += `
-        <div class="parcelaCard ${statusClass}">
-          <div class="parcelaHeader">
-            <span class="parcelaCliente">${item.clienteNome}</span>
-            <span class="parcelaStatus ${statusClass}">${statusLabel}</span>
+        <div class="resumo-stats">
+          <div class="stat-card">
+            <p>Total de Clientes</p>
+            <h3>${totalClientes}</h3>
           </div>
-
-          <div class="parcelaInfo">
-            <div class="parcelaInfo-label">Número NF</div>
-            <div class="parcelaInfo-data">${item.vendaNumeroNF || '-'}</div>
+          <div class="stat-card">
+            <p>Total de Boletos</p>
+            <h3>${totalBoletos}</h3>
           </div>
-
-          <div class="parcelaInfo">
-            <div class="parcelaInfo-label">Parcela</div>
-            <div class="parcelaInfo-data">${item.numero}</div>
+          <div class="stat-card" style="border-left-color: #90ee90;">
+            <p style="color: #90ee90;">Boletos Pagos</p>
+            <h3 style="color: #90ee90;">${totalPagos}</h3>
           </div>
-
-          <div class="parcelaInfo">
-            <div class="parcelaInfo-label">Valor</div>
-            <div class="parcelaInfo-valor">${valor}</div>
-          </div>
-
-          <div class="parcelaInfo">
-            <div class="parcelaInfo-label">Vencimento</div>
-            <div class="parcelaInfo-data">${dataVenc}</div>
-          </div>
-
-          ${item.pago ? `
-            <div class="parcelaInfo">
-              <div class="parcelaInfo-label">Data do Pagamento</div>
-              <div class="parcelaInfo-data">${dataPag}</div>
-            </div>
-          ` : ''}
-
-          <div class="parcelaBotoes">
-            <button class="btnTogglePago" onclick="marcarPago('${item.id}')">${item.pago ? '🔄 Desfazer Pagamento' : '✅ Marcar como Pago'}</button>
-            <button class="btnEditar" onclick="editarDataParcela('${item.id}')">📝 Editar Data</button>
+          <div class="stat-card" style="border-left-color: #d9534f;">
+            <p style="color: #d9534f;">Boletos Pendentes</p>
+            <h3 style="color: #d9534f;">${totalBoletos - totalPagos}</h3>
           </div>
         </div>
       `;
-    });
 
-    container.innerHTML = html;
-  }
-
-  function aplicarFiltros() {
-    const nomeCliente = document.getElementById('filtroCliente').value.toLowerCase();
-    const dataDe = document.getElementById('filtroDataDe').value;
-    const dataAte = document.getElementById('filtroDataAte').value;
-    const status = document.getElementById('filtroStatus').value;
-
-    let parcelasFiltradas = todasParcelas.filter(item => {
-      // Filtro por cliente
-      if (nomeCliente && !item.clienteNome.toLowerCase().includes(nomeCliente) && !item.clienteEmail.toLowerCase().includes(nomeCliente)) {
-        return false;
-      }
-
-      // Filtro por data
-      if (dataDe) {
-        const dataVenc = new Date(item.dataVencimento);
-        const filtroData = new Date(dataDe);
-        if (dataVenc < filtroData) return false;
-      }
-
-      if (dataAte) {
-        const dataVenc = new Date(item.dataVencimento);
-        const filtroData = new Date(dataAte);
-        if (dataVenc > filtroData) return false;
-      }
-
-      // Filtro por status
-      if (status) {
-        const hoje = new Date();
-        const dataVencObj = new Date(item.dataVencimento);
-        dataVencObj.setHours(0, 0, 0, 0);
-        hoje.setHours(0, 0, 0, 0);
-
-        if (status === 'pago' && !item.pago) return false;
-        if (status === 'pendente' && (item.pago || dataVencObj < hoje)) return false;
-        if (status === 'vencido' && (item.pago || dataVencObj >= hoje)) return false;
-      }
-
-      return true;
-    });
-
-    renderizarParcelas(parcelasFiltradas);
-  }
-
-  function limparFiltros() {
-    document.getElementById('filtroCliente').value = '';
-    document.getElementById('filtroDataDe').value = '';
-    document.getElementById('filtroDataAte').value = '';
-    document.getElementById('filtroStatus').value = '';
-    renderizarParcelas(todasParcelas);
-  }
-
-  async function marcarPago(parcelaId) {
-    const item = todasParcelas.find(p => p.id === parcelaId);
-    if (!item) return;
-
-    try {
-      item.pago = !item.pago;
-      if (item.pago) {
-        item.dataPagamento = new Date().toISOString().split('T')[0];
-      } else {
-        item.dataPagamento = null;
-      }
-
-      // Atualizar no cliente
-      item.parcela.Pago = item.pago;
-      item.parcela.DataPagamento = item.dataPagamento;
-
-      // Salvar no JSON
-      const clienteIdx = clientesData.findIndex(c => c.Id === item.clienteId);
-      if (clienteIdx >= 0) {
-        clientesData[clienteIdx] = item.cliente;
-      }
-
-      // ✅ SALVAR NO GOOGLE DRIVE
-      await salvarArquivo('clientes.json', clientesData);
-
-      // ✅ Registrar auditoria
-      salvarDadosComAuditoria(
-        'Parcela',
-        item.pago ? 'Atualizar' : 'Atualizar',
-        item.id,
-        `Parcela - ${item.clienteNome}`,
-        `Parcela marcada como ${item.pago ? 'PAGO' : 'NÃO PAGO'} - NF: ${item.vendaNumeroNF}`,
-        JSON.stringify({Pago: !item.pago}),
-        JSON.stringify(item.parcela)
-      );
-
-      renderizarParcelas(todasParcelas);
-      alert(item.pago ? '✅ Pagamento registrado!' : '✅ Pagamento removido!');
-    } catch (erro) {
-      console.error('Erro ao marcar como pago:', erro);
-      alert('❌ Erro: ' + erro.message);
+      container.innerHTML = html;
     }
-  }
 
-  async function editarDataParcela(parcelaId) {
-    const item = todasParcelas.find(p => p.id === parcelaId);
-    if (!item) return;
+    function abrirDetalhesCliente(nomeCliente) {
+      const cliente = clientesGlobal.find(c => c.Nome === nomeCliente);
+      if (cliente) {
+        sessionStorage.setItem('clienteSelecionado', JSON.stringify(cliente));
+        localStorage.setItem('clienteSelecionado', JSON.stringify(cliente));
+        window.location.href = 'pagamentos-detalhes.html';
+      }
+    }
 
-    // Criar modal
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.95);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 2000;
-      backdrop-filter: blur(5px);
-    `;
+    function aplicarFiltros() {
+      const nome = (document.getElementById('filtroNome').value || '').toLowerCase();
+      const dataVendaDe = document.getElementById('filtroDataVendaDe').value;
+      const dataVendaAte = document.getElementById('filtroDataVendaAte').value;
+      const dataCadastroDe = document.getElementById('filtroDataCadastroDe').value;
+      const dataCadastroAte = document.getElementById('filtroDataCadastroAte').value;
+      const minVendas = parseInt(document.getElementById('filtroMinVendas').value) || 0;
+      const statusPagamento = document.getElementById('filtroStatusPagamento').value;
 
-    const form = document.createElement('div');
-    form.style.cssText = `
-      background: linear-gradient(180deg, rgba(14,31,26,.95), rgba(5,11,9,.95));
-      border: 2px solid rgba(31,163,122,.5);
-      border-radius: 16px;
-      padding: 30px;
-      max-width: 500px;
-      width: 90%;
-      box-shadow: 0 10px 60px rgba(31,163,122,.3);
-    `;
+      clientesFiltrados = clientesGlobal.filter(cliente => {
+        // Filtro por nome
+        if (nome && !cliente.Nome.toLowerCase().includes(nome)) return false;
 
-    const dataVencAtual = new Date(item.dataVencimento).toISOString().split('T')[0];
-    const dataPagAtual = item.dataPagamento ? new Date(item.dataPagamento).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        // Filtro por mín. de vendas
+        if (cliente.Vendas && cliente.Vendas.length < minVendas) return false;
 
-    form.innerHTML = `
-      <h2 style="color: #1fa37a; margin-bottom: 20px; text-align: center;">📝 Editar Data de Pagamento</h2>
-
-      <div style="background: rgba(31,163,122,.1); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-        <p style="color: #8fb9ac; margin-bottom: 10px;"><strong>Cliente:</strong> ${item.clienteNome}</p>
-        <p style="color: #8fb9ac; margin-bottom: 10px;"><strong>NF:</strong> ${item.vendaNumeroNF}</p>
-        <p style="color: #8fb9ac; margin-bottom: 0;"><strong>Valor:</strong> ${parseFloat(item.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-      </div>
-
-      <div style="margin-bottom: 15px;">
-        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase; display: block; margin-bottom: 8px;">Data de Vencimento</label>
-        <input type="date" id="editDataVenc" value="${dataVencAtual}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
-      </div>
-
-      <div style="margin-bottom: 20px;">
-        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase; display: block; margin-bottom: 8px;">Data de Pagamento</label>
-        <input type="date" id="editDataPag" value="${dataPagAtual}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
-      </div>
-
-      <div style="margin-bottom: 20px; background: rgba(31,163,122,.1); padding: 15px; border-radius: 8px;">
-        <label style="color: #8fb9ac; font-size: 12px; text-transform: uppercase; display: block; margin-bottom: 10px;">
-          <input type="checkbox" id="chkContarMesAtual" style="margin-right: 10px; cursor: pointer;">
-          Contar no mês atual?
-        </label>
-        <p style="color: #8fb9ac; font-size: 11px; margin: 0;">Se marcado, a data de vencimento será alterada para hoje em vez da data informada acima.</p>
-      </div>
-
-      <div style="display: flex; gap: 10px; justify-content: center;">
-        <button id="btnSalvar" class="btn" style="padding: 12px 30px;">💾 Salvar</button>
-        <button id="btnCancelar" class="btn danger" style="padding: 12px 30px;">✕ Cancelar</button>
-      </div>
-    `;
-
-    modal.appendChild(form);
-    document.body.appendChild(modal);
-
-    document.getElementById('btnCancelar').onclick = () => modal.remove();
-
-    document.getElementById('btnSalvar').onclick = async () => {
-      try {
-        const dataVencNova = document.getElementById('editDataVenc').value;
-        const dataPagNova = document.getElementById('editDataPag').value;
-        const contarMesAtual = document.getElementById('chkContarMesAtual').checked;
-
-        // Guardar dados antigos para auditoria
-        const parcelaAnterior = JSON.parse(JSON.stringify(item.parcela));
-
-        // Atualizar parcela
-        item.parcela.DataVencimento = contarMesAtual ? new Date().toISOString().split('T')[0] : dataVencNova;
-        item.parcela.DataPagamento = dataPagNova;
-
-        // Atualizar no array
-        item.dataVencimento = item.parcela.DataVencimento;
-        item.dataPagamento = item.parcela.DataPagamento;
-
-        // Salvar no cliente
-        item.cliente.Vendas = item.cliente.Vendas.map(v => 
-          v.Id === item.vendaId ? {
-            ...v,
-            Parcelas: v.Parcelas.map(p => 
-              p.DataVencimento === parcelaAnterior.DataVencimento && p.Valor === parcelaAnterior.Valor 
-                ? item.parcela 
-                : p
-            )
-          } : v
-        );
-
-        // Atualizar lista geral
-        const clienteIdx = clientesData.findIndex(c => c.Id === item.clienteId);
-        if (clienteIdx >= 0) {
-          clientesData[clienteIdx] = item.cliente;
+        // Filtro por data de venda
+        if ((dataVendaDe || dataVendaAte) && cliente.Vendas) {
+          const temVendaNoPeriodo = cliente.Vendas.some(v => {
+            const dataVenda = new Date(v.DataVenda);
+            if (dataVendaDe && dataVenda < new Date(dataVendaDe)) return false;
+            if (dataVendaAte && dataVenda > new Date(dataVendaAte)) return false;
+            return true;
+          });
+          if (!temVendaNoPeriodo) return false;
         }
 
-        // ✅ OTIMIZAÇÃO: Salvar em background
-        salvarDadosComAuditoria(
-          'clientes.json',
-          clientesData,
-          'auditoria',
-          'Atualizar',
-          'Parcela',
-          item.id,
-          `Parcela - ${item.clienteNome}`,
-          `Data de vencimento alterada de ${new Date(parcelaAnterior.DataVencimento).toLocaleDateString('pt-BR')} para ${new Date(item.parcela.DataVencimento).toLocaleDateString('pt-BR')} - NF: ${item.vendaNumeroNF}`,
-          JSON.stringify(parcelaAnterior),
-          JSON.stringify(item.parcela)
-        );
+        // Filtro por data de cadastro
+        if (dataCadastroDe || dataCadastroAte) {
+          const dataCadastro = new Date(cliente.DataCadastro || '');
+          if (dataCadastroDe && dataCadastro < new Date(dataCadastroDe)) return false;
+          if (dataCadastroAte && dataCadastro > new Date(dataCadastroAte)) return false;
+        }
 
-        modal.remove();
-        renderizarParcelas(todasParcelas);
-        alert('✅ Data de pagamento atualizada com sucesso!');
-      } catch (erro) {
-        console.error('Erro ao salvar data:', erro);
-        alert('❌ Erro: ' + erro.message);
-      }
-    };
-  }
+        // Filtro por status de pagamento
+        if (statusPagamento && cliente.Vendas) {
+          let temStatus = false;
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
 
-  function voltarParaDashboard() {
-    window.location.href = 'index.html?modulo=dashboard';
-  }
+          cliente.Vendas.forEach(venda => {
+            if (!venda.Parcelas) return;
+            venda.Parcelas.forEach(parcela => {
+              const dataVenc = new Date(parcela.DataVencimento);
+              dataVenc.setHours(0, 0, 0, 0);
 
-  // ✅ FUNÇÃO PARA SALVAR ARQUIVOS NO GOOGLE DRIVE
-  async function salvarArquivo(nomeArquivo, dados) {
-    try {
-      const dadosJson = JSON.stringify(dados, null, 2);
-      const response = await fetch(CONFIG.API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `acao=salvarClientes&deviceId=${deviceId}&dados=${encodeURIComponent(dadosJson)}`
+              if (statusPagamento === 'pago' && parcela.Pago) temStatus = true;
+              if (statusPagamento === 'pendente' && !parcela.Pago && dataVenc > hoje) temStatus = true;
+              if (statusPagamento === 'vencido' && !parcela.Pago && dataVenc <= hoje) temStatus = true;
+            });
+          });
+          if (!temStatus) return false;
+        }
+
+        return true;
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      console.log(`✅ ${nomeArquivo} salvo com sucesso`);
-      return { sucesso: true, mensagem: 'Salvo com sucesso' };
-    } catch (erro) {
-      console.error(`❌ Erro ao salvar ${nomeArquivo}:`, erro);
-      throw erro;
+      renderizarTabela();
     }
-  }
 
-  // Carregar dados ao abrir
-  carregarDados();
-</script>
+    function limparFiltros() {
+      document.getElementById('filtroNome').value = '';
+      document.getElementById('filtroDataVendaDe').value = '';
+      document.getElementById('filtroDataVendaAte').value = '';
+      document.getElementById('filtroDataCadastroDe').value = '';
+      document.getElementById('filtroDataCadastroAte').value = '';
+      document.getElementById('filtroMinVendas').value = '';
+      document.getElementById('filtroStatusPagamento').value = '';
+      
+      clientesFiltrados = [...clientesGlobal];
+      renderizarTabela();
+    }
 
-<script src="sidebar-dock.js"></script>
+    // Carregar ao iniciar
+    carregarPagamentos();
+  </script>
 </body>
 </html>
