@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="sidebar-dock.css">
+  <title>Relatório de Vendedor - Bovi Premium</title>
+  <link rel="icon" type="image/png" href="assets/img/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- 🔐 PROTEÇÃO DE ACESSO -->
+  <script>
+    const deviceId = localStorage.getItem('deviceId');
+    const autenticado = localStorage.getItem('autenticado');
+    
+    if (!deviceId || autenticado !== 'true') {
+      console.warn('🔐 ACESSO BLOQUEADO - Redirecionando para autenticação...');
+      window.location.replace('keygate.html');
+    }
+  </script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
+      min-height: 100vh;
+      color: #e5f3ee;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* ========== HEADER ========== */
+    .header {
+      background: linear-gradient(135deg, rgba(31,163,122,.15), rgba(212,175,55,.08));
+      border: 1px solid rgba(31,163,122,.25);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      color: #1fa37a;
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    .btn-voltar {
+      background: linear-gradient(135deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
+      color: #7cf0c2;
+      border: 1px solid rgba(31,163,122,.3);
+      padding: 12px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+      text-decoration: none;
+    }
+
+    .btn-voltar:hover {
+      background: linear-gradient(135deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
+      transform: translateY(-2px);
+    }
+
+    /* ========== FILTROS ========== */
+    .filtros-container {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 25px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+    }
+
+    .filtros {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+
+    .filtro-grupo {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .filtro-grupo label {
+      color: #1fa37a;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .filtro-grupo select,
+    .filtro-grupo input {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(31,163,122,.2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #e5f3ee;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .filtro-grupo select:focus,
+    .filtro-grupo input:focus {
+      outline: none;
+      border-color: rgba(31,163,122,.6);
+      background: rgba(31,163,122,.1);
+      box-shadow: 0 0 0 3px rgba(31,163,122,.1);
+    }
+
+    .btn-filtrar {
+      background: linear-gradient(135deg, #1fa37a, #0f6b52);
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+      align-self: flex-end;
+      margin-top: 8px;
+    }
+
+    .btn-filtrar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(31,163,122,.35);
+    }
+
+    /* ========== CARD VENDEDOR ========== */
+    .info-vendedor {
+      background: linear-gradient(135deg, rgba(31,163,122,.1), rgba(212,175,55,.05));
+      border: 1px solid rgba(31,163,122,.2);
+      border-radius: 16px;
+      padding: 25px;
+      margin-bottom: 30px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 25px;
+      align-items: start;
+    }
+
+    .foto-vendedor {
+      width: 120px;
+      height: 160px;
+      border-radius: 12px;
+      object-fit: cover;
+      border: 2px solid rgba(31,163,122,.4);
+      background: rgba(31,163,122,.1);
+      flex-shrink: 0;
+    }
+
+    .info-vendedor-detalhes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .info-label {
+      color: #7cf0c2;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .info-valor {
+      color: #fff;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .info-valor.meta {
+      color: #1fa37a;
+    }
+
+    .info-valor.atingida {
+      color: #4caf50;
+    }
+
+    .info-valor.nao-atingida {
+      color: #ff9999;
+    }
+
+    /* ========== GRID CARDS ========== */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 25px;
+      backdrop-filter: blur(14px);
+    }
+
+    .card h3 {
+      color: #1fa37a;
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      border-bottom: 2px solid rgba(31,163,122,.3);
+      padding-bottom: 12px;
+    }
+
+    .card-content {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .valor-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: rgba(31,163,122,.1);
+      border-radius: 8px;
+      border-left: 4px solid rgba(31,163,122,.5);
+    }
+
+    .valor-label {
+      color: #b9d8ce;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .valor-numero {
+      color: #7cf0c2;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    /* ========== TABELAS ========== */
+    .table-container {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 25px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+      overflow-x: auto;
+    }
+
+    .table-container h3 {
+      color: #1fa37a;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      border-bottom: 2px solid rgba(31,163,122,.3);
+      padding-bottom: 15px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      background: rgba(31,163,122,.2);
+      color: #1fa37a;
+      padding: 12px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      border: 1px solid rgba(31,163,122,.1);
+    }
+
+    tbody td {
+      padding: 12px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      color: #e5f3ee;
+      font-size: 14px;
+    }
+
+    tbody tr:hover {
+      background: rgba(31,163,122,.1);
+    }
+
+    .status-pago {
+      color: #4caf50;
+      font-weight: 600;
+    }
+
+    .status-pendente {
+      color: #ff9999;
+      font-weight: 600;
+    }
+
+    /* ========== ANÁLISE IA ========== */
+    .analise-ia {
+      background: linear-gradient(135deg, rgba(138,43,226,.1), rgba(75,0,130,.05));
+      border: 1px solid rgba(138,43,226,.2);
+      border-radius: 16px;
+      padding: 25px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(14px);
+    }
+
+    .analise-ia h3 {
+      color: #da70d6;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .analise-ia-conteudo {
+      background: rgba(138,43,226,.05);
+      border-left: 4px solid rgba(138,43,226,.4);
+      padding: 20px;
+      border-radius: 8px;
+      line-height: 1.6;
+      color: #e5f3ee;
+      font-size: 14px;
+    }
+
+    /* ========== RESPONSIVO ========== */
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+
+      .header h1 {
+        font-size: 24px;
+      }
+
+      .info-vendedor {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+
+      .foto-vendedor {
+        margin: 0 auto;
+      }
+
+      .cards-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .filtros {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #7cf0c2;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(31,163,122,.2);
+      border-top: 3px solid #1fa37a;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .erro-mensagem {
+      background: linear-gradient(135deg, rgba(220,53,69,.15), rgba(220,53,69,.05));
+      border: 1px solid rgba(220,53,69,.3);
+      border-radius: 12px;
+      padding: 20px;
+      color: #ff9999;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <!-- HEADER -->
+  <div class="header">
+    <h1>📊 Relatório de Desempenho do Vendedor</h1>
+    <a href="index.html" class="btn-voltar">← Voltar</a>
+  </div>
+
+  <!-- FILTROS -->
+  <div class="filtros-container" id="filtrosContainer">
+    <div class="filtros">
+      <div class="filtro-grupo" id="filtroVendedorGroup" style="display:none;">
+        <label for="filtroVendedor">Selecione o Vendedor</label>
+        <select id="filtroVendedor">
+          <option value="">-- Escolha um vendedor --</option>
+        </select>
+      </div>
+
+      <div class="filtro-grupo">
+        <label for="filtroMes">Mês</label>
+        <select id="filtroMes">
+          <option value="0">Todos os Meses</option>
+          <option value="1">Janeiro</option>
+          <option value="2">Fevereiro</option>
+          <option value="3">Março</option>
+          <option value="4" selected>Abril</option>
+          <option value="5">Maio</option>
+          <option value="6">Junho</option>
+          <option value="7">Julho</option>
+          <option value="8">Agosto</option>
+          <option value="9">Setembro</option>
+          <option value="10">Outubro</option>
+          <option value="11">Novembro</option>
+          <option value="12">Dezembro</option>
+        </select>
+      </div>
+
+      <div class="filtro-grupo">
+        <label for="filtroAno">Ano</label>
+        <select id="filtroAno">
+          <option value="0">Todos os Anos</option>
+        </select>
+      </div>
+
+      <div class="filtro-grupo" id="filtroClienteGroup" style="display:none;">
+        <label for="filtroCliente">Cliente</label>
+        <select id="filtroCliente">
+          <option value="">-- Todos os clientes --</option>
+        </select>
+      </div>
+
+      <button class="btn-filtrar" onclick="aplicarFiltros()">Atualizar Relatório</button>
+    </div>
+  </div>
+
+  <!-- CONTEÚDO PRINCIPAL -->
+  <div id="conteudoPrincipal">
+    <!-- Info Vendedor -->
+    <div id="infoVendedorContainer"></div>
+
+    <!-- Cards Resumo -->
+    <div class="cards-grid" id="cardsResumo"></div>
+
+    <!-- Detalhes de Vendas -->
+    <div class="table-container" id="detalhesVendasContainer"></div>
+
+    <!-- Melhores Clientes -->
+    <div class="table-container" id="melhoresClientesContainer"></div>
+
+    <!-- Clientes Inadimplentes -->
+    <div class="table-container" id="clientesInadimplementesContainer"></div>
+
+    <!-- Indicadores Detalhados -->
+    <div class="table-container" id="indicadoresContainer"></div>
+
+    <!-- Análise IA -->
+    <div id="analiseIAContainer"></div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="auth-utils.js"></script>
+  <script src="seguranca.js"></script>
+  <script src="sidebar-dock.js"></script>
+  <script src="relatorio-vendedor.js"></script>
+</body>
+</html>

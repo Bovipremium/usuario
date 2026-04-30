@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clientes - Sistema Empresarial</title>
+  
+  <!-- 🔐 PROTEÇÃO DE ACESSO -->
+  <script>
+    const deviceId = localStorage.getItem('deviceId');
+    const autenticado = localStorage.getItem('autenticado');
+    if (!deviceId || autenticado !== 'true') {
+      window.location.replace('keygate.html');
+    }
+  </script>
+
+  <link rel="icon" type="image/png" href="assets/img/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="sidebar-dock.css">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #0e1f1a, #050b09 70%);
+      color: #e5f3ee;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 6%;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      z-index: 2;
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      font-size: 22px;
+      font-weight: 600;
+      z-index: 1;
+      color: #e5f3ee;
+    }
+
+    .logo-area img {
+      height: 48px;
+      max-width: 160px;
+      object-fit: contain;
+    }
+
+    .header-right {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .btn-voltar {
+      padding: 10px 20px;
+      background: rgba(255,255,255,.1);
+      color: #1fa37a;
+      border: 1px solid rgba(31,163,122,.3);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 600;
+    }
+
+    .btn-voltar:hover {
+      background: rgba(31,163,122,.15);
+      border-color: #1fa37a;
+    }
+
+    .btn-logout {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #1fa37a, #0f6b52);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn-logout:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(31,163,122,.3);
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 60px 6% 40px;
+      z-index: 1;
+    }
+
+    .content {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 22px;
+      padding: 40px;
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .header-content h2 {
+      color: #1fa37a;
+      font-size: 1.8rem;
+      margin: 0;
+    }
+
+    .btn-novo {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #1fa37a 0%, #0f6b52 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-novo:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(31,163,122,.3);
+    }
+
+    .search-box {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .search-box input {
+      flex: 1;
+      max-width: 400px;
+      padding: 14px 18px;
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 12px;
+      font-size: 14px;
+      background: rgba(255,255,255,.08);
+      color: #e5f3ee;
+      backdrop-filter: blur(14px);
+      transition: all 0.3s;
+    }
+
+    .search-box input::placeholder {
+      color: #8fb9ac;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: #1fa37a;
+      background: rgba(31,163,122,.1);
+    }
+
+    .filtros-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+      padding: 20px;
+      background: rgba(255,255,255,.05);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.1);
+    }
+
+    .filtro-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .filtro-item label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: #8fb9ac;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .filtro-item input,
+    .filtro-item select {
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 6px;
+      background: rgba(255,255,255,.08);
+      color: #e5f3ee;
+      font-size: 13px;
+      transition: all 0.3s;
+    }
+
+    .filtro-item input:focus,
+    .filtro-item select:focus {
+      outline: none;
+      border-color: #1fa37a;
+      background: rgba(31,163,122,.1);
+    }
+
+    .btn-limpar {
+      padding: 10px 20px;
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+      align-self: flex-end;
+      margin-top: 24px;
+    }
+
+    .btn-limpar:hover {
+      background: #5a6268;
+      transform: translateY(-2px);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    table thead {
+      background: rgba(31,163,122,.15);
+      border-bottom: 2px solid rgba(31,163,122,.5);
+    }
+
+    table th,
+    table td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      color: #e5f3ee;
+    }
+
+    table th {
+      color: #1fa37a;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    table tbody tr {
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    table tbody tr:hover {
+      background: rgba(31,163,122,.2);
+      border-left: 4px solid #1fa37a;
+    }
+
+    table tbody tr.expanded {
+      background: rgba(31,163,122,.15);
+    }
+
+    .detalhes-expandido {
+      padding: 15px 20px !important;
+      font-size: 13px;
+      color: #8fb9ac;
+      background: rgba(31,163,122,.08) !important;
+    }
+
+    .detalhes-expandido div {
+      margin: 6px 0;
+    }
+
+    .detalhes-expandido strong {
+      color: #1fa37a;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .status-satisfeito {
+      background: rgba(74, 124, 44, 0.25);
+      color: #4a7c2c;
+      border: 1px solid rgba(74, 124, 44, 0.4);
+    }
+
+    .status-insatisfeito {
+      background: rgba(217, 83, 79, 0.25);
+      color: #d9534f;
+      border: 1px solid rgba(217, 83, 79, 0.4);
+    }
+
+    .status-nao-informado {
+      background: rgba(153, 153, 153, 0.25);
+      color: #999;
+      border: 1px solid rgba(153, 153, 153, 0.4);
+    }
+
+    .status-ativo {
+      color: #4a7c2c;
+      font-weight: 600;
+    }
+
+    .status-inadimplente {
+      color: #d9534f;
+      font-weight: 600;
+    }
+
+    .emoji-satisfacao {
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .emoji-satisfacao:hover {
+      transform: scale(1.4);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #1fa37a;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border: 3px solid rgba(31,163,122,.3);
+      border-top: 3px solid #1fa37a;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .empty-message {
+      text-align: center;
+      color: #8fb9ac;
+      padding: 40px;
+      font-size: 16px;
+    }
+
+    .main-content {
+      margin-left: 60px;
+    }
+
+    @media (max-width: 768px) {
+      .filtros-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        padding: 15px;
+      }
+
+      .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .main-content {
+        margin-left: 50px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .filtros-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .main-content {
+        margin-left: 45px;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      table th, table td {
+        padding: 10px 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar-dock" id="sidebar"></div>
+
+  <div class="header">
+    <div class="logo-area">
+      <img src="assets/img/logo.png" alt="Logo">
+      Sistema Empresarial
+    </div>
+    <div class="header-right">
+      <button class="btn-voltar" onclick="voltarDashboard()">← Dashboard</button>
+      <button class="btn-logout" onclick="fazerLogout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="container">
+      <div class="content">
+        <div class="header-content">
+          <h2>👥 Clientes</h2>
+          <button class="btn-novo" onclick="abrirNovoCliente()">+ Novo Cliente</button>
+        </div>
+
+        <div class="search-box">
+          <input type="text" placeholder="🔍 Pesquisar..." id="busca" onkeyup="filtrarDados()">
+          <button onclick="limparFiltros()">🗑️ Limpar</button>
+        </div>
+
+        <!-- FILTROS DO INDEX -->
+        <div id="filtrosClientes" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+          
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Nome</label>
+            <input type="text" id="filtroNomeCliente" placeholder="Pesquisar..." onkeyup="aplicarFiltrosClientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
+          </div>
+
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Min. Vendas</label>
+            <input type="number" id="filtroMinVendas" placeholder="0" onchange="aplicarFiltrosClientes()" min="0" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
+          </div>
+
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Data Início</label>
+            <input type="date" id="filtroDataInicioCliente" onchange="aplicarFiltrosClientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
+          </div>
+
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Data Fim</label>
+            <input type="date" id="filtroDataFimCliente" onchange="aplicarFiltrosClientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
+          </div>
+
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Produto Pronto</label>
+            <select id="filtroProdutoPronto" onchange="aplicarFiltrosClientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
+              <option value="">Todos</option>
+              <option value="sim">Sim</option>
+              <option value="nao">Não</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Satisfação</label>
+            <select id="filtroSatisfacao" onchange="aplicarFiltrosClientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
+              <option value="">Todos</option>
+              <option value="satisfeitos">Satisfeitos</option>
+              <option value="insatisfeitos">Insatisfeitos</option>
+              <option value="nao-informado">Não Informado</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Data Venda (De)</label>
+            <input type="date" id="filtroDataVendaDe" onchange="aplicarFiltrosClientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
+          </div>
+
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px;">Data Venda (Até)</label>
+            <input type="date" id="filtroDataVendaAte" onchange="aplicarFiltrosClientes()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
+          </div>
+
+          <div style="display: flex; gap: 5px; align-items: flex-end;">
+            <button onclick="limparFiltrosClientes()" style="flex: 1; padding: 8px; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold;">� Limpar</button>
+          </div>
+
+        </div>
+
+        <div id="container-clientes">
+          <div class="loading">
+            <div class="spinner"></div>
+            <p>Carregando clientes...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="auth-utils.js"></script>
+  <script src="sidebar-dock.js"></script>
+  
+  <script>
+    let clientesData = [];
+    let clientesFiltrados = [];
+
+    function voltarDashboard() {
+      window.location.href = 'index.html';
+    }
+
+    function fazerLogout() {
+      localStorage.removeItem('autenticado');
+      localStorage.removeItem('token');
+      localStorage.removeItem('deviceId');
+      window.location.replace('keygate.html');
+    }
+
+    function abrirNovoCliente() {
+      window.location.href = 'clientes-novo.html';
+    }
+
+    async function carregarClientes() {
+      try {
+        console.log('📥 Carregando clientes.json via buscarArquivo...');
+        let dados = await buscarArquivo('clientes.json');
+        
+        console.log('📊 Tipo de dados retornado:', typeof dados);
+        console.log('📊 É array?', Array.isArray(dados));
+        console.log('📊 Dados brutos:', dados);
+        
+        if (!Array.isArray(dados)) {
+          console.warn('⚠️ Dados não é array, tentando extrair array...');
+          dados = dados.dados || dados[0] || [];
+        }
+        
+        clientesData = Array.isArray(dados) ? dados : [];
+        console.log(`✅ ${clientesData.length} clientes carregados`);
+        
+        if (clientesData.length === 0) {
+          console.warn('⚠️ Lista de clientes vazia!');
+        }
+        
+        clientesFiltrados = [...clientesData];
+        renderizarTabela();
+      } catch (error) {
+        console.error('❌ Erro ao carregar clientes:', error);
+        console.error('Stack trace:', error.stack);
+        document.getElementById('container-clientes').innerHTML = 
+          '<div class="empty-message">❌ Erro ao carregar clientes: ' + error.message + '</div>';
+      }
+    }
+
+    function renderizarTabela() {
+      if (clientesFiltrados.length === 0) {
+        document.getElementById('container-clientes').innerHTML = 
+          '<div class="empty-message">📭 Nenhum cliente encontrado</div>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>CPF</th>
+              <th style="text-align: center;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      clientesFiltrados.forEach((item, index) => {
+        html += `<tr onclick="abrirDetalhesCliente('${item.Nome}')" style="cursor: pointer;" title="Clique para detalhes">`;
+        
+        // Colunas básicas (EXATAMENTE como no app.js)
+        html += `<td><strong>${item.Nome || '-'}</strong></td>`;
+        html += `<td>${item.CPF || '-'}</td>`;
+        
+        // Status (EXATAMENTE como no app.js renderizarTabela)
+        const inadimplente = verificarInadimplenciaCliente(item);
+        const statusTexto = inadimplente ? '❌ Inadimplente' : '✅ Ativo';
+        const statusCor = inadimplente ? '#d9534f' : '#4a7c2c';
+        const produtoStatus = item.ProdutoPronto ? '📦' : '⏳';
+        const satisfacao = item.Satisfacao === 'Satisfeito' ? '😊' : item.Satisfacao === 'Insatisfeito' ? '😞' : item.Satisfacao === 'SemGado' ? '🐄' : '❓';
+        
+        html += `<td style="text-align: center; white-space: nowrap;">
+          <span style="background: ${statusCor}; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; display: inline-block; margin-right: 5px;" title="${statusTexto}">${statusTexto}</span>
+          <span style="font-size: 14px; margin: 0 3px;" title="Produto: ${item.ProdutoPronto ? 'Pronto' : 'Não pronto'}">${produtoStatus}</span>
+          <span style="font-size: 14px; cursor: pointer;" title="Satisfação: ${item.Satisfacao}" onclick="expandirStatusCliente(event, '${item.Nome}')">${satisfacao} ▼</span>
+        </td>`;
+        
+        html += '</tr>';
+      });
+
+      html += `</tbody></table>`;
+      document.getElementById('container-clientes').innerHTML = html;
+    }
+
+    function verificarInadimplenciaCliente(cliente) {
+      if (!cliente.Vendas) return false;
+      
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+
+      for (let venda of cliente.Vendas) {
+        if (!venda.Parcelas) continue;
+        
+        for (let parcela of venda.Parcelas) {
+          const dataVencimento = new Date(parcela.DataVencimento);
+          dataVencimento.setHours(0, 0, 0, 0);
+          
+          if (!parcela.Pago && dataVencimento <= hoje) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    }
+
+    function abrirDetalhesCliente(nomeCliente) {
+      console.log('🔍 Abrindo detalhes do cliente:', nomeCliente);
+      const cliente = clientesData.find(c => c.Nome === nomeCliente);
+      
+      if (cliente) {
+        const clienteJSON = JSON.stringify(cliente);
+        sessionStorage.setItem('clienteSelecionado', clienteJSON);
+        localStorage.setItem('clienteSelecionado', clienteJSON);
+        console.log('✅ Cliente salvo. Redirecionando...');
+        window.location.href = 'clientes-detalhes.html';
+      } else {
+        alert('❌ Cliente não encontrado');
+      }
+    }
+
+    function expandirStatusCliente(event, nomeCliente) {
+      event.stopPropagation();
+      const cliente = clientesData.find(c => c.Nome === nomeCliente);
+      if (!cliente) return;
+      
+      const satisfacaoTexto = {
+        'Satisfeito': '😊 Satisfeito',
+        'Insatisfeito': '😞 Insatisfeito',
+        'SemGado': '🐄 Sem Gado',
+        'NaoInformado': '❓ Não Informado'
+      }[cliente.Satisfacao || 'NaoInformado'];
+      
+      const produtoText = cliente.ProdutoPronto ? '✅ Sim' : '❌ Não';
+      const inadimplente = verificarInadimplenciaCliente(cliente);
+      const inadimplenteText = inadimplente ? '⚠️ Sim' : '✅ Não';
+      
+      alert(`
+📊 STATUS DO CLIENTE
+─────────────────────
+Nome: ${cliente.Nome}
+😊 Satisfação: ${satisfacaoTexto}
+📦 Produto Pronto: ${produtoText}
+⚠️ Inadimplência: ${inadimplenteText}
+      `);
+    }
+
+    function filtrarDados() {
+      const termo = document.getElementById('busca').value.toLowerCase();
+      
+      if (!termo) {
+        clientesFiltrados = [...clientesData];
+        renderizarTabela();
+        return;
+      }
+
+      clientesFiltrados = clientesData.filter(cliente => {
+        const nome = (cliente.Nome || '').toLowerCase();
+        const cpf = (cliente.CPF || '').toLowerCase();
+        
+        return nome.includes(termo) || cpf.includes(termo);
+      });
+
+      renderizarTabela();
+    }
+
+    function limparFiltros() {
+      document.getElementById('busca').value = '';
+      clientesFiltrados = [...clientesData];
+      renderizarTabela();
+    }
+
+    function aplicarFiltrosClientes() {
+      const nome = document.getElementById("filtroNomeCliente")?.value.toLowerCase() || "";
+      const minVendas = parseInt(document.getElementById("filtroMinVendas")?.value) || 0;
+      const dataInicio = document.getElementById("filtroDataInicioCliente")?.value || "";
+      const dataFim = document.getElementById("filtroDataFimCliente")?.value || "";
+      const produtoPronto = document.getElementById("filtroProdutoPronto")?.value || "";
+      const satisfacao = document.getElementById("filtroSatisfacao")?.value || "";
+      const dataVendaDe = document.getElementById("filtroDataVendaDe")?.value || "";
+      const dataVendaAte = document.getElementById("filtroDataVendaAte")?.value || "";
+
+      clientesFiltrados = clientesData.filter(cliente => {
+        // Filtro de nome
+        if (nome && !cliente.Nome.toLowerCase().includes(nome)) return false;
+
+        // Filtro de vendas mínimas
+        const numVendas = cliente.Vendas ? cliente.Vendas.length : 0;
+        if (minVendas > 0 && numVendas < minVendas) return false;
+
+        // Filtro de datas (se tiver campo de data no cliente, filtrar)
+        if (dataInicio && cliente.DataCadastro) {
+          if (new Date(cliente.DataCadastro) < new Date(dataInicio)) return false;
+        }
+        if (dataFim && cliente.DataCadastro) {
+          if (new Date(cliente.DataCadastro) > new Date(dataFim)) return false;
+        }
+
+        // Filtro de produto pronto
+        if (produtoPronto) {
+          const temProduto = cliente.ProdutoPronto === true;
+          if (produtoPronto === "sim" && !temProduto) return false;
+          if (produtoPronto === "nao" && temProduto) return false;
+        }
+
+        // Filtro de satisfação
+        if (satisfacao) {
+          if (satisfacao === "satisfeitos" && !cliente.Satisfeito) return false;
+          if (satisfacao === "insatisfeitos" && cliente.Satisfeito !== false) return false;
+          if (satisfacao === "nao-informado" && cliente.Satisfeito !== null && cliente.Satisfeito !== undefined) return false;
+        }
+
+        // Filtro por data de venda
+        if (dataVendaDe || dataVendaAte) {
+          if (!cliente.Vendas || !Array.isArray(cliente.Vendas)) return false;
+          const temVendaNoPeriodo = cliente.Vendas.some(venda => {
+            const dataVenda = new Date(venda.DataVenda);
+            if (dataVendaDe && dataVenda < new Date(dataVendaDe)) return false;
+            if (dataVendaAte && dataVenda > new Date(dataVendaAte + 'T23:59:59')) return false;
+            return true;
+          });
+          if (!temVendaNoPeriodo) return false;
+        }
+
+        return true;
+      });
+
+      renderizarTabela();
+    }
+
+    function limparFiltrosClientes() {
+      document.getElementById("filtroNomeCliente").value = "";
+      document.getElementById("filtroMinVendas").value = "";
+      document.getElementById("filtroDataInicioCliente").value = "";
+      document.getElementById("filtroDataFimCliente").value = "";
+      document.getElementById("filtroProdutoPronto").value = "";
+      document.getElementById("filtroSatisfacao").value = "";
+      document.getElementById("filtroDataVendaDe").value = "";
+      document.getElementById("filtroDataVendaAte").value = "";
+      
+      clientesFiltrados = [...clientesData];
+      renderizarTabela();
+    }
+
+    // Carregar ao iniciar
+    carregarClientes();
+  </script>
+</body>
+</html>

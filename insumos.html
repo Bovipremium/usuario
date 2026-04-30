@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insumos - Sistema Empresarial</title>
+  
+  <!-- 🔐 PROTEÇÃO DE ACESSO -->
+  <script>
+    const deviceId = localStorage.getItem('deviceId');
+    const autenticado = localStorage.getItem('autenticado');
+    if (!deviceId || autenticado !== 'true') {
+      window.location.replace('keygate.html');
+    }
+  </script>
+
+  <link rel="icon" type="image/png" href="assets/img/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="sidebar-dock.css">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #0e1f1a, #050b09 70%);
+      color: #e5f3ee;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 6%;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      z-index: 2;
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      font-size: 22px;
+      font-weight: 600;
+      z-index: 1;
+      color: #e5f3ee;
+    }
+
+    .logo-area img {
+      height: 48px;
+      max-width: 160px;
+      object-fit: contain;
+    }
+
+    .header-right {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .btn-voltar {
+      padding: 10px 20px;
+      background: rgba(255,255,255,.1);
+      color: #1fa37a;
+      border: 1px solid rgba(31,163,122,.3);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 600;
+    }
+
+    .btn-voltar:hover {
+      background: rgba(31,163,122,.15);
+      border-color: #1fa37a;
+    }
+
+    .btn-logout {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #1fa37a, #0f6b52);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn-logout:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(31,163,122,.3);
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 60px 6% 40px;
+      z-index: 1;
+    }
+
+    .content {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 22px;
+      padding: 40px;
+    }
+
+    .header-content h2 {
+      color: #1fa37a;
+      font-size: 1.8rem;
+      margin: 0 0 30px 0;
+    }
+
+    .search-box {
+      margin-bottom: 30px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .search-box input {
+      flex: 1;
+      max-width: 400px;
+      padding: 14px 18px;
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 12px;
+      font-size: 14px;
+      background: rgba(255,255,255,.08);
+      color: #e5f3ee;
+      backdrop-filter: blur(14px);
+      transition: all 0.3s;
+    }
+
+    .search-box input::placeholder {
+      color: #8fb9ac;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: #1fa37a;
+      background: rgba(31,163,122,.1);
+    }
+
+    .filtros-insumos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 5px;
+    }
+
+    .filtros-insumos label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .filtros-insumos input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      box-sizing: border-box;
+    }
+
+    .filtros-insumos button {
+      padding: 8px;
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-weight: bold;
+      align-self: flex-end;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    table thead {
+      background: rgba(31,163,122,.15);
+      border-bottom: 2px solid rgba(31,163,122,.5);
+    }
+
+    table th,
+    table td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      color: #e5f3ee;
+    }
+
+    table th {
+      color: #1fa37a;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    table tbody tr:hover {
+      background: rgba(31,163,122,.2);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #1fa37a;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border: 3px solid rgba(31,163,122,.3);
+      border-top: 3px solid #1fa37a;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .main-content {
+      margin-left: 60px;
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        margin-left: 50px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .main-content {
+        margin-left: 45px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar-dock" id="sidebar"></div>
+
+  <div class="header">
+    <div class="logo-area">
+      <img src="assets/img/logo.png" alt="Logo">
+      Sistema Empresarial
+    </div>
+    <div class="header-right">
+      <button class="btn-voltar" onclick="voltarDashboard()">← Dashboard</button>
+      <button class="btn-logout" onclick="fazerLogout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="container">
+      <div class="content">
+        <div class="header-content">
+          <h2>📦 Insumos</h2>
+        </div>
+
+        <div class="search-box">
+          <input type="text" placeholder="🔍 Pesquisar insumo..." id="busca" onkeyup="filtrarInsumos()">
+        </div>
+
+        <!-- FILTROS DO INDEX -->
+        <div class="filtros-insumos">
+          <div>
+            <label>Pesquisar Insumo</label>
+            <input type="text" id="filtroNomeInsumo" placeholder="Nome..." onkeyup="aplicarFiltrosInsumos()">
+          </div>
+
+          <div style="display: flex; gap: 5px; align-items: flex-end;">
+            <button onclick="limparFiltrosInsumos()" style="flex: 1;">🔄 Limpar</button>
+          </div>
+        </div>
+
+        <div id="conteudo">
+          <div class="loading">
+            <div class="spinner"></div>
+            <p>Carregando insumos...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="auth-utils.js"></script>
+  <script src="sidebar-dock.js"></script>
+  
+  <script>
+    let insumosGlobal = [];
+    let insumosFiltrados = [];
+    let dadosOriginais = [];
+
+    function voltarDashboard() {
+      window.location.href = 'index.html';
+    }
+
+    function fazerLogout() {
+      localStorage.removeItem('autenticado');
+      localStorage.removeItem('token');
+      localStorage.removeItem('deviceId');
+      window.location.replace('keygate.html');
+    }
+
+    async function carregarInsumos() {
+      try {
+        console.log('📥 Carregando insumos...');
+        const insumos = await buscarArquivo('insumos.json');
+        insumosGlobal = Array.isArray(insumos) ? insumos : (insumos.dados || []);
+        insumosFiltrados = [...insumosGlobal];
+        dadosOriginais = JSON.parse(JSON.stringify(insumosGlobal));
+        console.log(`✅ ${insumosGlobal.length} insumos carregados`);
+        renderizarTabela();
+      } catch (error) {
+        console.error('❌ Erro ao carregar:', error);
+        document.getElementById('conteudo').innerHTML = 
+          '<p style="color: #999;">Erro ao carregar insumos</p>';
+      }
+    }
+
+    function renderizarTabela() {
+      const loading = document.querySelector('.loading');
+      if (loading) loading.remove();
+
+      if (!Array.isArray(insumosFiltrados) || insumosFiltrados.length === 0) {
+        document.getElementById('conteudo').innerHTML = '<p style="color: #999;">Nenhum insumo encontrado</p>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Quantidade</th>
+              <th>Valor</th>
+              <th>Unidade</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      insumosFiltrados.forEach(insumo => {
+        html += `
+          <tr>
+            <td>${insumo.Nome || '-'}</td>
+            <td>${insumo.Quantidade || '-'}</td>
+            <td>${insumo.Valor || '-'}</td>
+            <td>${insumo.Unidade || '-'}</td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table>`;
+      document.getElementById('conteudo').innerHTML = html;
+    }
+
+    function filtrarInsumos() {
+      const termo = document.getElementById('busca').value.toLowerCase();
+      
+      if (!termo) {
+        insumosFiltrados = [...dadosOriginais];
+        renderizarTabela();
+        return;
+      }
+
+      insumosFiltrados = dadosOriginais.filter(insumo => 
+        insumo.Nome?.toLowerCase().includes(termo)
+      );
+
+      renderizarTabela();
+    }
+
+    function aplicarFiltrosInsumos() {
+      const nome = document.getElementById("filtroNomeInsumo")?.value.toLowerCase() || "";
+
+      insumosFiltrados = dadosOriginais.filter(insumo => {
+        if (nome && !insumo.Nome.toLowerCase().includes(nome)) return false;
+        return true;
+      });
+
+      renderizarTabela();
+    }
+
+    function limparFiltrosInsumos() {
+      document.getElementById("filtroNomeInsumo").value = "";
+      document.getElementById("busca").value = "";
+      insumosFiltrados = [...dadosOriginais];
+      renderizarTabela();
+    }
+
+    // Carregar ao iniciar
+    carregarInsumos();
+  </script>
+</body>
+</html>
