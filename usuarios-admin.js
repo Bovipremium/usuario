@@ -287,13 +287,17 @@ async function carregarVendedoresCheckboxes() {
       // Tentar via buscarArquivo (com API do Google)
       clientes = await buscarArquivo('clientes.json');
       console.log('✅ Clientes carregados via API');
-    } catch (erroAPI) {
+      } catch (erroAPI) {
       console.warn('⚠️ Erro ao carregar via API, tentando fallback local...', erroAPI.message);
-      // Fallback: tentar carregar arquivo local diretamente
-      const response = await fetch('./clientes.json');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      clientes = await response.json();
-      console.log('✅ Clientes carregados via fetch local');
+      // Fallback: tentar carregar via buscarArquivo (que já trata cache/fallbacks)
+      try {
+        clientes = await buscarArquivo('clientes.json');
+        console.log('✅ Clientes carregados via buscarArquivo fallback');
+      } catch (errFallback) {
+        console.warn('⚠️ Falha no fallback buscarArquivo:', errFallback.message);
+        // ❗️ Não tentar leitura local automática — forçar erro para que a issue de autorização/URL seja corrigida upstream.
+        throw errFallback;
+      }
     }
     
     console.log('✅ Clientes carregados:', clientes);
@@ -1351,3 +1355,183 @@ function atualizarResumoMetas() {
   document.getElementById('resumoProLaboreMinima').textContent = 'R$ ' + proLaboreMinima.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
+// ============================================
+// FUNÇÕES DE BACKUP
+// ============================================
+
+/**
+ * Criar backup manual instantâneo
+ */
+async function criarBackupManual() {
+  try {
+    const statusDiv = document.getElementById('statusBackupManual');
+    statusDiv.innerHTML = '⏳ Criando backup...';
+    
+    const response = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        'acao': 'criarBackupManual',
+        'deviceId': adminDeviceId
+      })
+    });
+
+    if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+    
+    const resultado = await response.json();
+    
+    if (resultado.success || resultado.sucesso) {
+      statusDiv.innerHTML = '✅ Backup criado com sucesso em: ' + new Date().toLocaleString('pt-BR');
+      mostrarMensagem('✅ Backup criado com sucesso!', 'sucesso');
+      await carregarHistoricoBackups();
+    } else {
+      throw new Error(resultado.mensagem || 'Erro desconhecido');
+    }
+  } catch (erro) {
+    console.error('❌ Erro ao criar backup:', erro);
+    document.getElementById('statusBackupManual').innerHTML = '❌ Erro: ' + erro.message;
+    mostrarMensagem('❌ Erro ao criar backup: ' + erro.message, 'erro');
+  }
+}
+
+/**
+ * Restaurar backup a partir de um arquivo ZIP
+ */
+async function restaurarBackupArquivo() {
+  try {
+    const fileInput = document.getElementById('inputBackupZip');
+    const statusDiv = document.getElementById('statusBackupRestauracao');
+    
+    if (!fileInput.files || fileInput.files.length === 0) {
+      statusDiv.innerHTML = '❌ Nenhum arquivo selecionado';
+      return;
+    }
+
+    const arquivo = fileInput.files[0];
+    statusDiv.innerHTML = '⏳ Enviando arquivo: ' + arquivo.name;
+    
+    // Validar se é ZIP
+    if (!arquivo.name.endsWith('.zip') && arquivo.type !== 'application/zip') {
+      statusDiv.innerHTML = '❌ Erro: Apenas arquivos .zip são aceitos';
+      return;
+    }
+
+    // Ler o arquivo como ArrayBuffer
+    const arrayBuffer = await arquivo.arrayBuffer();
+    const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(arrayBuffer)));
+
+    // Enviar para o servidor
+    const response = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        'acao': 'restaurarBackup',
+        'backupBase64': base64,
+        'nomeArquivo': arquivo.name,
+        'deviceId': adminDeviceId
+      })
+    });
+
+    if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+    
+    const resultado = await response.json();
+    
+    if (resultado.success || resultado.sucesso) {
+      statusDiv.innerHTML = '✅ Backup restaurado com sucesso! Dados atualizados.';
+      mostrarMensagem('✅ Backup restaurado! O site foi atualizado.', 'sucesso');
+      
+      // Limpar input
+      fileInput.value = '';
+      
+      // Recarregar dados
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } else {
+      throw new Error(resultado.mensagem || 'Erro desconhecido');
+    }
+  } catch (erro) {
+    console.error('❌ Erro ao restaurar backup:', erro);
+    document.getElementById('statusBackupRestauracao').innerHTML = '❌ Erro: ' + erro.message;
+    mostrarMensagem('❌ Erro ao restaurar: ' + erro.message, 'erro');
+  }
+}
+
+/**
+ * Carregar histórico de backups
+ */
+async function carregarHistoricoBackups() {
+  try {
+    const response = await fetch(CONFIG.API_URL + '?acao=listarBackups&deviceId=' + adminDeviceId);
+    const resultado = await response.json();
+    
+    if (!resultado.backups || !Array.isArray(resultado.backups)) {
+      document.getElementById('tabelaBackups').innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">Nenhum backup encontrado</td></tr>';
+      return;
+    }
+
+    let html = '';
+    resultado.backups.forEach(backup => {
+      const dataHora = new Date(backup.criado).toLocaleString('pt-BR');
+      const tamanho = (backup.tamanho / 1024 / 1024).toFixed(2) + ' MB';
+      
+      html += `
+        <tr>
+          <td>${dataHora}</td>
+          <td><strong>${backup.nome}</strong></td>
+          <td>${tamanho}</td>
+          <td><span style="color: #4caf50; font-weight: 600;">✅ Pronto</span></td>
+          <td>
+            <button class="btn btn-add" onclick="baixarBackup('${backup.id}')" style="padding: 6px 12px; font-size: 12px;">
+              📥 Baixar
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+
+    document.getElementById('tabelaBackups').innerHTML = html;
+  } catch (erro) {
+    console.error('❌ Erro ao carregar backups:', erro);
+    document.getElementById('tabelaBackups').innerHTML = '<tr><td colspan="5" style="text-align: center; color: #ff6b6b;">Erro ao carregar backups</td></tr>';
+  }
+}
+
+/**
+ * Baixar backup
+ */
+async function baixarBackup(backupId) {
+  try {
+    const response = await fetch(CONFIG.API_URL + '?acao=downloadBackup&id=' + encodeURIComponent(backupId) + '&deviceId=' + adminDeviceId);
+    
+    if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'backup_' + new Date().toISOString().slice(0, 10) + '.zip';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    mostrarMensagem('✅ Backup baixado com sucesso!', 'sucesso');
+  } catch (erro) {
+    console.error('❌ Erro ao baixar backup:', erro);
+    mostrarMensagem('❌ Erro ao baixar: ' + erro.message, 'erro');
+  }
+}
+
+/**
+ * Mostrar/ocular aba de backup quando necessário
+ */
+document.addEventListener('DOMContentLoaded', () => {
+  const originalMudarAba = window.mudarAba;
+  window.mudarAba = function(aba) {
+    if (originalMudarAba) originalMudarAba(aba);
+    if (aba === 'backup') {
+      carregarHistoricoBackups();
+    }
+  };
+});
