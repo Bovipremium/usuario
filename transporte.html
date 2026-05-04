@@ -978,6 +978,11 @@
     document.getElementById('modalTitulo').textContent = '➕ Adicionar Transporte';
     document.getElementById('formTransporte').reset();
     document.getElementById('modal').classList.add('ativo');
+    
+    // ✅ Ativar autocomplete do cliente
+    setTimeout(() => {
+      configurarAutocompleteCliente();
+    }, 100);
   }
 
   function editarTransporte(id) {
@@ -1003,6 +1008,11 @@
     }
 
     document.getElementById('modal').classList.add('ativo');
+    
+    // ✅ Ativar autocomplete do cliente
+    setTimeout(() => {
+      configurarAutocompleteCliente();
+    }, 100);
   }
 
   function fecharModal() {
