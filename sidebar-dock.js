@@ -4,7 +4,7 @@
 // Auto-hide after 10 seconds
 
 const MODULOS_DOCK = [
-  { nome: 'Inicio', tipo: 'modulos', icon: '🏠', url: 'Index.html' },
+  { nome: 'Inicio', tipo: 'modulos', icon: '🏠', url: 'index.html' },
   { nome: 'Clientes', tipo: 'modulos', icon: '👥', url: 'clientes.html' },
   { nome: 'Insumos', tipo: 'modulos', icon: '📦', url: 'insumos.html' },
   { nome: 'Transporte', tipo: 'modulos', icon: '🚚', url: 'transporte.html' },
