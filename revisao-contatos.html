@@ -551,7 +551,15 @@
               <th>Número</th>
               <th>Nome</th>
               <th>Observação</th>
-              <th style="text-align: center;">WhatsApp?</th>
+              <th style="text-align: center; min-width: 110px;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;">
+                  <span>WhatsApp?</span>
+                  <label title="Marcar todos para WhatsApp" style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: #7cf0c2; font-size: 11px; text-transform: none; letter-spacing: 0;">
+                    <input id="checkTodosWhatsapp" type="checkbox" onchange="marcarTodosWhatsapp(this.checked)" style="width: 16px; height: 16px; cursor: pointer;">
+                    Tudo
+                  </label>
+                </div>
+              </th>
               <th>Ações</th>
             </tr>
           </thead>
