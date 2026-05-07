@@ -1664,10 +1664,135 @@ function confirmarAgendamento() {
   console.log(`  ⏱️ Intervalo: ${intervalo} minutos`);
   console.log(`  📝 Descrição: ${descricao}`);
   
-  // Aqui você pode salvar o agendamento em banco de dados ou enviar para API
-  exibirMensagem('cola', `✅ Agendamento registrado para ${data} às ${hora}`, 'success');
-  
-  fecharModalAgendamento();
+  (async () => {
+    try {
+      mostrarLoadingTela();
+
+      // Construir objeto de agendamento (compatível com agendar-ligacoes.html)
+      const [ano, mes, dia] = data.split('-');
+      const [horas, mins] = hora.split(':');
+      const dataHoraInicio = new Date(ano, mes - 1, dia, horas, mins);
+      
+      const agendamento = {
+        Numero: numero,
+        DataHoraInicio: dataHoraInicio.toISOString(),
+        IntervalMinutos: Number(intervalo) || 3,
+        Descricao: descricao || `Agendado para ${nome || numero}`,
+        DataCriacao: new Date().toISOString(),
+        Id: 'lig_' + Date.now()
+      };
+
+      // Carregar agendamentos existentes, adicionar novo e salvar
+      const existentes = await carregarAgendamentos();
+      existentes.push(agendamento);
+
+      const sucesso = await salvarAgendamentos(existentes);
+
+      esconderLoadingTela();
+
+      if (!sucesso) {
+        exibirMensagem('cola', '❌ Erro ao salvar agendamento', 'error');
+        return;
+      }
+
+      exibirMensagem('cola', `✅ Agendamento registrado para ${data} às ${hora}`, 'success');
+      fecharModalAgendamento();
+
+      // Registrar auditoria mínima
+      if (typeof registrarAuditoria === 'function') {
+        registrarAuditoria('Criar', 'Agendamento', numero, `${data} ${hora}`, descricao || `Agendamento de ${numero}`);
+      }
+
+      // Manter a página (revisaocontatos.html) sem redirecionar
+      atualizarTodasAsAbas();
+
+    } catch (erro) {
+      console.error('❌ Erro ao confirmar agendamento:', erro);
+      esconderLoadingTela();
+      exibirMensagem('cola', '❌ Erro ao registrar agendamento', 'error');
+    }
+  })();
+}
+
+// ============================================
+// AGENDAMENTOS - CARREGAR E SALVAR NO DRIVE
+// ============================================
+async function carregarAgendamentos() {
+  try {
+    const deviceId = localStorage.getItem('deviceId');
+    if (!deviceId) {
+      console.warn('❌ Sem deviceId para agendamentos');
+      return [];
+    }
+
+    const arquivo = CONFIG.ARQUIVOS.AGENDAMENTOS_LIGACOES || 'agendamentos_ligacoes.json';
+    const url = `${CONFIG.API_URL}?acao=buscar&arquivo=${arquivo}&deviceId=${deviceId}&t=${Date.now()}`;
+    console.log('📥 Carregando agendamentos:', url);
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.log('⚠️ Arquivo de agendamentos não existe ainda');
+      return [];
+    }
+
+    let dados = await response.json();
+    if (typeof dados === 'string') {
+      dados = JSON.parse(dados);
+    }
+
+    return Array.isArray(dados) ? dados : [];
+  } catch (erro) {
+    console.error('❌ Erro ao carregar agendamentos:', erro);
+    return [];
+  }
+}
+
+async function salvarAgendamentos(agendamentos) {
+  try {
+    const deviceId = localStorage.getItem('deviceId');
+    if (!deviceId) {
+      console.error('❌ Sem deviceId');
+      return false;
+    }
+
+    const arquivo = CONFIG.ARQUIVOS.AGENDAMENTOS_LIGACOES || 'agendamentos_ligacoes.json';
+    const dadosJson = JSON.stringify(agendamentos);
+
+    console.log('📤 Salvando agendamentos no Drive:', { arquivo, count: agendamentos.length });
+
+    const response = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        'acao': 'salvar',
+        'arquivo': arquivo,
+        'dados': dadosJson,
+        'deviceId': deviceId
+      })
+    });
+
+    if (!response.ok) {
+      console.error(`❌ HTTP ${response.status}`);
+      return false;
+    }
+
+    const resultado = await response.json();
+    console.log('📤 Resposta salvar agendamentos:', resultado);
+
+    const foiSucesso = resultado.success === true || resultado.success === 'true' || (resultado.mensagem && resultado.mensagem.includes('sucesso'));
+    if (!foiSucesso) {
+      console.error('❌ Salvar agendamentos falhou:', resultado);
+      return false;
+    }
+
+    console.log(`✅ ${agendamentos.length} agendamentos salvos no Drive!`);
+    return true;
+  } catch (erro) {
+    console.error('❌ Erro ao salvar agendamentos:', erro);
+    return false;
+  }
 }
 
 // Expor função para onclick no HTML
