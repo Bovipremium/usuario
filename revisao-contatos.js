@@ -1644,15 +1644,15 @@ function fecharModalAgendamento() {
 // CONFIRMAR AGENDAMENTO
 // ============================================
 function confirmarAgendamento() {
-  const numero = document.getElementById('agendNumero').value;
-  const nome = document.getElementById('agendNome').value;
-  const data = document.getElementById('agendData').value;
-  const hora = document.getElementById('agendHora').value;
-  const intervalo = document.getElementById('agendIntervalo').value;
-  const descricao = document.getElementById('agendDescricao').value;
+  const numero = document.getElementById('agendNumero')?.value;
+  const nome = document.getElementById('agendNome')?.value;
+  const data = document.getElementById('agendData')?.value;
+  const hora = document.getElementById('agendHora')?.value;
+  const intervalo = document.getElementById('agendIntervalo')?.value;
+  const descricao = document.getElementById('agendDescricao')?.value;
   
   if (!numero || !data || !hora || !intervalo) {
-    alert('❌ Preencha os campos obrigatórios: Número, Data, Hora e Intervalo');
+    exibirMensagem('cola', '❌ Preencha os campos obrigatórios: Número, Data, Hora e Intervalo', 'error');
     return;
   }
   
@@ -1673,6 +1673,8 @@ function confirmarAgendamento() {
       const [horas, mins] = hora.split(':');
       const dataHoraInicio = new Date(ano, mes - 1, dia, horas, mins);
       
+      console.log('📅 Data construída:', dataHoraInicio.toISOString());
+
       const agendamento = {
         Numero: numero,
         DataHoraInicio: dataHoraInicio.toISOString(),
@@ -1682,19 +1684,26 @@ function confirmarAgendamento() {
         Id: 'lig_' + Date.now()
       };
 
+      console.log('📋 Agendamento construído:', agendamento);
+
       // Carregar agendamentos existentes, adicionar novo e salvar
       const existentes = await carregarAgendamentos();
+      console.log('📥 Agendamentos existentes:', existentes.length);
+      
       existentes.push(agendamento);
+      console.log('📥 Total após adicionar:', existentes.length);
 
       const sucesso = await salvarAgendamentos(existentes);
 
       esconderLoadingTela();
 
       if (!sucesso) {
+        console.error('❌ salvarAgendamentos retornou false');
         exibirMensagem('cola', '❌ Erro ao salvar agendamento', 'error');
         return;
       }
 
+      console.log('✅ Agendamento salvo com sucesso!');
       exibirMensagem('cola', `✅ Agendamento registrado para ${data} às ${hora}`, 'success');
       fecharModalAgendamento();
 
@@ -1708,8 +1717,9 @@ function confirmarAgendamento() {
 
     } catch (erro) {
       console.error('❌ Erro ao confirmar agendamento:', erro);
+      console.error('Stack:', erro.stack);
       esconderLoadingTela();
-      exibirMensagem('cola', '❌ Erro ao registrar agendamento', 'error');
+      exibirMensagem('cola', '❌ Erro ao registrar agendamento: ' + erro.message, 'error');
     }
   })();
 }
@@ -1759,6 +1769,8 @@ async function salvarAgendamentos(agendamentos) {
     const dadosJson = JSON.stringify(agendamentos);
 
     console.log('📤 Salvando agendamentos no Drive:', { arquivo, count: agendamentos.length });
+    console.log('📤 URL:', CONFIG.API_URL);
+    console.log('📤 Dados:', dadosJson);
 
     const response = await fetch(CONFIG.API_URL, {
       method: 'POST',
@@ -1778,10 +1790,30 @@ async function salvarAgendamentos(agendamentos) {
       return false;
     }
 
-    const resultado = await response.json();
+    let resultado;
+    try {
+      resultado = await response.json();
+    } catch (parseError) {
+      console.warn('⚠️ Erro ao fazer parse da resposta JSON:', parseError);
+      const texto = await response.text();
+      console.log('📤 Resposta texto:', texto);
+      // Tentar fazer parse manual
+      try {
+        resultado = JSON.parse(texto);
+      } catch (e2) {
+        console.error('❌ Não conseguiu fazer parse da resposta:', texto);
+        return false;
+      }
+    }
+
     console.log('📤 Resposta salvar agendamentos:', resultado);
 
-    const foiSucesso = resultado.success === true || resultado.success === 'true' || (resultado.mensagem && resultado.mensagem.includes('sucesso'));
+    if (!resultado) {
+      console.error('❌ Resposta vazia');
+      return false;
+    }
+
+    const foiSucesso = resultado.success === true || resultado.success === 'true' || resultado.sucesso === true || resultado.sucesso === 'true' || (resultado.mensagem && resultado.mensagem.includes('sucesso'));
     if (!foiSucesso) {
       console.error('❌ Salvar agendamentos falhou:', resultado);
       return false;
@@ -1791,6 +1823,7 @@ async function salvarAgendamentos(agendamentos) {
     return true;
   } catch (erro) {
     console.error('❌ Erro ao salvar agendamentos:', erro);
+    console.error('Stack:', erro.stack);
     return false;
   }
 }
