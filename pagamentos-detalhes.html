@@ -370,6 +370,7 @@
       100% { transform: rotate(360deg); }
     }
   </style>
+  <script src="modais-globais.js"></script>
 </head>
 <body>
 
@@ -617,6 +618,9 @@
             <button class="venda-btn" onclick="abrirWhatsApp('${clienteAtual.Id}')">
               💬 WhatsApp
             </button>
+            <button class="venda-btn" onclick="quitarVendaRecebimentoUnico(${vendaIdx})" style="background: linear-gradient(145deg, rgba(212,175,55,.30), rgba(212,175,55,.14)); color: #f7d77e; border-color: rgba(212,175,55,.35);">
+              💸 Quitar venda
+            </button>
             <button class="venda-btn danger" onclick="deletarVenda('${venda.Id}')">
               🗑️ Deletar Venda
             </button>
@@ -630,20 +634,21 @@
 
   // Criar nova venda
   async function novaVenda() {
-    const valor = prompt('Valor total da venda:', '');
-    if (!valor || isNaN(valor) || parseFloat(valor) <= 0) {
+    const valor = await modalPromptMoeda('Digite o valor total da venda:', '', 'Nova venda');
+    const valorNum = parseFloat(String(valor || '').replace(/R\$/gi, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.'));
+    if (!valor || isNaN(valorNum) || valorNum <= 0) {
       alert('❌ Valor inválido');
       return;
     }
 
-    const descricao = prompt('Descrição da venda:', '');
-    if (!descricao) {
+    const descricao = await modalPromptTexto('Digite a descrição da venda:', '', 'Nova venda');
+    if (!descricao || !descricao.trim()) {
       alert('❌ Descrição é obrigatória');
       return;
     }
 
     try {
-      const valorNum = parseFloat(valor);
+      const valorNum = parseFloat(String(valor).replace(/R\$/gi, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.'));
       const valorParcela = valorNum / 3;
       const hoje = new Date();
 
@@ -744,13 +749,7 @@
         // Se a data é futura ou diferente do mês atual, perguntar
         if (dataVencimento > hoje || mesVencimento !== mesAtual) {
           ocultarLoading();
-          const contar = confirm(
-            `📅 A parcela vence em: ${formatarData(venda.Parcelas[parcelaIdx].DataVencimento)}\n` +
-            `📆 Mês/Ano da venda: ${mesVencimento}\n` +
-            `📌 Você deseja contar como recebimento de ${mesAtual}?\n\n` +
-            `OK = Contar no mês atual (${mesAtual})\n` +
-            `CANCELAR = Contar na data de vencimento (${mesVencimento})`
-          );
+          const contar = await modalConfirm(`📅 A parcela vence em: ${formatarData(venda.Parcelas[parcelaIdx].DataVencimento)}\n📆 Mês/Ano da venda: ${mesVencimento}\n\nVocê deseja contar como recebimento de ${mesAtual}?`, { title: 'Contabilização do recebimento', okText: `Contar em ${mesAtual}`, cancelText: `Manter ${mesVencimento}` });
           
           mostrarLoading();
           
@@ -990,7 +989,7 @@
         return;
       }
 
-      const novaData = prompt('Nova data de vencimento (YYYY-MM-DD):', venda.Parcelas[parcelaIdx].DataVencimento.split('T')[0]);
+      const novaData = await modalPromptData('Selecione a nova data de vencimento:', venda.Parcelas[parcelaIdx].DataVencimento.split('T')[0], 'Editar vencimento');
       if (!novaData) return;
 
       if (!/^\d{4}-\d{2}-\d{2}$/.test(novaData)) {
@@ -1038,6 +1037,141 @@
       console.error('Erro:', erro);
       ocultarLoading();
       alert('❌ Erro: ' + erro.message);
+    }
+  }
+
+
+  // ============================================================
+  // QUITAÇÃO COM RECEBIMENTO ÚNICO
+  // Exemplo: venda R$ 1.000, cliente pagou R$ 900 hoje.
+  // O relatório conta somente R$ 900 na data de hoje.
+  // As parcelas são baixadas para não ficarem em aberto,
+  // mas não recebem DataPagamento individual e não entram como pagas no futuro.
+  // ============================================================
+  async function quitarVendaRecebimentoUnico(vendaIdx) {
+    try {
+      if (vendaIdx < 0 || vendaIdx >= clienteAtual.Vendas.length) {
+        alert('❌ Venda não encontrada');
+        return;
+      }
+
+      const venda = clienteAtual.Vendas[vendaIdx];
+      const parcelas = Array.isArray(venda.Parcelas) ? venda.Parcelas : [];
+
+      if (parcelas.length === 0) {
+        alert('❌ Esta venda não possui parcelas para quitar.');
+        return;
+      }
+
+      const valorOriginalVenda = parseFloat(venda.ValorTotal || venda.Valor || parcelas.reduce((s, p) => s + (parseFloat(p.Valor) || 0), 0)) || 0;
+
+      const parcelasEmAberto = parcelas.filter(p => {
+        const valorParcela = parseFloat(p.Valor) || 0;
+        const valorPago = parseFloat(p.ValorPago) || 0;
+        return !p.Pago || valorPago < valorParcela;
+      });
+
+      if (parcelasEmAberto.length === 0) {
+        alert('✅ Esta venda já está quitada.');
+        return;
+      }
+
+      const saldoAberto = parcelasEmAberto.reduce((s, p) => {
+        const valorParcela = parseFloat(p.Valor) || 0;
+        const valorPago = parseFloat(p.ValorPago) || 0;
+        return s + Math.max(0, valorParcela - valorPago);
+      }, 0);
+
+      const valorDigitado = await modalPromptMoeda('Valor original da venda: ' + formatarMoeda(valorOriginalVenda) + '\nSaldo aberto atual: ' + formatarMoeda(saldoAberto) + '\n\nDigite o valor que realmente entrou hoje:', saldoAberto.toFixed(2).replace('.', ','), 'Quitar venda');
+
+      if (!valorDigitado) return;
+
+      const valorRecebido = parseFloat(
+        String(valorDigitado)
+          .replace(/R\$/gi, '')
+          .replace(/\s/g, '')
+          .replace(/\./g, '')
+          .replace(',', '.')
+      );
+
+      if (!valorRecebido || isNaN(valorRecebido) || valorRecebido <= 0) {
+        alert('❌ Valor recebido inválido.');
+        return;
+      }
+
+      const confirmar = await modalConfirm('Valor original: ' + formatarMoeda(valorOriginalVenda) + '\nValor recebido hoje: ' + formatarMoeda(valorRecebido) + '\n\nImportante: o relatório vai contar somente o valor recebido hoje.\nAs parcelas serão baixadas, mas não entrarão como pagamentos futuros.', { title: 'Confirmar quitação', okText: 'Quitar venda', cancelText: 'Cancelar' });
+
+      if (!confirmar) return;
+
+      mostrarLoading();
+
+      const hoje = new Date().toISOString().split('T')[0];
+      const agoraIso = new Date().toISOString();
+      const vendaAntes = JSON.parse(JSON.stringify(venda));
+
+      venda.StatusVenda = 'QUITADA';
+      venda.Quitada = true;
+      venda.DataQuitacao = hoje;
+      venda.ValorRecebidoQuitacao = valorRecebido;
+      venda.QuitacaoRecebimentoUnico = {
+        Data: hoje,
+        DataHora: agoraIso,
+        ValorRecebido: valorRecebido,
+        ValorOriginalVenda: valorOriginalVenda,
+        SaldoAbertoNoMomento: saldoAberto,
+        Observacao: 'Venda quitada com recebimento único. Parcelas baixadas sem lançamento individual futuro.'
+      };
+
+      parcelas.forEach(parcela => {
+        const valorParcela = parseFloat(parcela.Valor) || 0;
+        const valorPagoAnterior = parseFloat(parcela.ValorPago) || 0;
+
+        if (!parcela.Pago || valorPagoAnterior < valorParcela) {
+          parcela.Pago = true;
+          parcela.BaixadaPorQuitacao = true;
+          parcela.QuitadaPorRecebimentoUnico = true;
+          parcela.DataBaixaQuitacao = hoje;
+          parcela.ValorPagoAntesDaQuitacao = valorPagoAnterior;
+          parcela.ValorPago = 0;
+          parcela.DataPagamento = null;
+          parcela.ObservacaoQuitacao = 'Baixada por quitação da venda. Não contar como pagamento individual.';
+        }
+      });
+
+      const clientes = await buscarArquivo('clientes.json');
+      const idx = clientes.findIndex(c => c.Id === clienteAtual.Id);
+      if (idx >= 0) clientes[idx] = clienteAtual;
+
+      const resultadoSalvar = await salvarClientesNoGoogleDrive(clientes);
+      if (!resultadoSalvar) {
+        ocultarLoading();
+        alert('❌ Erro ao salvar no Drive');
+        return;
+      }
+
+      try {
+        registrarAuditoria(
+          'Quitar',
+          'Venda',
+          venda.Id || String(vendaIdx),
+          venda.NumeroNF || 'Venda sem NF',
+          'Venda quitada com recebimento único de ' + formatarMoeda(valorRecebido),
+          JSON.stringify(vendaAntes),
+          JSON.stringify(venda)
+        );
+      } catch (e) {
+        console.warn('⚠️ Não consegui registrar auditoria da quitação:', e);
+      }
+
+      await recarregarClienteDoServidor();
+      renderizarVendas();
+      ocultarLoading();
+      alert('✅ Venda quitada! O relatório contará somente ' + formatarMoeda(valorRecebido) + ' na data de hoje.');
+
+    } catch (erro) {
+      console.error('Erro ao quitar venda:', erro);
+      ocultarLoading();
+      alert('❌ Erro ao quitar venda: ' + erro.message);
     }
   }
 
@@ -1246,7 +1380,7 @@
 
   // Deletar venda
   async function deletarVenda(vendaId) {
-    const senha = prompt('Digite a palavra-chave para confirmar deleção:', '');
+    const senha = await modalPromptSenha('Digite a palavra-chave para confirmar a deleção:', '', 'Deletar venda');
     if (senha !== 'Excluir ok') {
       alert('❌ Palavra-chave incorreta');
       return;
@@ -1397,7 +1531,7 @@
   }
 
   // ✅ Abrir WhatsApp
-  function abrirWhatsApp(clienteId) {
+  async function abrirWhatsApp(clienteId) {
     const cliente = clientesData.find(c => c.Id === clienteId);
     if (!cliente) {
       alert('❌ Cliente não encontrado');
@@ -1414,7 +1548,7 @@
 
     // ✅ Se tem 2 telefones, perguntar qual usar
     if (tel1 && tel2) {
-      const escolha = prompt(`Qual número deseja usar?\n\n1️⃣ ${tel1}\n2️⃣ ${tel2}\n\nDigite 1 ou 2:`);
+      const escolha = await modalEscolherOpcao('Escolher número', 'Selecione qual número deseja usar no WhatsApp:', [{ value: '1', label: tel1 }, { value: '2', label: tel2 }]);
       
       if (escolha === '1') {
         abrirWhatsAppComNumero(tel1);
@@ -1467,5 +1601,7 @@
 <script src="clientes-upload-docs.js"></script>
 
 <script src="sidebar-dock.js"></script>
+<script src="mascaras-globais.js"></script>
+<script src="alertas-ligacoes.js"></script>
 </body>
 </html>

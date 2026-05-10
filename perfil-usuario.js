@@ -16,6 +16,7 @@ const MODULOS_SISTEMA = [
   "Pagamentos",
   "Receitas",
   "Despesas",
+  "Relatório Completo",
   "AutoWhatsApp",
   "Administrador"
 ];
@@ -148,7 +149,7 @@ function renderizarVendedoresVisíveis() {
 // REMOVER VENDEDOR/CLIENTE VISÍVEL
 // ============================================
 async function removerVendedor(vendedor) {
-  if (confirm(`⚠️ Remover acesso ao vendedor "${vendedor}"?`)) {
+  if (await modalConfirm(`Remover acesso ao vendedor "${vendedor}"?`, { title: 'Remover acesso', okText: 'Remover', cancelText: 'Cancelar' })) {
     usuarioAtual.VendedoresPermitidos = usuarioAtual.VendedoresPermitidos.filter(v => v !== vendedor);
     
     // Atualizar na lista

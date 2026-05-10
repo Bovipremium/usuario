@@ -165,7 +165,7 @@ function abrirModalReceita(id = null) {
             document.getElementById('nomeReceita').value = receita.Nome || '';
             document.getElementById('classeReceita').value = receita.Tipo || '';
             document.getElementById('pesoReceita').value = receita.PesoPadrao || 0;
-            document.getElementById('custoPorKgReceita').value = receita.CustoPorKg || 0;
+            definirMoedaInput(document.getElementById('custoPorKgReceita'), receita.CustoPorKg || 0);
             document.getElementById('descricaoReceita').value = receita.Descricao || '';
         }
     } else {
@@ -173,7 +173,7 @@ function abrirModalReceita(id = null) {
         document.getElementById('nomeReceita').value = '';
         document.getElementById('classeReceita').value = '';
         document.getElementById('pesoReceita').value = 10;
-        document.getElementById('custoPorKgReceita').value = 0;
+        definirMoedaInput(document.getElementById('custoPorKgReceita'), 0);
         document.getElementById('descricaoReceita').value = '';
     }
 
@@ -184,7 +184,7 @@ function salvarReceita() {
     const nome = document.getElementById('nomeReceita').value.trim();
     const classe = document.getElementById('classeReceita').value.trim();
     const peso = parseFloat(document.getElementById('pesoReceita').value) || 0;
-    const custoPorKg = parseFloat(document.getElementById('custoPorKgReceita').value) || 0;
+    const custoPorKg = valorNumerico(document.getElementById('custoPorKgReceita').value) || 0;
     const descricao = document.getElementById('descricaoReceita').value.trim();
 
     if (!nome) {
@@ -255,8 +255,8 @@ function salvarReceita() {
     mostrarAlerta('Receita salva com sucesso!', 'success');
 }
 
-function deletarReceita(id) {
-    if (confirm('Tem certeza que deseja deletar esta receita?')) {
+async function deletarReceita(id) {
+    if (await modalConfirm('Tem certeza que deseja deletar esta receita?', { title: 'Deletar receita', okText: 'Deletar', cancelText: 'Cancelar' })) {
         const receita = receitas.find(r => r.Id === id);
         receitas = receitas.filter(r => r.Id !== id);
         
@@ -347,7 +347,7 @@ function abrirModalMateria(id = null) {
             document.querySelector('#modalMateria .modal-header h2').textContent = 'Editar Matéria-Prima';
             document.getElementById('nomeMateria').value = materia.Nome || '';
             document.getElementById('categoriaMateria').value = materia.Categoria || 'Mineral';
-            document.getElementById('valorMateria').value = materia.ValorUnitario || 0;
+            definirMoedaInput(document.getElementById('valorMateria'), materia.ValorUnitario || 0);
             document.getElementById('pesoMateria').value = materia.PesoUnitario || 25;
             document.getElementById('quantidadeMateria').value = materia.Quantidade || 0;
         }
@@ -366,7 +366,7 @@ function abrirModalMateria(id = null) {
 function salvarMateria() {
     const nome = document.getElementById('nomeMateria').value.trim();
     const categoria = document.getElementById('categoriaMateria').value;
-    const valorUnitario = parseFloat(document.getElementById('valorMateria').value) || 0;
+    const valorUnitario = valorNumerico(document.getElementById('valorMateria').value) || 0;
     const pesoUnitario = parseFloat(document.getElementById('pesoMateria').value) || 0;
     const quantidade = parseFloat(document.getElementById('quantidadeMateria').value) || 0;
 
@@ -435,8 +435,8 @@ function salvarMateria() {
     mostrarAlerta('Matéria-prima salva com sucesso!', 'success');
 }
 
-function deletarMateria(id) {
-    if (confirm('Tem certeza que deseja deletar esta matéria-prima?')) {
+async function deletarMateria(id) {
+    if (await modalConfirm('Tem certeza que deseja deletar esta matéria-prima?', { title: 'Deletar matéria-prima', okText: 'Deletar', cancelText: 'Cancelar' })) {
         const materia = materiasPrimas.find(m => m.Id === id);
         materiasPrimas = materiasPrimas.filter(m => m.Id !== id);
         
@@ -766,8 +766,8 @@ function calcularLote() {
     document.getElementById('resultados').textContent = resultado;
 }
 
-function limparLote() {
-    if (confirm('Tem certeza que deseja limpar o lote?')) {
+async function limparLote() {
+    if (await modalConfirm('Tem certeza que deseja limpar o lote?', { title: 'Limpar lote', okText: 'Limpar', cancelText: 'Cancelar' })) {
         loteCalculos = [];
         renderizarLote();
         document.getElementById('msgLote').textContent = '';
@@ -822,8 +822,8 @@ function mostrarDetalhesHistorico(id) {
     }
 }
 
-function limparHistorico() {
-    if (confirm('Tem certeza que deseja limpar todo o histórico?')) {
+async function limparHistorico() {
+    if (await modalConfirm('Tem certeza que deseja limpar todo o histórico?', { title: 'Limpar histórico', okText: 'Limpar', cancelText: 'Cancelar' })) {
         historico = [];
         salvarHistorico();
         renderizarHistorico();
@@ -909,7 +909,7 @@ async function descontarMateriaPrima() {
         mensagemConfirmacao += '⚠️ Clique OK para confirmar ou CANCELAR para desistir.';
 
         // ❓ PERGUNTAR CONFIRMAÇÃO
-        if (!confirm(mensagemConfirmacao)) {
+        if (!await modalConfirm(mensagemConfirmacao, { title: 'Confirmar desconto', okText: 'Confirmar', cancelText: 'Cancelar' })) {
             console.log('ℹ️ Desconto cancelado pelo usuário');
             return;
         }

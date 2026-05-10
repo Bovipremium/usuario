@@ -80,5 +80,7 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+window.AuthManager = AuthManager;
+
 console.log('🔐 Autenticação carregada e ativa');
 

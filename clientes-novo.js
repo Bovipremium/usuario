@@ -263,7 +263,7 @@ async function handleFormSubmit(e) {
       hideLoader();
       
       // Mostrar alerta e sugerir ir para vendas do cliente existente
-      const irParaVendas = confirm(
+      const irParaVendas = await modalConfirm(
         `⚠️ CPF ${novoCliente.CPF} já está cadastrado para ${clienteExistente.Nome}!\n\n` +
         `Deseja adicionar uma venda a este cliente em vez de criar um novo?\n\n` +
         `Clique "OK" para ir para a página de vendas do cliente ${clienteExistente.Nome}.`
@@ -487,8 +487,8 @@ async function salvarClientesDrive(clientes) {
 }
 
 // ===== VOLTAR =====
-function goBack() {
-  if (confirm('Deseja voltar? Os dados não salvos serão perdidos.')) {
+async function goBack() {
+  if (await modalConfirm('Deseja voltar? Os dados não salvos serão perdidos.', { title: 'Voltar', okText: 'Voltar', cancelText: 'Cancelar' })) {
     window.history.back();
   }
 }

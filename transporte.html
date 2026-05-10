@@ -577,6 +577,7 @@
       margin-top: 10px;
     }
   </style>
+  <script src="modais-globais.js"></script>
 </head>
 <body>
 
@@ -791,7 +792,7 @@
 
         console.log('🔄 Iniciando carregamento de transportes...');
         
-        // Carregar transportes.json usando buscarArquivo (vem do auth.js)
+        // Carregar transporte.json usando buscarArquivo (vem do auth.js)
         console.log('📥 Buscando transporte.json...');
         transportes = await buscarArquivo("transporte.json");
         
@@ -997,7 +998,7 @@
     document.getElementById('transportadora').value = transporte.Transportadora;
     document.getElementById('codigoRastreio').value = transporte.CodigoRastreio;
     document.getElementById('numeroNF').value = transporte.NumeroNF;
-    document.getElementById('valorFrete').value = transporte.ValorFrete;
+    definirMoedaInput(document.getElementById('valorFrete'), transporte.ValorFrete);
     document.getElementById('dataPagamentoFrete').value = transporte.DataPagamentoFrete || '';
     document.getElementById('quantidadeAnimais').value = transporte.QuantidadeAnimais;
     document.getElementById('status').value = transporte.Status;
@@ -1059,8 +1060,7 @@
     if (!transporte) return;
 
     // Perguntar qual status deseja
-    const opcoes = 'Escolha o status:\n\n1 = Entregue ✓\n0 = Pendente ⏳\n\nDigite 1 ou 0:';
-    const input = prompt(opcoes);
+    const input = await modalEscolherOpcao('Status do transporte', 'Escolha o novo status:', [{ value: '1', label: '1 = Entregue ✓' }, { value: '0', label: '0 = Pendente ⏳' }]);
     
     if (input === null) return; // Cancelou
     
@@ -1248,7 +1248,7 @@
       Transportadora: document.getElementById('transportadora').value,
       CodigoRastreio: document.getElementById('codigoRastreio').value,
       NumeroNF: document.getElementById('numeroNF').value,
-      ValorFrete: parseFloat(document.getElementById('valorFrete').value),
+      ValorFrete: valorNumerico(document.getElementById('valorFrete').value),
       DataPagamentoFrete: document.getElementById('dataPagamentoFrete').value || null,
       QuantidadeAnimais: parseInt(document.getElementById('quantidadeAnimais').value),
       Status: parseInt(document.getElementById('status').value),
@@ -1334,7 +1334,8 @@
               'transportadora': dados.Transportadora,
               'valorFrete': dados.ValorFrete.toString(),
               'dataPagamentoFrete': dados.DataPagamentoFrete || '',
-              'numeroNF': dados.NumeroNF || ''
+              'numeroNF': dados.NumeroNF || '',
+              'deviceId': localStorage.getItem('deviceId') || ''
             })
           });
 
@@ -1592,7 +1593,7 @@ Se os campos não foram preenchidos automaticamente:
   }
 
   // ============ NOTIFICAÇÃO WHATSAPP ============
-  function notificarWhatsApp(id) {
+  async function notificarWhatsApp(id) {
     const transporte = transportes.find(t => t.Id === id);
     if (!transporte) return;
 
@@ -1619,7 +1620,7 @@ ${mensagem}
 
 Deseja abrir o WhatsApp agora?`;
 
-    if (confirm(confirmacao)) {
+    if (await modalConfirm(confirmacao, { title: 'Notificação de rastreamento', okText: 'Abrir WhatsApp', cancelText: 'Cancelar' })) {
       window.open(urlWhatsApp, '_blank');
       console.log('📱 Abrindo WhatsApp para:', telefone);
       alert('✅ Notificação de rastreamento enviada ao cliente via WhatsApp!');
@@ -1653,5 +1654,7 @@ Deseja abrir o WhatsApp agora?`;
 </script>
 
 <script src="sidebar-dock.js"></script>
+<script src="mascaras-globais.js"></script>
+<script src="alertas-ligacoes.js"></script>
 </body>
 </html>

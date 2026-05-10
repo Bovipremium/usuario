@@ -1048,7 +1048,7 @@ async function marcarTodosWhatsapp(marcado) {
     return;
   }
 
-  if (!confirm(`Marcar ${contatosDaLigacao.length} contato(s) como WhatsApp e mover todos para a aba WhatsApp?`)) {
+  if (!await modalConfirm(`Marcar ${contatosDaLigacao.length} contato(s) como WhatsApp e mover todos para a aba WhatsApp?`, { title: 'Mover contatos', okText: 'Mover', cancelText: 'Cancelar' })) {
     atualizarCheckboxTudoWhatsapp();
     return;
   }
@@ -1500,7 +1500,7 @@ function renderizarJSON() {
 async function apagarDoJSON(numero) {
   console.log('🗑️ APAGAR DO JSON: ' + numero);
   
-  if (!confirm('Apagar este contato?\n(Ele será enviado para a blacklist e não voltará em novas importações.)')) {
+  if (!await modalConfirm('Apagar este contato?\n(Ele será enviado para a blacklist e não voltará em novas importações.)', { title: 'Apagar contato', okText: 'Apagar', cancelText: 'Cancelar' })) {
     console.log('Cancelado');
     return;
   }

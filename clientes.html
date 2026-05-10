@@ -410,6 +410,7 @@
     }
   </style>
 <script src="notificacoes-sistema.js"></script>
+  <script src="modais-globais.js"></script>
 </head>
 <body>
   <div class="sidebar-dock" id="sidebar"></div>
@@ -507,10 +508,10 @@
   </div>
 
   <script src="config.js"></script>
-  <script src="auth.js"></script>
+  
   <script src="auth-utils.js"></script>
-  <script src="alertas-global.js"></script>
-  <script src="sidebar-dock.js"></script>
+<script src="auth.js"></script>
+<script src="sidebar-dock.js"></script>
   
   <script>
     let clientesData = [];
@@ -639,7 +640,7 @@
         sessionStorage.setItem('clienteSelecionado', clienteJSON);
         localStorage.setItem('clienteSelecionado', clienteJSON);
         console.log('✅ Cliente salvo. Redirecionando...');
-        window.location.href = 'clientes-detalhes.html';
+        window.open('clientes-detalhes.html', '_blank');
       } else {
         alert('❌ Cliente não encontrado');
       }
@@ -771,5 +772,7 @@ Nome: ${cliente.Nome}
     // Carregar ao iniciar
     carregarClientes();
   </script>
+<script src="mascaras-globais.js"></script>
+<script src="alertas-ligacoes.js"></script>
 </body>
 </html>

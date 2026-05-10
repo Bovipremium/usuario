@@ -36,6 +36,7 @@
     .required { color: #d4af37; }
     @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } label { font-size: 10px; } input, select, textarea { font-size: 12px; } }
   </style>
+  <script src="modais-globais.js"></script>
 </head>
 <body>
 <div id="loaderContainer" class="loader-container hidden">
@@ -215,8 +216,10 @@
 </div>
 
 <script src="config.js"></script>
-<script src="auth.js"></script>
+
 <script src="clientes-novo.js"></script>
+<script src="auth-utils.js"></script>
+<script src="auth.js"></script>
 <script src="sidebar-dock.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
@@ -251,7 +254,8 @@
     }
   });
 </script>
-<script src="alertas-ligacoes.js"></script>
 <script src="sidebar-dock.js"></script>
+<script src="mascaras-globais.js"></script>
+<script src="alertas-ligacoes.js"></script>
 </body>
 </html>

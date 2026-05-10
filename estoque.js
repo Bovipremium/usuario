@@ -231,8 +231,7 @@
       font-weight: 600;
       width: 100%;
     }
-  </style>  <script src="modais-globais.js"></script>
-</head>
+  </style></head>
 <body>
 
 <div class="container">
@@ -380,6 +379,7 @@
 <script src="CONFIG_URLS.js"></script>
 <script src="auth.js"></script>
 <script src="auditoria.js"></script>
+<script src="estoque.js"></script>
 <script src="clientes-upload-docs.js"></script>
 <script src="imprimir-vendas.js"></script>
 
@@ -679,20 +679,15 @@
       const cacheKey = 'arquivo_clientes.json_cache';
       localStorage.removeItem(cacheKey);
 
-      // 📌 SE MARCOU COMO PRONTO, PERGUNTA SE QUER DESCONTAR DOS INSUMOS
-      if (pronto && cliente.Vendas && Array.isArray(cliente.Vendas) && cliente.Vendas.length > 0) {
-        ocultarLoading();
-        const descontar = await modalConfirm('Deseja descontar a última venda dos insumos?', { title: 'Descontar insumos', okText: 'Sim, descontar', cancelText: 'Não' });
-        
-        if (descontar) {
-          mostrarLoading();
-          const ultimaVenda = cliente.Vendas[cliente.Vendas.length - 1];
-          const desceu = await descontarDosInsumos(ultimaVenda);
-          
-          if (!desceu) {
-            ocultarLoading();
-            alert('⚠️ Erro ao descontar dos insumos, mas o produto foi marcado como pronto.');
-            return;
+      // 📌 SE MARCOU COMO PRONTO, REMOVE QUANTIDADE PENDENTE E DEDUZ DO ESTOQUE
+      if (pronto && cliente.Vendas && Array.isArray(cliente.Vendas)) {
+        for (const venda of cliente.Vendas) {
+          if (venda.Produtos && Array.isArray(venda.Produtos)) {
+            for (const produto of venda.Produtos) {
+              if (produto.Quantidade > 0) {
+                await removerQuantidadePendente(produto.Nome, produto.PesoUnidade, produto.Quantidade);
+              }
+            }
           }
         }
       }
@@ -708,104 +703,6 @@
       console.error('Erro ao marcar produto pronto:', erro);
       ocultarLoading();
       alert('❌ Erro: ' + erro.message);
-    }
-  }
-
-  // 🔽 DESCONTAR DA ÚLTIMA VENDA DOS INSUMOS
-  async function descontarDosInsumos(venda) {
-    try {
-      console.log('📥 Descontando insumos da venda:', venda);
-      
-      if (!venda.Produtos || !Array.isArray(venda.Produtos)) {
-        console.warn('⚠️ Venda sem produtos');
-        return true;
-      }
-
-      // 📂 Carregar insumos.json
-      let insumos = await buscarArquivo('insumos.json');
-      if (!Array.isArray(insumos)) {
-        insumos = insumos.dados || [];
-      }
-
-      console.log(`📦 ${insumos.length} insumos carregados`);
-
-      // 🔄 PROCESSAR CADA PRODUTO DA VENDA
-      venda.Produtos.forEach(produtoVenda => {
-        const nomeProduto = (produtoVenda.Nome || '').trim();
-        const qtdVenda = parseFloat(produtoVenda.Quantidade) || 0;
-        const pesoProduto = (produtoVenda.PesoUnidade || '').trim();
-
-        console.log(`🔍 Procurando: Nome="${nomeProduto}", Peso="${pesoProduto}", Qtd=${qtdVenda}`);
-
-        if (!nomeProduto || qtdVenda <= 0) return;
-
-        // 🎯 ENCONTRAR INSUMO QUE CORRESPONDE
-        let encontrado = false;
-        for (let i = 0; i < insumos.length; i++) {
-          const insumo = insumos[i];
-          const nomeInsumo = (insumo.Nome || '').trim();
-          const descricaoInsumo = (insumo.Descricao || '').trim();
-          const pesoInsumo = (insumo.Peso || '').trim();
-
-          // ✅ REGRA DE MATCHING:
-          // 1. Se o produto tem NOME: procura por insumo com mesmo NOME + PESO
-          // 2. Se o produto NÃO tem NOME: procura por insumo SEM NOME, por DESCRIÇÃO
-          
-          let match = false;
-          if (nomeProduto) {
-            // Produto tem nome - procurar por nome + peso
-            match = nomeInsumo === nomeProduto && pesoInsumo === pesoProduto;
-          } else if (descricaoInsumo === pesoProduto) {
-            // Produto não tem nome (é balde) - procurar por descrição
-            match = !nomeInsumo || nomeInsumo === '';
-          }
-
-          if (match) {
-            const qtdAtual = parseFloat(insumo.Qtd) || 0;
-            const qtdNova = Math.max(0, qtdAtual - qtdVenda);
-            
-            console.log(`✅ ENCONTRADO: ${nomeInsumo || 'SEM NOME'} - ${descricaoInsumo} (${pesoInsumo})`);
-            console.log(`   Qtd: ${qtdAtual} → ${qtdNova}`);
-            
-            insumos[i].Qtd = qtdNova;
-            encontrado = true;
-            break;
-          }
-        }
-
-        if (!encontrado) {
-          console.warn(`⚠️ Insumo não encontrado para: "${nomeProduto}" (Peso: ${pesoProduto})`);
-        }
-      });
-
-      // 💾 SALVAR INSUMOS ATUALIZADOS
-      const salvou = await salvarDadosComAuditoria(
-        'insumos.json',
-        insumos,
-        'auditoria',
-        'Atualizar',
-        'Insumo',
-        'MULTIPLOS',
-        'Desconto de Venda',
-        'Insumos descontados - Produto Marcado como Pronto',
-        JSON.stringify({}),
-        JSON.stringify(insumos)
-      );
-
-      if (!salvou) {
-        console.error('❌ Erro ao salvar insumos');
-        return false;
-      }
-
-      console.log('✅ Insumos descontados com sucesso!');
-
-      // 🗑️ LIMPAR CACHE
-      localStorage.removeItem('arquivo_insumos.json_cache');
-
-      return true;
-    } catch (erro) {
-      console.error('❌ Erro ao descontar insumos:', erro);
-      return false;
     }
   }
 
@@ -2292,7 +2189,6 @@
       box-shadow: 0 10px 60px rgba(31,163,122,.3);
     `;
 
-    const dataSaidaPadrao = new Date().toISOString().split('T')[0];
     const proximaSemana = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     form.innerHTML = `
@@ -2302,31 +2198,17 @@
         <p style="color: #7cf0c2; margin: 0; font-size: 12px;">Preencha os dados para gerar o código de rastreio.</p>
       </div>
 
-      <!-- Cidade de Saída  -->
+      <!-- Cidade de Saída -->
       <div style="margin-bottom: 18px;">
-        <label style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 6px;">📍 Cidade de Saída (Saiu o produto de)</label>
+        <label style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 6px;">📍 Cidade de Saída</label>
         <input type="text" id="inputCidadeSaida" placeholder="Ex: anapolis-go" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
       </div>
 
       <!-- Cidade Atual (onde está hoje) -->
       <div style="margin-bottom: 18px;">
-        <label style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 6px;">📌 Cidade Atual (que esta a mercadoria)</label>
+        <label style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 6px;">📌 Cidade Atual (Destino)</label>
         <input type="text" id="inputCidadeAtual" placeholder="Ex: brasilia-df" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
         <small style="color: #8fb9ac; font-size: 10px; margin-top: 4px; display: block;">Onde o objeto chegará</small>
-      </div>
-
-      <!-- Cidade Destino Final - somente demonstrativo -->
-      <div style="margin-bottom: 18px;">
-        <label style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 6px;">🎯 Cidade Destino</label>
-        <input type="text" id="inputCidadeDestinoFinal" placeholder="Ex: uberlandia-mg" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
-        <small style="color: #8fb9ac; font-size: 10px; margin-top: 4px; display: block;">Só demonstra os km até o destino. Não vai para o JSON.</small>
-      </div>
-
-      <!-- Data de Saída -->
-      <div style="margin-bottom: 18px;">
-        <label style="color: #8fb9ac; font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 6px;">🚚 Data de Saída</label>
-        <input type="date" id="inputDataSaida" value="${dataSaidaPadrao}" style="width: 100%; padding: 10px; border: 1px solid rgba(31,163,122,.3); border-radius: 8px; background: rgba(31,163,122,.1); color: #7cf0c2; box-sizing: border-box;">
-        <small style="color: #8fb9ac; font-size: 10px; margin-top: 4px; display: block;">Dia em que o produto saiu da origem</small>
       </div>
 
       <!-- Data de Chegada Prevista -->
@@ -2357,69 +2239,31 @@
     document.getElementById('btnProcessarRastreio').onclick = () => processarRastreioComMaps(modal);
   }
 
-  // Cidade obrigatoriamente com UF, por exemplo: anapolis-go, belo-horizonte-mg, brasilia-df
-  function cidadeComUfValida(cidade) {
-    return /^[\p{L}0-9 .'-]+-[A-Za-z]{2}$/u.test(String(cidade || '').trim());
-  }
-
   // Processar rastreio COM Nominatim funcionando
   async function processarRastreioComMaps(modal) {
     try {
       const cidadeSaida = document.getElementById('inputCidadeSaida').value?.trim();
       const cidadeDestino = document.getElementById('inputCidadeAtual').value?.trim();
-      const cidadeDestinoFinal = document.getElementById('inputCidadeDestinoFinal').value?.trim();
-      const dataSaida = document.getElementById('inputDataSaida').value;
       const dataChegada = document.getElementById('inputDataChegada').value;
       const numParadas = parseInt(document.getElementById('inputParadas').value) || 2;
 
       // Validações básicas
-      if (!cidadeSaida || !cidadeDestino || !cidadeDestinoFinal) {
-        alert('⚠️ Preencha cidade de saída, cidade atual e cidade destino');
+      if (!cidadeSaida || !cidadeDestino) {
+        alert('⚠️ Preencha cidade de saída e destino');
         return;
       }
-
-      if (!cidadeComUfValida(cidadeSaida) || !cidadeComUfValida(cidadeDestino) || !cidadeComUfValida(cidadeDestinoFinal)) {
-        alert('⚠️ Informe todas as cidades com UF no formato cidade-uf.\n\nExemplos: anapolis-go, belo-horizonte-mg, brasilia-df.');
-        return;
-      }
-
-      if (!dataSaida) {
-        alert('⚠️ Informe a data de saída');
-        return;
-      }
-
       if (!dataChegada) {
-        alert('⚠️ Informe a data prevista de chegada');
+        alert('⚠️ Informe a data de chegada');
         return;
       }
 
       // Validar datas
-      const dataSaidaObj = new Date(dataSaida + 'T00:00:00');
-      const dataChegadaObj = new Date(dataChegada + 'T00:00:00');
+      const dataChegadaObj = new Date(dataChegada);
       const hoje = new Date();
       hoje.setHours(0, 0, 0, 0);
 
-      // A cidade atual é mostrada como última movimentação de ontem.
-      // Se a saída for hoje, seria impossível manter a cronologia sem voltar no tempo.
-      const ontemParaRastreio = new Date(hoje);
-      ontemParaRastreio.setDate(ontemParaRastreio.getDate() - 1);
-
-      if (dataSaidaObj > ontemParaRastreio) {
-        alert(
-          '⚠️ Data de saída incoerente para este rastreio.\n\n' +
-          'A cidade atual é mostrada como última movimentação de ontem, então a saída precisa ser no máximo até ontem.\n\n' +
-          'Ajuste a Data de Saída para não gerar datas voltando no tempo.'
-        );
-        return;
-      }
-
       if (dataChegadaObj < hoje) {
-        alert('⚠️ A data prevista de chegada deve ser a partir de hoje ou após');
-        return;
-      }
-
-      if (dataChegadaObj < dataSaidaObj) {
-        alert('⚠️ A data prevista de chegada não pode ser anterior à data de saída');
+        alert('⚠️ A data de chegada deve ser a partir de hoje ou após');
         return;
       }
 
@@ -2437,46 +2281,14 @@
       
       console.log('✅ Rota gerada:', rota);
 
-      // Buscar a Cidade Destino somente para análise e resumo visual.
-      // IMPORTANTE: esse dado NÃO entra no JSON.
-      const coordCidadeDestinoFinal = await nominatimBuscarCidade(cidadeDestinoFinal);
-      if (!coordCidadeDestinoFinal) {
-        throw new Error(`Cidade destino "${cidadeDestinoFinal}" não encontrada. Use cidade-uf, por exemplo: uberlandia-mg.`);
-      }
-
-      const analiseRotaDestino = await analisarRotaAteCidadeDestino(rota, coordCidadeDestinoFinal);
-      const resumoKmAteDestino = analiseRotaDestino.resumo;
-      const analiseCoerencia = analisarCoerenciaRastreio(dataSaidaObj, dataChegadaObj, analiseRotaDestino);
-
-      if (analiseCoerencia.bloqueante) {
-        ocultarLoading();
-        alert(
-          '⚠️ Rastreio incoerente. Ajuste antes de gerar:\n\n' +
-          analiseCoerencia.alertas.join('\n') +
-          '\n\nSugestão: ajuste a previsão de entrega ou informe uma cidade atual mais coerente com a distância restante.'
-        );
-        return;
-      }
-
-      // Gerar histórico com as datas distribuídas de acordo com o percurso já feito.
-      const historico = gerarHistoricoRastreioInteligente(
-        rota,
-        dataChegadaObj,
-        dataSaidaObj,
-        analiseRotaDestino
-      );
+      // Gerar histórico
+      const historico = gerarHistoricoRastreioInteligente(rota, dataChegadaObj);
 
       ocultarLoading();
 
       // Mostrar preview
       modal.remove();
-      mostrarModalEdicaoRastreioSimples(
-        historico,
-        rota,
-        dataChegadaObj,
-        resumoKmAteDestino,
-        analiseCoerencia
-      );
+      mostrarModalEdicaoRastreioSimples(historico, rota, dataChegadaObj);
 
     } catch (erro) {
       console.error('❌ Erro:', erro);
@@ -2646,278 +2458,83 @@
     }
   }
 
-  // Distância aproximada em linha reta, usada só no preview demonstrativo.
-  function calcularDistanciaKmAproximada(lat1, lon1, lat2, lon2) {
-    const raioTerraKm = 6371;
-    const rad = graus => graus * Math.PI / 180;
-    const dLat = rad(lat2 - lat1);
-    const dLon = rad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(rad(lat1)) * Math.cos(rad(lat2)) *
-      Math.sin(dLon / 2) ** 2;
-    return raioTerraKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
-
-  async function analisarRotaAteCidadeDestino(rota, coordDestinoFinal) {
-    const partes = [];
-    const pontos = [];
-    let distanciaAcumulada = 0;
-    let coordAnterior = null;
-
-    for (const nomeCidade of rota) {
-      const coordCidade = await nominatimBuscarCidade(nomeCidade);
-
-      if (!coordCidade) {
-        partes.push(`${nomeCidade} (? km)`);
-        pontos.push({
-          nome: nomeCidade,
-          coord: null,
-          kmAteDestino: null,
-          distanciaAcumulada
-        });
-        continue;
-      }
-
-      if (coordAnterior) {
-        distanciaAcumulada += calcularDistanciaKmAproximada(
-          coordAnterior.lat,
-          coordAnterior.lon,
-          coordCidade.lat,
-          coordCidade.lon
-        );
-      }
-
-      const kmAteDestino = calcularDistanciaKmAproximada(
-        coordCidade.lat,
-        coordCidade.lon,
-        coordDestinoFinal.lat,
-        coordDestinoFinal.lon
-      );
-
-      pontos.push({
-        nome: nomeCidade,
-        coord: coordCidade,
-        kmAteDestino,
-        distanciaAcumulada
-      });
-
-      partes.push(`${nomeCidade} (${Math.round(kmAteDestino)} km)`);
-      coordAnterior = coordCidade;
-    }
-
-    partes.push(`${coordDestinoFinal.nome} (CIDADE DESTINO)`);
-
-    const primeiroPonto = pontos.find(p => typeof p.kmAteDestino === 'number');
-    const ultimoPonto = [...pontos].reverse().find(p => typeof p.kmAteDestino === 'number');
-
-    return {
-      resumo: partes.join(' → '),
-      pontos,
-      distanciaTotalAteDestino: primeiroPonto ? primeiroPonto.kmAteDestino : null,
-      distanciaRestante: ultimoPonto ? ultimoPonto.kmAteDestino : null,
-      distanciaPercorridaAteAtual: distanciaAcumulada,
-      cidadeAtual: ultimoPonto ? ultimoPonto.nome : null,
-      cidadeDestino: coordDestinoFinal.nome
-    };
-  }
-
-  function prazoMaximoPorDistancia(km) {
-    if (!Number.isFinite(km)) return null;
-    if (km <= 30) return 2;
-    if (km <= 80) return 4;
-    if (km <= 200) return 6;
-    if (km <= 500) return 10;
-    if (km <= 1000) return 14;
-    return 21;
-  }
-
-  function diasEntreDatas(dataInicial, dataFinal) {
-    const a = new Date(dataInicial);
-    const b = new Date(dataFinal);
-    a.setHours(0, 0, 0, 0);
-    b.setHours(0, 0, 0, 0);
-    return Math.round((b - a) / (24 * 60 * 60 * 1000));
-  }
-
-  function analisarCoerenciaRastreio(dataSaida, dataChegada, analiseRota) {
-    const alertas = [];
-    const avisos = [];
+  // Gerar histórico inteligente de rastreio (com datas começando de hoje)
+  function gerarHistoricoRastreioInteligente(rota, dataChegada) {
+    let historico = [];
+    
+    // Data de hoje (02/04/2026)
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
 
-    const diasAteEntrega = diasEntreDatas(hoje, dataChegada);
-    const diasTotalTransporte = diasEntreDatas(dataSaida, dataChegada);
-
-    const maxRestante = prazoMaximoPorDistancia(analiseRota.distanciaRestante);
-    const maxTotal = prazoMaximoPorDistancia(analiseRota.distanciaTotalAteDestino);
-
-    if (maxRestante !== null && diasAteEntrega > maxRestante + 1) {
-      alertas.push(
-        `• A cidade atual está a cerca de ${Math.round(analiseRota.distanciaRestante)} km do destino, mas a previsão está ${diasAteEntrega} dia(s) à frente. Para essa distância, use no máximo cerca de ${maxRestante} dia(s).`
-      );
-    }
-
-    if (maxTotal !== null && diasTotalTransporte > maxTotal * 3) {
-      alertas.push(
-        `• A rota total tem cerca de ${Math.round(analiseRota.distanciaTotalAteDestino)} km, mas o prazo entre saída e entrega ficou em ${diasTotalTransporte} dia(s). Isso está muito longo para essa distância.`
-      );
-    } else if (maxTotal !== null && diasTotalTransporte > maxTotal) {
-      avisos.push(
-        `Prazo total alto para a distância da rota: ${Math.round(analiseRota.distanciaTotalAteDestino)} km em ${diasTotalTransporte} dia(s).`
-      );
-    }
-
-    return {
-      bloqueante: alertas.length > 0,
-      alertas,
-      avisos,
-      distanciaTotal: analiseRota.distanciaTotalAteDestino,
-      distanciaRestante: analiseRota.distanciaRestante,
-      diasAteEntrega,
-      diasTotalTransporte
-    };
-  }
-
-  // Gerar histórico inteligente de rastreio
-  // A linha do tempo começa na Data de Saída e NUNCA volta no tempo.
-  // A última cidade continua sendo a movimentação recente de ontem.
-  function gerarHistoricoRastreioInteligente(rota, dataChegada, dataSaidaInformada, analiseRota = {}) {
-    const historico = [];
-
-    const dataInicioRastreio = new Date(dataSaidaInformada);
-    dataInicioRastreio.setHours(0, 0, 0, 0);
-
-    const hojeGeracao = new Date();
-    hojeGeracao.setHours(0, 0, 0, 0);
-
-    // Última cidade: sempre ontem, como você pediu.
-    const dataUltimaCidade = new Date(hojeGeracao);
-    dataUltimaCidade.setDate(dataUltimaCidade.getDate() - 1);
-    dataUltimaCidade.setHours(10, 45, 0, 0);
-
+    // Formatar data de chegada
     let dataEntrega = new Date(dataChegada);
     dataEntrega.setHours(10, 30, 0, 0);
 
+    // Se for domingo, passa para segunda
     if (dataEntrega.getDay() === 0) {
       dataEntrega.setDate(dataEntrega.getDate() + 1);
     }
 
-    // Linha 1 preserva o padrão visual atual:
-    // previsão de entrega + data de início do rastreio.
+    // 1. PREVISÃO DE ENTREGA (primeiro evento)
     historico.push({
       text: `PREVISÃO DE ENTREGA - ${formatarDataRastreio(dataEntrega).split(' ')[0]}`,
-      time: formatarDataRastreio(dataInicioRastreio)
+      time: formatarDataRastreio(hoje)
     });
 
-    const inicioMovimento = new Date(dataInicioRastreio);
-    inicioMovimento.setHours(9, 0, 0, 0);
+    // 2. Retirada (hoje)
+    let dataSaida = new Date(hoje);
+    dataSaida.setHours(9, 0, 0, 0);
+    historico.push({
+      text: `Objeto retirado pela transportadora - ${rota[0]}`,
+      time: formatarDataRastreio(dataSaida)
+    });
 
-    const fimMovimento = new Date(dataUltimaCidade);
+    // 3. Primeira parada (saída)
+    let dataAtual = new Date(hoje);
+    dataAtual.setHours(16, 30, 0, 0);
+    historico.push({
+      text: `Objeto está em - ${rota[0]}`,
+      time: formatarDataRastreio(dataAtual)
+    });
 
-    if (inicioMovimento > fimMovimento) {
-      throw new Error('Data de saída posterior à última movimentação possível. Ajuste a Data de Saída.');
-    }
-
-    const pontos = Array.isArray(analiseRota.pontos) ? analiseRota.pontos : [];
-    const distanciaAteAtual = Number(analiseRota.distanciaPercorridaAteAtual) || 0;
-
-    function progressoCidade(indiceCidade, fallback) {
-      const ponto = pontos[indiceCidade];
-      if (ponto && distanciaAteAtual > 0 && Number.isFinite(ponto.distanciaAcumulada)) {
-        return Math.max(0, Math.min(1, ponto.distanciaAcumulada / distanciaAteAtual));
-      }
-      return fallback;
-    }
-
-    // Eventos de movimento com progresso lógico da rota.
-    // Assim as datas seguem a distância e nunca diminuem.
-    const eventos = [
-      { text: `Objeto retirado pela transportadora - ${rota[0]}`, progresso: 0 },
-      { text: `Objeto está em - ${rota[0]}`, progresso: 0.03 }
-    ];
-
+    // 4. Eventos intermediários (paradas entre saída e atual)
     if (rota.length > 2) {
       for (let i = 1; i < rota.length - 1; i++) {
-        const progressoAnterior = progressoCidade(i - 1, (i - 1) / (rota.length - 1));
-        const progressoAtual = progressoCidade(i, i / (rota.length - 1));
-        const meio = (progressoAnterior + progressoAtual) / 2;
-
-        eventos.push({
+        // Saída em rota
+        dataAtual = adicionarDiasUteis(dataAtual, 1);
+        dataAtual.setHours(8, 45, 0, 0);
+        historico.push({
           text: `Rota para - ${rota[i]}`,
-          progresso: meio
+          time: formatarDataRastreio(dataAtual)
         });
 
-        eventos.push({
+        // Chegada na parada
+        dataAtual = adicionarDiasUteis(dataAtual, 1);
+        dataAtual.setHours(14, 15, 0, 0);
+        historico.push({
           text: `Objeto está em - ${rota[i]}`,
-          progresso: progressoAtual
+          time: formatarDataRastreio(dataAtual)
         });
       }
     }
 
+    // 5. Último trajeto (para cidade atual)
     if (rota.length > 1) {
-      const progressoPenultimo = rota.length > 1
-        ? progressoCidade(Math.max(0, rota.length - 2), Math.max(0, (rota.length - 2) / (rota.length - 1)))
-        : 0;
-      const meioFinal = (progressoPenultimo + 1) / 2;
-
-      eventos.push({
+      dataAtual = adicionarDiasUteis(dataAtual, 1);
+      dataAtual.setHours(8, 45, 0, 0);
+      historico.push({
         text: `Rota para - ${rota[rota.length - 1]}`,
-        progresso: meioFinal
+        time: formatarDataRastreio(dataAtual)
       });
 
-      eventos.push({
+      // 6. Chegada na cidade atual
+      dataAtual = adicionarDiasUteis(dataAtual, 1);
+      dataAtual.setHours(10, 45, 0, 0);
+      historico.push({
         text: `Objeto está em - ${rota[rota.length - 1]}`,
-        progresso: 1
+        time: formatarDataRastreio(dataAtual)
       });
     }
-
-    // Normalizar progressos para garantir ordem estritamente crescente.
-    let ultimoProgresso = -1;
-    const totalEventos = eventos.length;
-
-    eventos.forEach((evento, indice) => {
-      let progresso = Number(evento.progresso);
-
-      if (!Number.isFinite(progresso)) {
-        progresso = totalEventos <= 1 ? 1 : indice / (totalEventos - 1);
-      }
-
-      progresso = Math.max(0, Math.min(1, progresso));
-
-      // Garante que cada evento venha depois do anterior.
-      if (progresso <= ultimoProgresso) {
-        progresso = Math.min(1, ultimoProgresso + 0.001);
-      }
-
-      ultimoProgresso = progresso;
-      evento.progresso = progresso;
-    });
-
-    const duracao = fimMovimento.getTime() - inicioMovimento.getTime();
-
-    let ultimoTimestamp = inicioMovimento.getTime() - 1;
-
-    eventos.forEach((evento, indice) => {
-      let timestamp = inicioMovimento.getTime() + duracao * evento.progresso;
-
-      // Garante cronologia mesmo em janelas muito curtas.
-      if (timestamp <= ultimoTimestamp) {
-        timestamp = ultimoTimestamp + 60 * 1000;
-      }
-
-      // Último evento é fixado exatamente em ontem 10:45.
-      if (indice === eventos.length - 1) {
-        timestamp = fimMovimento.getTime();
-      }
-
-      ultimoTimestamp = timestamp;
-
-      historico.push({
-        text: evento.text,
-        time: formatarDataRastreio(new Date(timestamp))
-      });
-    });
 
     return historico;
   }
@@ -2966,7 +2583,7 @@
   }
 
   // Modal de edição/preview com campos editáveis
-  function mostrarModalEdicaoRastreioSimples(historico, rota, dataChegada, resumoKmAteDestino = '', analiseCoerencia = null) {
+  function mostrarModalEdicaoRastreioSimples(historico, rota, dataChegada) {
     // Gerar código automaticamente
     const codigo = gerarCodigoRastreioAuto();
     let historicoEditavel = JSON.parse(JSON.stringify(historico));
@@ -3039,23 +2656,10 @@
           <span style="color: #8fb9ac; font-size: 10px; text-transform: uppercase;">Código de Rastreio:</span>
           <div style="color: #1fa37a; font-weight: 800; font-size: 18px; font-family: monospace; margin-top: 4px; letter-spacing: 2px;">${codigo}</div>
         </div>
-        <div style="margin-bottom: 10px;">
+        <div>
           <span style="color: #8fb9ac; font-size: 10px; text-transform: uppercase;">Rota Montada:</span>
           <div style="color: #7cf0c2; font-size: 13px; margin-top: 2px; word-break: break-word;">${rotaFormatada}</div>
         </div>
-        ${resumoKmAteDestino ? `
-          <div style="margin-bottom: 10px;">
-            <span style="color: #8fb9ac; font-size: 10px; text-transform: uppercase;">Km até cidade destino:</span>
-            <div style="color: #d4af37; font-size: 13px; margin-top: 2px; word-break: break-word;">${resumoKmAteDestino}</div>
-            <small style="color: #8fb9ac; font-size: 10px; display: block; margin-top: 4px;">Apenas demonstrativo. Não é salvo no JSON.</small>
-          </div>
-        ` : ''}
-        ${analiseCoerencia && analiseCoerencia.avisos && analiseCoerencia.avisos.length ? `
-          <div style="margin-top: 10px; background: rgba(212,175,55,.10); border: 1px solid rgba(212,175,55,.35); border-radius: 8px; padding: 10px;">
-            <span style="color: #f7d77e; font-size: 10px; text-transform: uppercase;">Análise de coerência:</span>
-            <div style="color: #f7d77e; font-size: 12px; margin-top: 4px;">${analiseCoerencia.avisos.join('<br>')}</div>
-          </div>
-        ` : ''}
       </div>
 
       <h3 style="color: #1fa37a; margin: 20px 0 15px 0; font-size: 13px;">📍 Editar Histórico</h3>
@@ -3289,8 +2893,7 @@
     });
   }
 </script>
-<script src="sidebar-dock.js"></script>
-<script src="mascaras-globais.js"></script>
 <script src="alertas-ligacoes.js"></script>
+<script src="sidebar-dock.js"></script>
 </body>
 </html>

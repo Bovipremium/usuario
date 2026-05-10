@@ -443,6 +443,8 @@
   </style>
   <script src="auditoria.js"></script>
 <script src="notificacoes-sistema.js"></script>
+  <script src="modais-globais.js"></script>
+  <script src="categorias-inteligentes.js"></script>
 </head>
 <body>
 
@@ -617,11 +619,13 @@
 
   let todasDespesas = [];
   const mesesNomes = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-  let categoriasCustomizadas = {};  // Armazena descrição → categoria
+  let categoriasCustomizadas = {};  // Memória de categorias e aliases
+  let motorCategoriasInteligentes = null;
 
   document.addEventListener('DOMContentLoaded', async () => {
     await carregarCategoriasCustomizadas();  // Carregar antes das despesas
     await carregarDespesas();
+    motorCategoriasInteligentes = CategoriasInteligentes.criarMotor(todasDespesas, categoriasCustomizadas);
     renderizarPorMes();
   });
 
@@ -794,13 +798,13 @@
         <input type="date" class="data-despesa" id="data-${id}" required>
 
         <label style="color: #7cf0c2; font-weight: 600; font-size: 12px; display: block; margin-bottom: 8px;">📝 Descrição *</label>
-        <textarea class="descricao-despesa" id="desc-${id}" placeholder="Ex: Compra de combustível" required></textarea>
+        <textarea class="descricao-despesa" id="desc-${id}" placeholder="Ex: Compra de combustível" required onblur="autoCategorizarLinha(${id})"></textarea>
 
         <label style="color: #7cf0c2; font-weight: 600; font-size: 12px; display: block; margin-bottom: 8px;">💰 Valor *</label>
         <input type="number" class="valor-despesa" id="valor-${id}" placeholder="0.00" step="0.01" min="0" required onchange="autoCategorizarLinha(${id})">
 
         <label style="color: #7cf0c2; font-weight: 600; font-size: 12px; display: block; margin-bottom: 8px;">📂 Categoria</label>
-        <select class="categoria-despesa" id="categoria-${id}">
+        <select class="categoria-despesa" id="categoria-${id}" onchange="aprenderCategoriaManualLinha(${id})">
           <option value="">-- Auto (pela descrição) --</option>
           <option value="BANCO">BANCO</option>
           <option value="POSTO">POSTO</option>
@@ -826,6 +830,8 @@
 
     container.innerHTML += html;
     
+    popularCategoriasDinamicas(document.getElementById(`categoria-${id}`));
+
     // Colocar foco na data para preencher
     document.getElementById(`data-${id}`).focus();
   }
@@ -879,12 +885,8 @@
         // Ex: "ROBERSON WILLIAN DA CO (grafica)" → "ROBERSON WILLIAN DA CO"
         descricao = descricao.replace(/\s*\([^)]*\)/g, '').trim();
 
-        // PARSE CORRETO DE VALOR - Suporta virgula, ponto e R$
-        valor = String(valor).trim();
-        valor = valor.replace(/R\$\s*/g, '');  // Remove R$
-        valor = valor.replace(/\s/g, '');      // Remove espaços
-        valor = valor.replace(',', '.');       // Virgula → ponto
-        valor = parseFloat(valor) || 0;
+        // PARSE CORRETO DE VALOR - Suporta máscara R$ 1.234,56
+        valor = valorNumerico(valor) || 0;
         
         console.log(`💰 Valor original: "${document.getElementById(`valor-${id}`)?.value}" → Parseado: ${valor}`);
 
@@ -904,6 +906,7 @@
 
         // Auto-categorizar se não selecionou
         const categoria = categoriaSelect || autoCategorizar(descricao);
+        if (categoriaSelect) aprenderCategoriaDespesa(descricao, categoriaSelect);
 
         // Parse da data (formato: YYYY-MM-DD do input date)
         const dateParts = data.split('-');
@@ -1014,49 +1017,34 @@
 
   // ✅ AUTO-CATEGORIZAÇÃO PELA DESCRIÇÃO (com suporte a categorias customizadas)
   function autoCategorizar(descricao) {
-    const desc = (descricao || '').toUpperCase().trim();
-    
-    // 1️⃣ VERIFICAR PRIMEIRO SE TEM CATEGORIA CUSTOMIZADA PARA ESSA DESCRIÇÃO
-    for (const [descCustom, catCustom] of Object.entries(categoriasCustomizadas)) {
-      if (descCustom.toUpperCase() === desc) {
-        console.log(`✅ Categoria customizada encontrada: "${descricao}" → "${catCustom}"`);
-        return catCustom;
-      }
+    if (!motorCategoriasInteligentes) {
+      motorCategoriasInteligentes = CategoriasInteligentes.criarMotor(todasDespesas, categoriasCustomizadas);
     }
-    
-    // 2️⃣ SE NÃO TEM CUSTOMIZADA, USAR REGRAS DE AUTO-CATEGORIZAÇÃO
-    // Limpar descrição - remover tudo entre parênteses (categoria entre parênteses)
-    let descLimpa = desc.replace(/\s*\([^)]*\)/g, '').trim();
-    
-    const regras = {
-      'GRAFICA': ['GRAFICA', 'CO', 'IMPRESSAO', 'IMPRESSÃO', 'ROBERSON WILLIAN'],
-      'BANCO': ['TARIFA', 'BANCO', 'TRANSFERÊNCIA', 'TED', 'DOC', 'TAXA', 'CESTA DE RELACIONAMENTO', 'BOLETO', 'MANUTENCAO DE TITULOS', 'LIQUIDACAO BOLETO', 'LIQUIDACAO PIXCOB'],
-      'POSTO': ['POSTO', 'COMBUSTÍVEL', 'GASOLINA', 'DIESEL', 'ABASTEC', 'FELIS', 'SILVA'],
-      'TRANSPORTADORA': ['TRANSPORTADORA', 'FRETE', 'TRANSPORTE', 'TNORTE', 'TRÂNSITO', 'CAIRU', 'LOGISTICA', 'EXPRESSO RIO'],
-      'ENERGIA': ['ENERGIA', 'LUZ', 'ELETRICIDADE', 'ANEEL', 'SETTE TELECOM', 'INTERNET', 'TELECOM'],
-      'AGUA': ['ÁGUA', 'SANEAMENTO', 'HIDRO', 'SABESP'],
-      'IMPOSTO': ['IMPOSTO', 'SPC', 'DARF', 'CDL', 'TAXA DE BOLETO'],
-      'MERCADO': ['MERCADO', 'MERCEARIA', 'DISTRIBUIDORA', 'DICASA', 'LOCK', 'PIRI', 'SUPER', 'SANTOS', 'PEIXOTO', 'SUPERMERCADO'],
-      'FACEBOOK': ['FACEBOOK', 'META', 'ADS', 'PUBLICIDADE'],
-      'PESSOA': ['PIX', 'CAMILA', 'CHARLES', 'PESSOA', 'ROBERSON', 'WILLIAN', 'SILVA', 'JORGE', 'FELIZ'],
-      'SISTEMAS': ['SISTEMA DE NFE', 'NUVEM FISCAL', 'SISTEMA', 'SOFTWARE', 'ZAMBOTTO'],
-      'EMBALAGEM': ['EASYPACK', 'EMBALAGEM', 'CAIXA'],
-      'CELULAR': ['MULTIDISPLAY', 'CELULAR', 'TELEFONE', 'MÓVEL'],
-      'MANUTENCAO': ['MANUTENCAO', 'MANUTENÇÃO', 'REPARO', 'CONSERTO']
-    };
-    
-    for (const [categoria, palavras] of Object.entries(regras)) {
-      for (const palavra of palavras) {
-        if (descLimpa.includes(palavra)) {
-          console.log(`🏷️ Auto-categorizado: "${descricao}" → "${categoria}"`);
-          return categoria;
-        }
+    const categoria = CategoriasInteligentes.categorizar(descricao, '', motorCategoriasInteligentes);
+    return categoria === 'SEM CATEGORIA' ? '' : categoria;
+  }
+
+  function aprenderCategoriaDespesa(descricao, categoria) {
+    if (!descricao || !categoria) return;
+    CategoriasInteligentes.aprenderCategoria(descricao, categoria, categoriasCustomizadas);
+    motorCategoriasInteligentes = CategoriasInteligentes.criarMotor(todasDespesas, categoriasCustomizadas);
+    salvarCategoriasCustomizadas();
+  }
+
+  function popularCategoriasDinamicas(select) {
+    if (!select) return;
+    const categorias = new Set([
+      ...todasDespesas.map(d => CategoriasInteligentes.categorizar(d.Descricao, d.Categoria, motorCategoriasInteligentes)),
+      ...Object.values(categoriasCustomizadas || {}).filter(v => typeof v === 'string')
+    ]);
+    [...categorias].filter(c => c && c !== 'SEM CATEGORIA').sort().forEach(categoria => {
+      if (![...select.options].some(op => op.value === categoria)) {
+        const option = document.createElement('option');
+        option.value = categoria;
+        option.textContent = categoria;
+        select.appendChild(option);
       }
-    }
-    
-    // 3️⃣ SE NENHUMA REGRA ENCAIXOU, RETORNA VAZIO (usuário escolhe manualmente)
-    console.log(`❓ Nenhuma categoria encontrada para: "${descricao}"`);
-    return '';
+    });
   }
 
   function selecionarAba(aba) {
@@ -1358,8 +1346,8 @@
         
         // Atualizar na memória de categorias customizadas
         if (novaCategoria.trim()) {
-          categoriasCustomizadas[descricao] = novaCategoria;
-          console.log(`💾 Categoria customizada salva: "${descricao}" → "${novaCategoria}"`);
+          aprenderCategoriaDespesa(descricao, novaCategoria);
+          console.log(`💾 Categoria inteligente aprendida: "${descricao}" → "${novaCategoria}"`);
         }
       });
     });
@@ -1491,5 +1479,7 @@
   }
 </script>
 <script defer src="sidebar-dock.js"></script>
+<script src="mascaras-globais.js"></script>
+<script src="alertas-ligacoes.js"></script>
 </body>
 </html>

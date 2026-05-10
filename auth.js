@@ -7,6 +7,20 @@
 // 🔧 URL DO WEB APP - VINDA DE config.js
 const API_URL = CONFIG.API_URL;
 
+const MODULOS_GLOBAIS_SISTEMA = [
+  "Clientes",
+  "Insumos",
+  "Transporte",
+  "Pagamentos",
+  "Receitas",
+  "Despesas",
+  "Relatório Completo",
+  "AutoWhatsApp",
+  "Revisão Contatos",
+  "Administrador",
+  "Auditoria"
+];
+
 // ============================================
 // VERIFICAR SE USUÁRIO ESTÁ LOGADO
 // ============================================
@@ -43,10 +57,17 @@ function obterUsuario() {
 function obterModulos() {
   const usuario = obterUsuario();
   if (!usuario) return [];
-  // Retornar o array de modulos se existir
-  if (Array.isArray(usuario.modulos)) return usuario.modulos;
-  if (Array.isArray(usuario.ModulosPermitidos)) return usuario.ModulosPermitidos;
-  return [];
+
+  const modulos = Array.isArray(usuario.modulos)
+    ? usuario.modulos
+    : (Array.isArray(usuario.ModulosPermitidos) ? usuario.ModulosPermitidos : []);
+
+  // Administrador deve enxergar automaticamente os módulos novos do sistema.
+  if (modulos.includes("Administrador")) {
+    return Array.from(new Set([...modulos, ...MODULOS_GLOBAIS_SISTEMA]));
+  }
+
+  return modulos;
 }
 
 // ============================================

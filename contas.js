@@ -5,6 +5,7 @@
 const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
 let contasAtivas = [];
 let contaEmDelecao = null;
+let clientesFinanceiroCache = null;
 
 const usuarioLogado = JSON.parse(localStorage.getItem('usuarioLogado')) || {};
 
@@ -57,7 +58,7 @@ async function carregarContas() {
     console.log('✅ Contas carregadas:', contasAtivas.length);
     
     atualizarResumo();
-    renderizarTabela();
+    await renderizarTabela();
 
   } catch (erro) {
     console.error('❌ Erro ao carregar contas:', erro);
@@ -73,23 +74,54 @@ async function salvarConta(event) {
   if (event) event.preventDefault();
   
   try {
+    const tipoConta = document.getElementById('inputTipoConta')?.value || 'fixa';
     const descricao = document.getElementById('inputDescricao')?.value.trim();
-    const valor = parseFloat(document.getElementById('inputValor')?.value || 0);
+    let valor = valorNumerico(document.getElementById('inputValor')?.value || 0);
     const dataPagamento = document.getElementById('inputDataPagamento')?.value;
-    const categoria = document.getElementById('inputCategoria')?.value;
-    const recorrencia = document.getElementById('inputRecorrencia')?.value;
+    let categoria = document.getElementById('inputCategoria')?.value.trim();
+    let recorrencia = document.getElementById('inputRecorrencia')?.value;
     const notas = document.getElementById('inputNotas')?.value || '';
+    const percentual = parseFloat(document.getElementById('inputPercentual')?.value || 0) || 0;
+    const banco = document.getElementById('inputBanco')?.value.trim() || '';
+    const taxaPorBoleto = valorNumerico(document.getElementById('inputTaxaBoleto')?.value || 0);
 
-    console.log('📝 Salvando nova conta:', { descricao, valor, dataPagamento, categoria });
+    console.log('📝 Salvando nova conta:', { tipoConta, descricao, valor, dataPagamento, categoria, recorrencia, percentual, banco, taxaPorBoleto });
 
-    if (!descricao || !valor || !dataPagamento || !categoria) {
-      mostrarMensagem('❌ Preencha todos os campos obrigatórios!', 'erro');
+    if (!descricao || !dataPagamento) {
+      mostrarMensagem('❌ Preencha descrição e data inicial!', 'erro');
       return false;
     }
 
-    if (valor <= 0) {
-      mostrarMensagem('❌ O valor deve ser maior que zero!', 'erro');
-      return false;
+    if (tipoConta === 'fixa') {
+      if (!valor || !categoria) {
+        mostrarMensagem('❌ Preencha valor e categoria da conta fixa!', 'erro');
+        return false;
+      }
+
+      if (valor <= 0) {
+        mostrarMensagem('❌ O valor deve ser maior que zero!', 'erro');
+        return false;
+      }
+    }
+
+    if (tipoConta === 'imposto_percentual') {
+      if (!percentual || percentual <= 0) {
+        mostrarMensagem('❌ Informe um percentual de imposto maior que zero!', 'erro');
+        return false;
+      }
+      valor = 0;
+      categoria = categoria || 'Impostos';
+      recorrencia = 'mensal';
+    }
+
+    if (tipoConta === 'taxa_boleto') {
+      if (!banco || !taxaPorBoleto || taxaPorBoleto <= 0) {
+        mostrarMensagem('❌ Informe o banco e a taxa por boleto!', 'erro');
+        return false;
+      }
+      valor = 0;
+      categoria = categoria || 'Taxas Bancárias';
+      recorrencia = 'mensal';
     }
 
     const statusAutomatico = calcularStatusAutomatico(dataPagamento);
@@ -106,7 +138,11 @@ async function salvarConta(event) {
       Frequencia: recorrencia || null,
       DataCadastro: new Date().toISOString(),
       StatusPagamento: statusAutomatico,
-      DataPago: null
+      DataPago: null,
+      TipoConta: tipoConta,
+      Percentual: tipoConta === 'imposto_percentual' ? percentual : null,
+      Banco: tipoConta === 'taxa_boleto' ? banco : null,
+      TaxaPorBoleto: tipoConta === 'taxa_boleto' ? taxaPorBoleto : null
     };
 
     contasAtivas.push(conta);
@@ -124,7 +160,7 @@ async function salvarConta(event) {
       fecharModal();
 
       atualizarResumo();
-      renderizarTabela();
+      await renderizarTabela();
     } else {
       throw new Error('Falha ao salvar conta');
     }
@@ -237,7 +273,7 @@ async function confirmarDelecao() {
     contaEmDelecao = null;
 
     atualizarResumo();
-    renderizarTabela();
+    await renderizarTabela();
 
   } catch (erro) {
     console.error('❌ Erro ao deletar:', erro);
@@ -245,55 +281,354 @@ async function confirmarDelecao() {
   }
 }
 
+
+// ============================================
+// BASE FINANCEIRA PROFISSIONAL - CONTAS
+// ============================================
+
+function normalizarTipoConta(conta) {
+  return conta.TipoConta || conta.tipoConta || 'fixa';
+}
+
+function criarDataLocal(data) {
+  if (!data) return null;
+  const texto = String(data);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    const [ano, mes, dia] = texto.split('-').map(Number);
+    return new Date(ano, mes - 1, dia);
+  }
+  const d = new Date(texto);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function formatarDataISO(data) {
+  if (!data) return '';
+  const d = criarDataLocal(data) || new Date(data);
+  if (isNaN(d.getTime())) return '';
+  const ano = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
+function mesmoMesAno(data, mes, ano) {
+  const d = criarDataLocal(data);
+  return !!d && d.getMonth() + 1 === Number(mes) && d.getFullYear() === Number(ano);
+}
+
+function clonarContaParaExibicao(conta, ajustes = {}) {
+  return {
+    ...conta,
+    ...ajustes,
+    BaseContaId: conta.Id,
+    ContaPersistida: true
+  };
+}
+
+function intervaloMesesRecorrencia(frequencia) {
+  const mapa = {
+    mensal: 1,
+    bimestral: 2,
+    trimestral: 3,
+    semestral: 6,
+    anual: 12
+  };
+  return mapa[frequencia] || null;
+}
+
+function ultimoDiaMes(ano, mes) {
+  return new Date(ano, mes, 0).getDate();
+}
+
+function gerarOcorrenciasRecorrentesNoPeriodo(conta, mes, ano) {
+  const base = criarDataLocal(conta.DataPagamento);
+  if (!base) return [];
+
+  const inicioPeriodo = new Date(Number(ano), Number(mes) - 1, 1);
+  const fimPeriodo = new Date(Number(ano), Number(mes), 0, 23, 59, 59, 999);
+
+  if (fimPeriodo < base) return [];
+
+  const frequencia = conta.Frequencia || conta.frequencia || '';
+
+  if (frequencia === 'quinzenal') {
+    const ocorrencias = [];
+    const d = new Date(base);
+
+    while (d < inicioPeriodo) {
+      d.setDate(d.getDate() + 15);
+    }
+
+    while (d <= fimPeriodo) {
+      ocorrencias.push(clonarContaParaExibicao(conta, {
+        Id: `${conta.Id}__${formatarDataISO(d)}`,
+        DataPagamento: formatarDataISO(d),
+        StatusPagamento: 'Não Pago',
+        ProjecaoRecorrente: true,
+        TipoExibicao: 'projetada'
+      }));
+      d.setDate(d.getDate() + 15);
+    }
+
+    return ocorrencias;
+  }
+
+  const intervaloMeses = intervaloMesesRecorrencia(frequencia);
+  if (!intervaloMeses) return [];
+
+  const diffMeses =
+    (Number(ano) - base.getFullYear()) * 12 +
+    ((Number(mes) - 1) - base.getMonth());
+
+  if (diffMeses < 0 || diffMeses % intervaloMeses !== 0) return [];
+
+  const dia = Math.min(base.getDate(), ultimoDiaMes(Number(ano), Number(mes)));
+  const dataOcorrencia = new Date(Number(ano), Number(mes) - 1, dia);
+
+  return [clonarContaParaExibicao(conta, {
+    Id: `${conta.Id}__${formatarDataISO(dataOcorrencia)}`,
+    DataPagamento: formatarDataISO(dataOcorrencia),
+    StatusPagamento:
+      mesmoMesAno(conta.DataPagamento, mes, ano)
+        ? conta.StatusPagamento
+        : 'Não Pago',
+    ProjecaoRecorrente: !mesmoMesAno(conta.DataPagamento, mes, ano),
+    TipoExibicao: mesmoMesAno(conta.DataPagamento, mes, ano) ? 'real' : 'projetada'
+  })];
+}
+
+async function obterClientesFinanceiro() {
+  if (clientesFinanceiroCache) return clientesFinanceiroCache;
+
+  try {
+    const clientes = await buscarArquivo('clientes.json');
+    clientesFinanceiroCache = Array.isArray(clientes) ? clientes : [];
+  } catch (erro) {
+    console.warn('⚠️ Não consegui carregar clientes para contas automáticas:', erro);
+    clientesFinanceiroCache = [];
+  }
+
+  return clientesFinanceiroCache;
+}
+
+function obterValorVendaFinanceiro(venda) {
+  if (!venda) return 0;
+
+  const valorDireto = parseFloat(
+    venda.ValorTotal ||
+    venda.Valor ||
+    venda.Total ||
+    venda.TotalVenda ||
+    venda.ValorVenda ||
+    0
+  );
+
+  if (!isNaN(valorDireto) && valorDireto > 0) return valorDireto;
+
+  if (Array.isArray(venda.Produtos)) {
+    const totalProdutos = venda.Produtos.reduce((sum, produto) => sum + (parseFloat(produto.Valor || produto.valor || 0) || 0), 0);
+    if (totalProdutos > 0) return totalProdutos;
+  }
+
+  if (Array.isArray(venda.Parcelas)) {
+    return venda.Parcelas.reduce((sum, parcela) => sum + (parseFloat(parcela.Valor || parcela.valor || 0) || 0), 0);
+  }
+
+  return 0;
+}
+
+function obterDataVendaFinanceira(venda) {
+  return venda.DataVenda || venda.Data || venda.DataCadastro || venda.dataVenda || venda.data || null;
+}
+
+function obterMesAnterior(mes, ano) {
+  const d = new Date(Number(ano), Number(mes) - 2, 1);
+  return { mes: d.getMonth() + 1, ano: d.getFullYear() };
+}
+
+function totalVendidoNoPeriodo(clientes, mes, ano) {
+  let total = 0;
+
+  clientes.forEach(cliente => {
+    (cliente.Vendas || []).forEach(venda => {
+      const dataVenda = criarDataLocal(obterDataVendaFinanceira(venda));
+      if (!dataVenda) return;
+
+      if (dataVenda.getMonth() + 1 === Number(mes) && dataVenda.getFullYear() === Number(ano)) {
+        total += obterValorVendaFinanceiro(venda);
+      }
+    });
+  });
+
+  return total;
+}
+
+function contarBoletosPagosNoPeriodo(clientes, mes, ano) {
+  let total = 0;
+
+  clientes.forEach(cliente => {
+    (cliente.Vendas || []).forEach(venda => {
+      (venda.Parcelas || []).forEach(parcela => {
+        if (!parcela.Pago) return;
+        if (parcela.BaixadaPorQuitacao || parcela.QuitadaPorRecebimentoUnico) return;
+
+        const dataEfetiva = criarDataLocal(parcela.DataPagamento || parcela.dataPagamento || null);
+        if (!dataEfetiva) return;
+
+        if (dataEfetiva.getMonth() + 1 === Number(mes) && dataEfetiva.getFullYear() === Number(ano)) {
+          total += 1;
+        }
+      });
+    });
+  });
+
+  return total;
+}
+
+function periodoEhIgualOuPosterior(dataInicial, mes, ano) {
+  const base = criarDataLocal(dataInicial);
+  if (!base) return false;
+
+  const alvo = new Date(Number(ano), Number(mes) - 1, 1);
+  const inicioBase = new Date(base.getFullYear(), base.getMonth(), 1);
+  return alvo >= inicioBase;
+}
+
+async function gerarContasAutomaticasCalculadas(mes, ano) {
+  const clientes = await obterClientesFinanceiro();
+  const automaticas = [];
+
+  for (const conta of contasAtivas) {
+    const tipoConta = normalizarTipoConta(conta);
+
+    if (!periodoEhIgualOuPosterior(conta.DataPagamento, mes, ano)) {
+      continue;
+    }
+
+    if (tipoConta === 'imposto_percentual') {
+      const anterior = obterMesAnterior(mes, ano);
+      const baseVendas = totalVendidoNoPeriodo(clientes, anterior.mes, anterior.ano);
+      const percentual = parseFloat(conta.Percentual || 0) || 0;
+      const valor = baseVendas * (percentual / 100);
+
+      automaticas.push({
+        ...conta,
+        Id: `${conta.Id}__imposto_${ano}_${mes}`,
+        DataPagamento: `${ano}-${String(mes).padStart(2, '0')}-${String(Math.min(criarDataLocal(conta.DataPagamento)?.getDate() || 1, ultimoDiaMes(Number(ano), Number(mes)))).padStart(2, '0')}`,
+        Valor: valor,
+        StatusPagamento: 'Não Pago',
+        Automatica: true,
+        ContaPersistida: false,
+        TipoExibicao: 'calculada',
+        Descricao: `${conta.Descricao} — ${percentual}% sobre vendas de ${String(anterior.mes).padStart(2, '0')}/${anterior.ano}`,
+        NotasCalculo: `Base: R$ ${formatarMoeda(baseVendas)} × ${percentual}%`
+      });
+    }
+
+    if (tipoConta === 'taxa_boleto') {
+      const boletosPagos = contarBoletosPagosNoPeriodo(clientes, mes, ano);
+      const taxa = parseFloat(conta.TaxaPorBoleto || 0) || 0;
+      const valor = boletosPagos * taxa;
+
+      automaticas.push({
+        ...conta,
+        Id: `${conta.Id}__taxa_boleto_${ano}_${mes}`,
+        DataPagamento: `${ano}-${String(mes).padStart(2, '0')}-${String(Math.min(criarDataLocal(conta.DataPagamento)?.getDate() || 1, ultimoDiaMes(Number(ano), Number(mes)))).padStart(2, '0')}`,
+        Valor: valor,
+        StatusPagamento: 'Não Pago',
+        Automatica: true,
+        ContaPersistida: false,
+        TipoExibicao: 'calculada',
+        Descricao: `${conta.Descricao} — ${conta.Banco || 'Banco'} — ${boletosPagos} boleto(s) pago(s)`,
+        NotasCalculo: `${boletosPagos} × R$ ${formatarMoeda(taxa)}`
+      });
+    }
+  }
+
+  return automaticas;
+}
+
+async function obterContasDoPeriodo(mes, ano) {
+  const contasFixas = contasAtivas.filter(conta => normalizarTipoConta(conta) === 'fixa');
+  const resultado = [];
+
+  contasFixas.forEach(conta => {
+    if (conta.IsRecorrente) {
+      resultado.push(...gerarOcorrenciasRecorrentesNoPeriodo(conta, mes, ano));
+    } else if (mesmoMesAno(conta.DataPagamento, mes, ano)) {
+      resultado.push(clonarContaParaExibicao(conta, {
+        ContaPersistida: true,
+        TipoExibicao: 'real'
+      }));
+    }
+  });
+
+  resultado.push(...await gerarContasAutomaticasCalculadas(mes, ano));
+
+  return resultado;
+}
+
+function descricaoTipoConta(conta) {
+  const tipo = normalizarTipoConta(conta);
+  if (tipo === 'imposto_percentual') return '🧾 IMPOSTO AUTOMÁTICO';
+  if (tipo === 'taxa_boleto') return '🏦 TAXA BOLETO AUTOMÁTICA';
+  if (conta.ProjecaoRecorrente) return '📆 PROJETADA';
+  return conta.IsRecorrente ? '📅 RECORRENTE' : '🔔 ÚNICA';
+}
+
 // ============================================
 // RENDERIZAR TABELA
 // ============================================
-function renderizarTabela(aplicarFiltroAtivo = false) {
+async function renderizarTabela(aplicarFiltroAtivo = false) {
   const tabelaContainer = document.getElementById('tabelaContainer');
   
   console.log('📊 Renderizando tabela...');
-  console.log('📦 Total de contas:', contasAtivas.length);
+  console.log('📦 Total de contas-base:', contasAtivas.length);
   console.log('🔍 Aplicar filtro:', aplicarFiltroAtivo);
 
-  // Atualizar todos os status automaticamente
   atualizarStatusTodasAsContas();
 
-  // Se há filtro ativo, filtrar os dados
-  let contasParaExibir = contasAtivas;
-  
-  if (aplicarFiltroAtivo) {
-    const mes = document.getElementById('filtroMes')?.value || '';
-    const ano = document.getElementById('filtroAno')?.value || '';
-    const status = document.getElementById('filtroStatus')?.value || '';
-    const categoria = document.getElementById('filtroCategoria')?.value || '';
+  const mes = document.getElementById('filtroMes')?.value || '';
+  const ano = document.getElementById('filtroAno')?.value || '';
+  const status = document.getElementById('filtroStatus')?.value || '';
+  const categoria = document.getElementById('filtroCategoria')?.value || '';
 
+  let contasParaExibir;
+
+  if (aplicarFiltroAtivo && mes && ano) {
+    contasParaExibir = await obterContasDoPeriodo(Number(mes), Number(ano));
+  } else {
+    contasParaExibir = contasAtivas.map(conta => ({
+      ...conta,
+      ContaPersistida: true,
+      TipoExibicao: 'base'
+    }));
+  }
+
+  if (aplicarFiltroAtivo) {
     console.log('🔎 Filtros:', { mes, ano, status, categoria });
 
-    contasParaExibir = contasAtivas.filter(conta => {
-      if (mes) {
-        const dataConta = new Date(conta.DataPagamento);
-        const mesConta = (dataConta.getMonth() + 1).toString();
-        if (mesConta !== mes) return false;
+    contasParaExibir = contasParaExibir.filter(conta => {
+      if (mes && ano) {
+        // Já está projetado para o período selecionado.
+      } else {
+        if (mes) {
+          const dataConta = criarDataLocal(conta.DataPagamento);
+          const mesConta = dataConta ? (dataConta.getMonth() + 1).toString() : '';
+          if (mesConta !== mes) return false;
+        }
+
+        if (ano) {
+          const dataConta = criarDataLocal(conta.DataPagamento);
+          const anoConta = dataConta ? dataConta.getFullYear().toString() : '';
+          if (anoConta !== ano) return false;
+        }
       }
 
-      if (ano) {
-        const dataConta = new Date(conta.DataPagamento);
-        const anoConta = dataConta.getFullYear().toString();
-        if (anoConta !== ano) return false;
-      }
-
-      if (status && conta.StatusPagamento !== status) {
-        return false;
-      }
-
-      if (categoria && conta.Categoria !== categoria) {
-        return false;
-      }
-
+      if (status && conta.StatusPagamento !== status) return false;
+      if (categoria && conta.Categoria !== categoria) return false;
       return true;
     });
-
-    console.log('✅ Contas após filtro:', contasParaExibir.length);
   }
 
   if (contasParaExibir.length === 0) {
@@ -301,9 +636,7 @@ function renderizarTabela(aplicarFiltroAtivo = false) {
     return;
   }
 
-  const contasOrdenadas = [...contasParaExibir].sort((a, b) => 
-    new Date(a.DataPagamento) - new Date(b.DataPagamento)
-  );
+  const contasOrdenadas = [...contasParaExibir].sort((a, b) => criarDataLocal(a.DataPagamento) - criarDataLocal(b.DataPagamento));
 
   let html = `
     <table>
@@ -313,7 +646,7 @@ function renderizarTabela(aplicarFiltroAtivo = false) {
           <th>Descrição</th>
           <th>Categoria</th>
           <th>Valor</th>
-          <th>Recorrência</th>
+          <th>Tipo</th>
           <th>Responsável</th>
           <th>Status</th>
           <th>Ações</th>
@@ -323,44 +656,28 @@ function renderizarTabela(aplicarFiltroAtivo = false) {
   `;
 
   contasOrdenadas.forEach(conta => {
-    const statusClass = conta.StatusPagamento === 'Pago' ? 'status-pago' : 
-                       'status-naopago';
-    
-    const statusTexto = conta.StatusPagamento === 'Pago' ? '✅ PAGO' : 
-                        '❌ NÃO PAGO';
+    const statusClass = conta.StatusPagamento === 'Pago' ? 'status-pago' : 'status-naopago';
+    const statusTexto = conta.StatusPagamento === 'Pago' ? '✅ PAGO' : '❌ NÃO PAGO';
+    const detalhesCalculo = conta.NotasCalculo ? `<div style="font-size: 11px; color: #8fb9ac; margin-top: 4px;">${conta.NotasCalculo}</div>` : '';
+    const acoes = conta.Automatica
+      ? '<span style="color:#8fb9ac;font-size:12px;">Automática</span>'
+      : `<div class="acoes"><button class="btn-editar" onclick="editarConta('${conta.BaseContaId || conta.Id}')">✏️ Editar</button><button class="btn-deletar" onclick="deletarConta('${conta.BaseContaId || conta.Id}')">🗑️ Deletar</button></div>`;
 
     html += `
       <tr>
         <td>${formatarData(conta.DataPagamento)}</td>
-        <td>${conta.Descricao}</td>
+        <td>${conta.Descricao}${detalhesCalculo}</td>
         <td>${conta.Categoria}</td>
-        <td style="font-weight: bold; color: #d4af37;">R$ ${formatarMoeda(conta.Valor)}</td>
-        <td>
-          <span class="status-badge ${conta.IsRecorrente ? 'status-recorrente' : 'status-unica'}">
-            ${conta.IsRecorrente ? `📅 ${(conta.Frequencia || '').toUpperCase()}` : '🔔 ÚNICA'}
-          </span>
-        </td>
-        <td>${conta.Responsavel}</td>
-        <td>
-          <span class="status-badge ${statusClass}">
-            ${statusTexto}
-          </span>
-        </td>
-        <td>
-          <div class="acoes">
-            <button class="btn-editar" onclick="editarConta('${conta.Id}')">✏️ Editar</button>
-            <button class="btn-deletar" onclick="deletarConta('${conta.Id}')">🗑️ Deletar</button>
-          </div>
-        </td>
+        <td style="font-weight: bold; color: #d4af37;">R$ ${formatarMoeda(conta.Valor || 0)}</td>
+        <td><span class="status-badge ${conta.Automatica ? 'status-recorrente' : (conta.IsRecorrente ? 'status-recorrente' : 'status-unica')}">${descricaoTipoConta(conta)}</span></td>
+        <td>${conta.Responsavel || '-'}</td>
+        <td><span class="status-badge ${statusClass}">${statusTexto}</span></td>
+        <td>${acoes}</td>
       </tr>
     `;
   });
 
-  html += `
-      </tbody>
-    </table>
-  `;
-
+  html += `</tbody></table>`;
   tabelaContainer.innerHTML = html;
 }
 
@@ -405,7 +722,7 @@ function editarConta(id) {
   window.contaEmEdicao = id;
 
   document.getElementById('editDescricao').value = conta.Descricao;
-  document.getElementById('editValor').value = conta.Valor;
+  definirMoedaInput(document.getElementById('editValor'), conta.Valor);
   document.getElementById('editDataPagamento').value = conta.DataPagamento;
   document.getElementById('editCategoria').value = conta.Categoria;
   document.getElementById('editStatus').value = conta.StatusPagamento;
@@ -471,7 +788,7 @@ async function salvarEdicaoConta(event) {
       fecharModal('modalEdicao');
       window.contaEmEdicao = null;
       atualizarResumo();
-      renderizarTabela();
+      await renderizarTabela();
     } else {
       throw new Error('Falha ao salvar alterações');
     }
@@ -552,11 +869,39 @@ function mostrarMensagem(texto, tipo = 'sucesso') {
   }, 5000);
 }
 
+function atualizarCamposTipoConta() {
+  const tipo = document.getElementById('inputTipoConta')?.value || 'fixa';
+  const grupoValor = document.getElementById('grupoValorConta');
+  const grupoPercentual = document.getElementById('grupoPercentualConta');
+  const grupoBanco = document.getElementById('grupoBancoConta');
+  const grupoTaxa = document.getElementById('grupoTaxaBoletoConta');
+  const inputValor = document.getElementById('inputValor');
+  const inputRecorrencia = document.getElementById('inputRecorrencia');
+  const inputCategoria = document.getElementById('inputCategoria');
+
+  if (grupoValor) grupoValor.style.display = tipo === 'fixa' ? '' : 'none';
+  if (grupoPercentual) grupoPercentual.style.display = tipo === 'imposto_percentual' ? '' : 'none';
+  if (grupoBanco) grupoBanco.style.display = tipo === 'taxa_boleto' ? '' : 'none';
+  if (grupoTaxa) grupoTaxa.style.display = tipo === 'taxa_boleto' ? '' : 'none';
+  if (inputValor) inputValor.required = tipo === 'fixa';
+
+  if (tipo === 'imposto_percentual') {
+    if (inputRecorrencia) inputRecorrencia.value = 'mensal';
+    if (inputCategoria && !inputCategoria.value) inputCategoria.value = 'Impostos';
+  }
+
+  if (tipo === 'taxa_boleto') {
+    if (inputRecorrencia) inputRecorrencia.value = 'mensal';
+    if (inputCategoria && !inputCategoria.value) inputCategoria.value = 'Taxas Bancárias';
+  }
+}
+
 function limparFormulario() {
   const form = document.getElementById('formContaBridge');
   if (form) {
     form.reset();
   }
+  atualizarCamposTipoConta();
 }
 
 function abrirModalConta() {
@@ -581,7 +926,7 @@ function fecharModal(idModal = 'modalFormulario') {
 // APLICAR E LIMPAR FILTROS
 // ============================================
 
-function aplicarFiltros() {
+async function aplicarFiltros() {
   const mes = document.getElementById('filtroMes')?.value || '';
   const ano = document.getElementById('filtroAno')?.value || '';
   const status = document.getElementById('filtroStatus')?.value || '';
@@ -590,20 +935,20 @@ function aplicarFiltros() {
   const contagemFiltros = [mes, ano, status, categoria].filter(v => v !== '').length;
   console.log(`🔍 Aplicando ${contagemFiltros} filtro(s)...`);
 
-  renderizarTabela(contagemFiltros > 0);
+  await renderizarTabela(contagemFiltros > 0);
   
   if (contagemFiltros > 0) {
     mostrarMensagem(`✅ ${contagemFiltros} filtro(s) aplicado(s).`, 'sucesso');
   }
 }
 
-function limparFiltros() {
+async function limparFiltros() {
   document.getElementById('filtroMes').value = '';
   document.getElementById('filtroAno').value = '';
   document.getElementById('filtroStatus').value = '';
   document.getElementById('filtroCategoria').value = '';
   
-  renderizarTabela(false);
+  await renderizarTabela(false);
   mostrarMensagem('✨ Filtros limpos. Exibindo todas as contas.', 'info');
 }
 
@@ -684,6 +1029,8 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  atualizarCamposTipoConta();
 
   // Fechar modais com ESC
   document.addEventListener('keydown', (e) => {

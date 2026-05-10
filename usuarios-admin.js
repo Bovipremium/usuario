@@ -14,6 +14,7 @@ const MODULOS_SISTEMA = [
   "Pagamentos",
   "Receitas",
   "Despesas",
+  "Relatório Completo",
   "AutoWhatsApp",
   "Revisão Contatos",
   "Administrador"
@@ -648,7 +649,7 @@ async function salvarUsuario(event) {
 // ============================================
 // CONFIRMAR DELEÇÃO
 // ============================================
-function confirmarDelecao(id) {
+async function confirmarDelecao(id) {
   const usuario = usuariosAtivos.find(u => u.Id === id);
   
   if (!usuario) {
@@ -656,7 +657,7 @@ function confirmarDelecao(id) {
     return;
   }
 
-  if (confirm(`⚠️ Tem certeza que deseja deletar o usuário "${usuario.Nome}"?\n\nEsta ação não pode ser desfeita!`)) {
+  if (await modalConfirm(`Tem certeza que deseja deletar o usuário "${usuario.Nome}"?\n\nEsta ação não pode ser desfeita!`, { title: 'Deletar usuário', okText: 'Deletar', cancelText: 'Cancelar' })) {
     deletarUsuario(id);
   }
 }
@@ -1145,6 +1146,7 @@ function renderizarSidebarAdmin() {
     "Pagamentos": { icone: "💳", tipo: "pagamentos" },
     "Receitas": { icone: "📈", tipo: "receitas" },
     "Despesas": { icone: "💸", tipo: "despesas" },
+    "Relatório Completo": { icone: "🧠", tipo: "relatorio-completo" },
     "AutoWhatsApp": { icone: "📞", tipo: "agendar-ligacao" },
     "Administrador": { icone: "⚙️", tipo: "administrador" },
     "Auditoria": { icone: "📋", tipo: "auditoria" }
@@ -1237,8 +1239,8 @@ async function carregarConfigMetas() {
     
     // Preencher inputs (3 campos: Comissão, Valor Pro-Labore Meta Alvo, Pro-Labore Meta Mínima)
     document.getElementById('metaComissao').value = config.comissao || '';
-    document.getElementById('metaProLabore').value = config.proLabore || '';
-    document.getElementById('metaProLaboreMinima').value = config.proLaboreMinima || '';
+    definirMoedaInput(document.getElementById('metaProLabore'), config.proLabore || 0);
+    definirMoedaInput(document.getElementById('metaProLaboreMinima'), config.proLaboreMinima || 0);
     
     // Salvar também no localStorage para acesso rápido
     localStorage.setItem('configMetas', JSON.stringify(config));
@@ -1252,8 +1254,8 @@ async function carregarConfigMetas() {
     try {
       const config = JSON.parse(localStorage.getItem('configMetas') || '{}');
       document.getElementById('metaComissao').value = config.comissao || '';
-      document.getElementById('metaProLabore').value = config.proLabore || '';
-      document.getElementById('metaProLaboreMinima').value = config.proLaboreMinima || '';
+      definirMoedaInput(document.getElementById('metaProLabore'), config.proLabore || 0);
+      definirMoedaInput(document.getElementById('metaProLaboreMinima'), config.proLaboreMinima || 0);
       atualizarResumoMetas();
     } catch (e) {
       console.error('❌ Fallback também falhou:', e);
@@ -1268,8 +1270,8 @@ async function salvarConfigMetas() {
   try {
     const config = {
       comissao: parseFloat(document.getElementById('metaComissao').value) || 0,
-      proLabore: parseFloat(document.getElementById('metaProLabore').value) || 0,
-      proLaboreMinima: parseFloat(document.getElementById('metaProLaboreMinima').value) || 0,
+      proLabore: valorNumerico(document.getElementById('metaProLabore').value) || 0,
+      proLaboreMinima: valorNumerico(document.getElementById('metaProLaboreMinima').value) || 0,
       dataSalva: new Date().toISOString(),
       mesAtual: new Date().getMonth() + 1,
       anoAtual: new Date().getFullYear()
@@ -1346,8 +1348,8 @@ async function salvarConfigMetas() {
  */
 function atualizarResumoMetas() {
   const comissao = parseFloat(document.getElementById('metaComissao').value) || 0;
-  const proLabore = parseFloat(document.getElementById('metaProLabore').value) || 0;
-  const proLaboreMinima = parseFloat(document.getElementById('metaProLaboreMinima').value) || 0;
+  const proLabore = valorNumerico(document.getElementById('metaProLabore').value) || 0;
+  const proLaboreMinima = valorNumerico(document.getElementById('metaProLaboreMinima').value) || 0;
   
   // Atualizar cards de resumo
   document.getElementById('resumoComissao').textContent = comissao.toFixed(2) + '%';

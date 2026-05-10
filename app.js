@@ -264,6 +264,12 @@ async function carregarMenu() {
       arquivo: "despesas.json",
       tipo: "despesas"
     },
+    "Relatório Completo": {
+      icone: "🧠",
+      descricao: "Inteligência financeira completa",
+      arquivo: "relatorio-completo.html",
+      tipo: "relatorio-completo"
+    },
     "AutoWhatsApp": {
       icone: "📞",
       descricao: "Agendar ligações para clientes",
@@ -322,9 +328,9 @@ function renderizarSidebar(modulosDisponiveis, modulosPermitidos) {
     <div class="sidebar-divider"></div>
   `;
 
-  // Adicionar ícones de cada módulo
+  // Adicionar ícones apenas dos módulos permitidos
   Object.entries(modulosDisponiveis).forEach(([nome, dados]) => {
-    // Mostrar todos os módulos (o acesso será validado no carregarModulo)
+    if (!modulosPermitidos.includes(nome)) return;
     sidebarHTML += `
       <div class="sidebar-item" onclick="carregarModulo('${nome}', '${dados.tipo}', '${dados.arquivo || ''}')" title="${nome}">
         ${dados.icone}
@@ -406,6 +412,10 @@ async function carregarModulo(nome, tipo, arquivo) {
     // PÁGINA ESPECIAL DE DESPESAS
     else if (tipo === "despesas") {
       window.location.href = "despesas.html";
+      return;
+    }
+    else if (tipo === "relatorio-completo") {
+      window.location.href = "relatorio-completo.html";
       return;
     }
     // PÁGINA ESPECIAL DE ADMINISTRADOR
@@ -1642,8 +1652,8 @@ function renderizarTabelaPagamentos(clientes) {
     const statusIdx = document.getElementById("filtroStatus")?.value || "";
     const dataDe = document.getElementById("filtroDataDe")?.value || "";
     const dataAte = document.getElementById("filtroDataAte")?.value || "";
-    const valorMin = parseFloat(document.getElementById("filtroValorMin")?.value) || 0;
-    const valorMax = parseFloat(document.getElementById("filtroValorMax")?.value) || Infinity;
+    const valorMin = valorNumerico(document.getElementById("filtroValorMin")?.value) || 0;
+    const valorMax = valorNumerico(document.getElementById("filtroValorMax")?.value) || Infinity;
 
     // Coletar informações de cada venda
     let exibirCliente = false;
@@ -1810,8 +1820,8 @@ function atualizarEstatisticasPagamentos(clientes) {
   const statusIdx = document.getElementById("filtroStatus")?.value || "";
   const dataDe = document.getElementById("filtroDataDe")?.value || "";
   const dataAte = document.getElementById("filtroDataAte")?.value || "";
-  const valorMin = parseFloat(document.getElementById("filtroValorMin")?.value) || 0;
-  const valorMax = parseFloat(document.getElementById("filtroValorMax")?.value) || Infinity;
+  const valorMin = valorNumerico(document.getElementById("filtroValorMin")?.value) || 0;
+  const valorMax = valorNumerico(document.getElementById("filtroValorMax")?.value) || Infinity;
 
   clientes.forEach(cliente => {
     if (!cliente.Vendas || !Array.isArray(cliente.Vendas)) return;
@@ -1887,8 +1897,8 @@ function renderizarTabelaPagamentosFiltered(clientes) {
     const statusIdx = document.getElementById("filtroStatus")?.value || "";
     const dataDe = document.getElementById("filtroDataDe")?.value || "";
     const dataAte = document.getElementById("filtroDataAte")?.value || "";
-    const valorMin = parseFloat(document.getElementById("filtroValorMin")?.value) || 0;
-    const valorMax = parseFloat(document.getElementById("filtroValorMax")?.value) || Infinity;
+    const valorMin = valorNumerico(document.getElementById("filtroValorMin")?.value) || 0;
+    const valorMax = valorNumerico(document.getElementById("filtroValorMax")?.value) || Infinity;
 
     let exibirCliente = false;
 
@@ -2012,8 +2022,8 @@ function aplicarFiltrosPagamentos() {
   const status = document.getElementById("filtroStatus")?.value || "";
   const dataDe = document.getElementById("filtroDataDe")?.value || "";
   const dataAte = document.getElementById("filtroDataAte")?.value || "";
-  const valorMin = parseFloat(document.getElementById("filtroValorMin")?.value) || 0;
-  const valorMax = parseFloat(document.getElementById("filtroValorMax")?.value) || Infinity;
+  const valorMin = valorNumerico(document.getElementById("filtroValorMin")?.value) || 0;
+  const valorMax = valorNumerico(document.getElementById("filtroValorMax")?.value) || Infinity;
 
   // Filtrar clientes baseado nos critérios
   const clientesFiltrados = window.todosClientesPagamentos.filter(cliente => {

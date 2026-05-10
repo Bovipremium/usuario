@@ -3,7 +3,7 @@ const CONFIG = {
   // ======================================
   
   // ======================================
-  API_URL: "https://script.google.com/macros/s/AKfycbxzf-CPAYepJQt33Lb6oWbVRBbyIlIxBxUFr8wLLTVIi5sXSs4Fd2LgHNrWfbghF6ji/exec",
+  API_URL: "https://script.google.com/macros/s/AKfycby7jhYIKjPTN1UK3XE117diqDuYwIP5JYWnWs-evF5Aa1si8jcOI95fo0oC32ExdwC-vA/exec",
   
  
   ARQUIVOS: {

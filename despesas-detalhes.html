@@ -307,7 +307,10 @@
       }
     }
   </style>
+  <script src="modais-globais.js"></script>
+  <script src="categorias-inteligentes.js"></script>
 </head>
+  <script src="modais-globais.js"></script>
 </head>
 <body>
 
@@ -405,13 +408,30 @@
   let chartCategoria = null;
   let todasDespesas = [];
   let despesasDoMes = [];
+  let categoriasCustomizadas = {};
+  let motorCategoriasInteligentes = null;
   let categoriaFiltrada = null;  // null = mostrar todas
   let nomeFiltrado = '';  // string vazia = mostrar todas
 
   document.addEventListener('DOMContentLoaded', async () => {
+    await carregarCategoriasCustomizadas();
     await carregarTodasDespesas();
+    motorCategoriasInteligentes = CategoriasInteligentes.criarMotor(todasDespesas, categoriasCustomizadas);
     renderizarDetalhes();
   });
+
+  async function carregarCategoriasCustomizadas() {
+    try {
+      const dados = await buscarArquivo("categorias_customizadas.json");
+      categoriasCustomizadas = (dados && typeof dados === 'object') ? dados : {};
+    } catch {
+      categoriasCustomizadas = {};
+    }
+  }
+
+  function categoriaAnalitica(despesa) {
+    return CategoriasInteligentes.categorizar(despesa.Descricao, despesa.Categoria, motorCategoriasInteligentes);
+  }
 
   async function carregarTodasDespesas() {
     try {
@@ -442,7 +462,9 @@
     console.log(`📋 Filtrando ${mesesNomes[mes]}/${ano}`);
 
     // Filtrar despesas do mês/ano selecionado
-    despesasDoMes = todasDespesas.filter(d => d.Mes === mes && d.Ano === ano);
+    despesasDoMes = todasDespesas
+      .filter(d => d.Mes === mes && d.Ano === ano)
+      .map(d => ({ ...d, CategoriaAnalitica: categoriaAnalitica(d) }));
 
     console.log(`📊 Encontradas ${despesasDoMes.length} despesas`);
 
@@ -464,7 +486,7 @@
 
   function renderizarFiltros() {
     // Obter todas as categorias únicas
-    const categorias = [...new Set(despesasDoMes.map(d => d.Categoria))].sort();
+    const categorias = [...new Set(despesasDoMes.map(d => d.CategoriaAnalitica))].sort();
     
     const filtroSelect = document.getElementById('filtroSelect');
     
@@ -476,7 +498,7 @@
     // Adicionar opções por categoria
     categorias.forEach(cat => {
       const total = despesasDoMes
-        .filter(d => d.Categoria === cat)
+        .filter(d => d.CategoriaAnalitica === cat)
         .reduce((sum, d) => sum + (d.Valor || 0), 0);
       
       const option = document.createElement('option');
@@ -510,7 +532,7 @@
     let despesasFiltradas = despesasDoMes;
     
     if (categoriaFiltrada) {
-      despesasFiltradas = despesasFiltradas.filter(d => d.Categoria === categoriaFiltrada);
+      despesasFiltradas = despesasFiltradas.filter(d => d.CategoriaAnalitica === categoriaFiltrada);
     }
     
     if (nomeFiltrado) {
@@ -666,7 +688,7 @@
     // Agrupar por categoria
     const categorias = {};
     despesasDoMes.forEach(d => {
-      const cat = d.Categoria || 'SEM CATEGORIA';
+      const cat = d.CategoriaAnalitica || 'SEM CATEGORIA';
       categorias[cat] = (categorias[cat] || 0) + (d.Valor || 0);
     });
 
@@ -748,5 +770,7 @@
   }
 </script>
 <script src="sidebar-dock.js"></script>
+<script src="mascaras-globais.js"></script>
+<script src="alertas-ligacoes.js"></script>
 </body>
 </html>

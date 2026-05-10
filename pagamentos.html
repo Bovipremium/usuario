@@ -317,6 +317,7 @@
       }
     }
   </style>
+  <script src="modais-globais.js"></script>
 </head>
 <body>
   <div class="sidebar-dock" id="sidebar"></div>
@@ -398,9 +399,11 @@
   </div>
 
   <script src="config.js"></script>
-  <script src="auth.js"></script>
+  
+  
   <script src="auth-utils.js"></script>
-  <script src="sidebar-dock.js"></script>
+<script src="auth.js"></script>
+<script src="sidebar-dock.js"></script>
   
   <script>
     let clientesGlobal = [];
@@ -535,7 +538,7 @@
       if (cliente) {
         sessionStorage.setItem('clienteSelecionado', JSON.stringify(cliente));
         localStorage.setItem('clienteSelecionado', JSON.stringify(cliente));
-        window.location.href = 'pagamentos-detalhes.html';
+        window.open('pagamentos-detalhes.html', '_blank');
       }
     }
 
@@ -615,5 +618,7 @@
     // Carregar ao iniciar
     carregarPagamentos();
   </script>
+<script src="mascaras-globais.js"></script>
+<script src="alertas-ligacoes.js"></script>
 </body>
 </html>

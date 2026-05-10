@@ -520,7 +520,54 @@
         font-size: 24px;
       }
     }
-  </style>
+  
+    /* AJUSTE HARMONICO PROFISSIONAL - RELATORIO PAGAMENTOS */
+    .header {
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .header .controls {
+      background: rgba(5, 11, 9, 0.24);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 12px;
+      gap: 10px;
+    }
+
+    .header .controls select {
+      min-width: 145px;
+    }
+
+    .metrics-section {
+      align-items: stretch;
+    }
+
+    .metric-card {
+      min-height: 146px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    @media (max-width: 980px) {
+      .header {
+        align-items: stretch;
+      }
+
+      .header .controls {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .header .controls select {
+        min-width: 0;
+        flex: 1 1 150px;
+      }
+    }
+
+</style>
+  <script src="modais-globais.js"></script>
 </head>
 <body>
   <div class="container">
@@ -621,13 +668,58 @@
     }
 
     function popularAnosSelect() {
-      const anoAtual = new Date().getFullYear();
       const selectAno = document.getElementById('selectAno');
-      for (let ano = anoAtual; ano >= anoAtual - 5; ano--) {
+      if (!selectAno) return;
+
+      const valorSelecionado = selectAno.value;
+      const anos = new Set();
+      const anoAtual = new Date().getFullYear();
+      anos.add(anoAtual);
+
+      todosClientes.forEach(cliente => {
+        if (!cliente || !Array.isArray(cliente.Vendas)) return;
+
+        cliente.Vendas.forEach(venda => {
+          const datasVenda = [venda.DataVenda, venda.Data, venda.DataCadastro];
+          datasVenda.forEach(valor => {
+            if (!valor) return;
+            const data = new Date(valor);
+            if (!Number.isNaN(data.getTime())) anos.add(data.getFullYear());
+          });
+
+          if (!Array.isArray(venda.Parcelas)) return;
+          venda.Parcelas.forEach(parcela => {
+            [parcela.DataVencimento, parcela.DataPagamento, parcela.DataPago].forEach(valor => {
+              if (!valor) return;
+              const data = new Date(valor);
+              if (!Number.isNaN(data.getTime())) anos.add(data.getFullYear());
+            });
+          });
+        });
+      });
+
+      todasDespesas.forEach(despesa => {
+        [despesa.DataCadastro, despesa.DataPagamento, despesa.DataPago].forEach(valor => {
+          if (!valor) return;
+          const data = new Date(valor);
+          if (!Number.isNaN(data.getTime())) anos.add(data.getFullYear());
+        });
+      });
+
+      const anosOrdenados = Array.from(anos)
+        .filter(ano => Number.isInteger(ano) && ano > 1900 && ano < 3000)
+        .sort((a, b) => b - a);
+
+      selectAno.innerHTML = '<option value="">Todos os Anos</option>';
+      anosOrdenados.forEach(ano => {
         const option = document.createElement('option');
         option.value = ano;
         option.textContent = ano;
         selectAno.appendChild(option);
+      });
+
+      if (valorSelecionado && anosOrdenados.includes(parseInt(valorSelecionado))) {
+        selectAno.value = valorSelecionado;
       }
     }
 
@@ -734,7 +826,10 @@
               cpfCliente: cliente.CPF,
               clienteId: cliente.Id,
               vendedor: cliente.Vendedor,
-              midia: cliente.Midia
+              midia: cliente.Midia,
+              vendaId: venda.Id || '',
+              vendaQuitadaPorRecebimentoUnico: !!obterQuitacaoRecebimentoUnico(venda),
+              baixadaPorQuitacao: parcela.BaixadaPorQuitacao || parcela.QuitadaPorRecebimentoUnico || false
             });
           });
         });
@@ -769,67 +864,259 @@
       });
     }
 
-    function calcularMetricas() {
-      const parcelas = extrairParcelasFiltradas();
-      const despesas = extrairDespesasFiltradas();
+
+    
+
+    
+
+
+    // ============================================================
+    // QUITAÇÃO COM RECEBIMENTO ÚNICO - RELATÓRIO
+    // Uma venda quitada com ValorRecebidoQuitacao deve contar apenas
+    // o valor real recebido na data da quitação. As parcelas baixadas
+    // não entram como pagamentos futuros.
+    // ============================================================
+    
+
+    
+
+    
+
+    
+    // ============================================================
+    // HELPERS SEGUROS DO RELATÓRIO
+    // Corrige quitação com recebimento único sem contaminar parcelas futuras.
+    // ============================================================
+    function parcelaBaixadaPorQuitacao(parcela) {
+      return !!(
+        parcela && (
+          parcela.BaixadaPorQuitacao ||
+          parcela.QuitadaPorRecebimentoUnico ||
+          parcela.BaixadaPorRecebimentoUnico ||
+          parcela.ObservacaoQuitacao
+        )
+      );
+    }
+
+    function obterQuitacaoRecebimentoUnico(venda) {
+      if (!venda) return null;
+      const q = venda.QuitacaoRecebimentoUnico || venda.RecebimentoUnicoQuitacao || venda.QuitacaoValorRecebido || null;
+      if (!q && !venda.ValorRecebidoQuitacao) return null;
+
+      const valorRecebido = parseFloat(
+        (q && (q.ValorRecebido || q.valorRecebido)) ||
+        venda.ValorRecebidoQuitacao ||
+        0
+      ) || 0;
+
+      const data =
+        (q && (q.Data || q.data || q.DataHora || q.dataHora)) ||
+        venda.DataQuitacao ||
+        venda.dataQuitacao ||
+        null;
+
+      if (!valorRecebido || !data) return null;
+
+      return {
+        Data: data,
+        ValorRecebido: valorRecebido,
+        venda: venda,
+        vendaId: venda.Id || venda.id || '',
+        numeroNF: venda.NumeroNF || venda.numeroNF || ''
+      };
+    }
+
+    function obterValorVendaRelatorio(venda) {
+      if (!venda) return 0;
+
+      const valorDireto = parseFloat(
+        venda.ValorTotal ||
+        venda.Valor ||
+        venda.Total ||
+        venda.TotalVenda ||
+        venda.ValorVenda ||
+        0
+      );
+
+      if (!isNaN(valorDireto) && valorDireto > 0) return valorDireto;
+
+      if (Array.isArray(venda.Produtos)) {
+        const totalProdutos = venda.Produtos.reduce((sum, produto) => sum + (parseFloat(produto.Valor || produto.valor || 0) || 0), 0);
+        if (totalProdutos > 0) return totalProdutos;
+      }
+
+      if (Array.isArray(venda.Parcelas)) {
+        return venda.Parcelas.reduce((sum, parcela) => sum + (parseFloat(parcela.Valor || parcela.valor || 0) || 0), 0);
+      }
+
+      return 0;
+    }
+
+    function vendaPassaFiltrosCliente(cliente) {
+      const vendedor = document.getElementById('selectVendedor').value;
+      const midia = document.getElementById('selectMidia').value;
+
+      if (vendedor && vendedor.trim() !== '') {
+        const vendedorCliente = (cliente.Vendedor || '').trim();
+        if (vendedorCliente !== vendedor.trim()) return false;
+      }
+
+      if (midia && midia.trim() !== '') {
+        const midiaCliente = (cliente.Midia || '').trim();
+        if (midiaCliente !== midia.trim()) return false;
+      }
+
+      return true;
+    }
+
+    function dataPassaFiltroRelatorio(dataBase) {
+      const mes = document.getElementById('selectMes').value;
+      const ano = document.getElementById('selectAno').value;
+      const chkAteHoje = document.getElementById('chkAteHoje').checked;
+
+      if (!dataBase) return false;
+      const data = new Date(dataBase);
+      if (isNaN(data.getTime())) return false;
+      data.setHours(0, 0, 0, 0);
 
       const hoje = new Date();
       hoje.setHours(0, 0, 0, 0);
 
-      // Separar boletos por data
-      const boletosAtrasados = parcelas.filter(p => {
-        const dataVencimento = new Date(p.DataVencimento);
-        dataVencimento.setHours(0, 0, 0, 0);
-        return dataVencimento <= hoje; // Vencimento foi hoje ou antes
+      if (chkAteHoje) {
+        return data <= hoje;
+      }
+
+      if (mes || ano) {
+        if (mes && data.getMonth() + 1 !== parseInt(mes)) return false;
+        if (ano && data.getFullYear() !== parseInt(ano)) return false;
+      }
+
+      return true;
+    }
+
+    function extrairVendasFiltradas() {
+      const vendas = [];
+
+      todosClientes.forEach(cliente => {
+        if (!cliente || !Array.isArray(cliente.Vendas)) return;
+        if (!vendaPassaFiltrosCliente(cliente)) return;
+
+        cliente.Vendas.forEach(venda => {
+          const dataVendaBase = venda.DataVenda || venda.Data || venda.DataCadastro || venda.dataVenda || venda.data || null;
+          if (!dataPassaFiltroRelatorio(dataVendaBase)) return;
+
+          vendas.push({
+            ...venda,
+            nomeCliente: cliente.Nome,
+            cpfCliente: cliente.CPF,
+            clienteId: cliente.Id,
+            vendedor: cliente.Vendedor,
+            midia: cliente.Midia,
+            valorVenda: obterValorVendaRelatorio(venda)
+          });
+        });
       });
 
-      const boletosPendentes = parcelas.filter(p => {
-        const dataVencimento = new Date(p.DataVencimento);
-        dataVencimento.setHours(0, 0, 0, 0);
-        return dataVencimento > hoje; // Vencimento é no futuro
+      return vendas;
+    }
+
+    function extrairRecebimentosUnicosFiltrados() {
+      const recebimentos = [];
+
+      todosClientes.forEach(cliente => {
+        if (!cliente || !Array.isArray(cliente.Vendas)) return;
+        if (!vendaPassaFiltrosCliente(cliente)) return;
+
+        cliente.Vendas.forEach(venda => {
+          const quitacao = obterQuitacaoRecebimentoUnico(venda);
+          if (!quitacao) return;
+          if (!dataPassaFiltroRelatorio(quitacao.Data)) return;
+
+          recebimentos.push({
+            ...quitacao,
+            nomeCliente: cliente.Nome,
+            cpfCliente: cliente.CPF,
+            clienteId: cliente.Id,
+            vendedor: cliente.Vendedor,
+            midia: cliente.Midia
+          });
+        });
       });
 
-      // Contar boletos atrasados não pagos (estes são os inadimplentes)
+      return recebimentos;
+    }
+
+function calcularMetricas() {
+      const parcelas = extrairParcelasFiltradas();
+      const vendas = extrairVendasFiltradas();
+      const despesas = extrairDespesasFiltradas();
+      const recebimentosUnicos = extrairRecebimentosUnicosFiltrados();
+
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+
+      // Parcelas baixadas por quitação não entram como pagamento normal.
+      const parcelasRelatorio = parcelas;
+      const parcelasParaCobranca = parcelasRelatorio.filter(p => !parcelaBaixadaPorQuitacao(p));
+
+      const boletosAtrasados = parcelasParaCobranca.filter(p => {
+        const dataVencimento = new Date(p.DataVencimento);
+        dataVencimento.setHours(0, 0, 0, 0);
+        return dataVencimento <= hoje;
+      });
+
+      const boletosPendentes = parcelasParaCobranca.filter(p => {
+        const dataVencimento = new Date(p.DataVencimento);
+        dataVencimento.setHours(0, 0, 0, 0);
+        return dataVencimento > hoje;
+      });
+
       const boletosAtrasadosNaoPagos = boletosAtrasados.filter(p => !p.Pago);
       const boletosAtrasadosPagos = boletosAtrasados.filter(p => p.Pago);
-
-      // Boletos pendentes não pagos
       const boletosPendentesNaoPagos = boletosPendentes.filter(p => !p.Pago);
 
-      // Métricas RESPEITANDO OS FILTROS
-      // Se está filtrando (mês/ano ou até hoje), usa apenas os filtrados
-      // Se não está filtrando, mostra TODOS
-      const pagos = parcelas.filter(p => p.Pago).length;
-      const totalEmitido = parcelas.reduce((sum, p) => sum + (p.Valor || 0), 0);
-      const totalPago = parcelas.filter(p => p.Pago).reduce((sum, p) => sum + (p.Valor || 0), 0);
-      const totalDespesas = despesas.reduce((sum, d) => sum + (d.Valor || 0), 0);
+      const parcelasPagasNormais = parcelasParaCobranca.filter(p => p.Pago);
+      const pagos = parcelasPagasNormais.length + recebimentosUnicos.length;
+
+      const totalEmitido = parcelasRelatorio.reduce((sum, p) => sum + (parseFloat(p.Valor) || 0), 0);
+      const totalVendido = vendas.reduce((sum, v) => sum + (parseFloat(v.valorVenda) || obterValorVendaRelatorio(v) || 0), 0);
+
+      const totalPagoParcelasNormais = parcelasPagasNormais.reduce((sum, p) => {
+        const valorPago = parseFloat(p.ValorPago) || 0;
+        const valorParcela = parseFloat(p.Valor) || 0;
+        return sum + (valorPago > 0 ? valorPago : valorParcela);
+      }, 0);
+
+      const totalRecebimentosUnicos = recebimentosUnicos.reduce((sum, r) => sum + (parseFloat(r.ValorRecebido) || 0), 0);
+      const totalPago = totalPagoParcelasNormais + totalRecebimentosUnicos;
+      const totalDespesas = despesas.reduce((sum, d) => sum + (parseFloat(d.Valor) || 0), 0);
       const lucroLiquido = totalPago - totalDespesas;
-      
-      // Taxa de Inadimplência: boletos NÃO pagos até hoje / todos os boletos até hoje
-      // Boletos não pagos = atrasados não pagos (o que realmente importa para inadimplência)
-      // Pendentes ainda não venceram, então não contam na inadimplência
+
       const boletosNaoPagos = boletosAtrasadosNaoPagos.length;
       const totalBoletosAteHoje = boletosAtrasados.length;
-      const percentualInadimplencia = totalBoletosAteHoje > 0 
-        ? (boletosNaoPagos / totalBoletosAteHoje * 100).toFixed(2) 
+      const percentualInadimplencia = totalBoletosAteHoje > 0
+        ? (boletosNaoPagos / totalBoletosAteHoje * 100).toFixed(2)
         : 0;
       const percentualAdimplencia = (100 - percentualInadimplencia).toFixed(2);
 
-      // Clientes inadimplentes (com boletos atrasados não pagos)
       const clientesIndadimplentes = new Set();
       boletosAtrasadosNaoPagos.forEach(p => {
         clientesIndadimplentes.add(p.nomeCliente);
       });
 
-      // Dados por mês (últimos 6 meses)
       const dados6meses = obterDadosPor6Meses();
 
       return {
-        parcelas,
+        parcelas: parcelasRelatorio,
+        vendas,
         despesas,
+        recebimentosUnicos,
         pagos,
         totalEmitido,
+        totalVendido,
         totalPago,
+        totalPagoParcelasNormais,
+        totalRecebimentosUnicos,
         totalDespesas,
         lucroLiquido,
         percentualAdimplencia,
@@ -850,13 +1137,13 @@
     function obterDadosPor6Meses() {
       const dados = {};
       const hoje = new Date();
-      
+
       for (let i = 5; i >= 0; i--) {
         const data = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
         const mes = data.getMonth() + 1;
         const ano = data.getFullYear();
         const chave = `${ano}-${String(mes).padStart(2, '0')}`;
-        
+
         dados[chave] = {
           totalEmitido: 0,
           totalPago: 0,
@@ -865,37 +1152,59 @@
         };
       }
 
-      // Somar valores
       todosClientes.forEach(cliente => {
-        if (!cliente.Vendas) return;
+        if (!cliente || !Array.isArray(cliente.Vendas)) return;
+
         cliente.Vendas.forEach(venda => {
-          if (!venda.Parcelas) return;
-          venda.Parcelas.forEach(parcela => {
-            const dataParcela = new Date(parcela.DataVencimento);
-            const mes = dataParcela.getMonth() + 1;
-            const ano = dataParcela.getFullYear();
-            const chave = `${ano}-${String(mes).padStart(2, '0')}`;
-            
-            if (dados[chave]) {
-              dados[chave].totalEmitido += parcela.Valor || 0;
-              if (parcela.Pago) {
-                dados[chave].totalPago += parcela.Valor || 0;
-              } else {
-                dados[chave].totalPendente += parcela.Valor || 0;
+          if (Array.isArray(venda.Parcelas)) {
+            venda.Parcelas.forEach(parcela => {
+              const dataParcela = new Date(parcela.DataVencimento);
+              if (isNaN(dataParcela.getTime())) return;
+
+              const mes = dataParcela.getMonth() + 1;
+              const ano = dataParcela.getFullYear();
+              const chave = `${ano}-${String(mes).padStart(2, '0')}`;
+
+              if (!dados[chave]) return;
+
+              dados[chave].totalEmitido += parseFloat(parcela.Valor) || 0;
+
+              if (parcela.Pago && !parcelaBaixadaPorQuitacao(parcela)) {
+                const valorPago = parseFloat(parcela.ValorPago) || 0;
+                const valorParcela = parseFloat(parcela.Valor) || 0;
+                dados[chave].totalPago += valorPago > 0 ? valorPago : valorParcela;
+              } else if (!parcela.Pago) {
+                dados[chave].totalPendente += parseFloat(parcela.Valor) || 0;
+              }
+            });
+          }
+
+          const quitacao = obterQuitacaoRecebimentoUnico(venda);
+          if (quitacao) {
+            const dataQuitacao = new Date(quitacao.Data);
+            if (!isNaN(dataQuitacao.getTime())) {
+              const mes = dataQuitacao.getMonth() + 1;
+              const ano = dataQuitacao.getFullYear();
+              const chave = `${ano}-${String(mes).padStart(2, '0')}`;
+
+              if (dados[chave]) {
+                dados[chave].totalPago += parseFloat(quitacao.ValorRecebido) || 0;
               }
             }
-          });
+          }
         });
       });
 
       todasDespesas.forEach(despesa => {
         const dataDespesa = new Date(despesa.DataCadastro);
+        if (isNaN(dataDespesa.getTime())) return;
+
         const mes = dataDespesa.getMonth() + 1;
         const ano = dataDespesa.getFullYear();
         const chave = `${ano}-${String(mes).padStart(2, '0')}`;
-        
+
         if (dados[chave]) {
-          dados[chave].despesas += despesa.Valor || 0;
+          dados[chave].despesas += parseFloat(despesa.Valor) || 0;
         }
       });
 
@@ -949,6 +1258,12 @@
             <div class="metric-label">⚠️ Boletos em Atraso</div>
             <div class="metric-value">${metricas.boletosAtrasadosNaoPagos.length}</div>
             <div class="metric-subtitle">${formatarMoeda(metricas.boletosAtrasadosNaoPagos.reduce((sum, p) => sum + (p.Valor || 0), 0))}</div>
+          </div>
+
+          <div class="metric-card success">
+            <div class="metric-label">🛒 Vendido</div>
+            <div class="metric-value">${metricas.vendas.length}</div>
+            <div class="metric-subtitle">${formatarMoeda(metricas.totalVendido)}</div>
           </div>
 
           <div class="metric-card info">
@@ -1334,5 +1649,7 @@
     }
   </script>
 <script src="sidebar-dock.js"></script>
+<script src="mascaras-globais.js"></script>
+<script src="alertas-ligacoes.js"></script>
 </body>
 </html>

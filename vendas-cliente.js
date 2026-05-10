@@ -400,7 +400,7 @@ function calcularResumo() {
   // Calcular valor total dos produtos
   produtos.forEach(prod => {
     const qtd = parseFloat(prod.quantidade.value) || 0;
-    const valor = parseFloat(prod.valor.value) || 0;
+    const valor = valorNumerico(prod.valor.value) || 0;
     const total = qtd * valor;
     
     prod.total.textContent = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
@@ -415,9 +415,9 @@ function calcularResumo() {
     parcelas.forEach((parc, index) => {
       if (index === numeroParcelas - 1) {
         // Última parcela pega o arredondamento
-        parc.valor.value = (valorTotal - (valorPorParcela * (numeroParcelas - 1))).toFixed(2);
+        definirMoedaInput(parc.valor, valorTotal - (valorPorParcela * (numeroParcelas - 1)));
       } else {
-        parc.valor.value = valorPorParcela.toFixed(2);
+        definirMoedaInput(parc.valor, valorPorParcela);
       }
     });
   }
@@ -543,7 +543,7 @@ function montarObjVenda() {
         Quantidade: parseFloat(p.quantidade.value) || 0,
         Unidade: p.unidade.value.trim() || 'UN',
         PesoUnidade: parseFloat(p.peso.value) || 0,
-        Valor: parseFloat(p.valor.value) || 0,
+        Valor: valorNumerico(p.valor.value) || 0,
         ValorUnitario: 0,
         NCM: p.ncm.value.trim() || '00000000',
         CSOSN_CST: '102',
@@ -564,7 +564,7 @@ function montarObjVenda() {
     
     return {
       DataVencimento: dataParcelaISO,
-      Valor: parseFloat(parc.valor.value) || 0,
+      Valor: valorNumerico(parc.valor.value) || 0,
       Pago: parc.status.value === 'true',
       DataPagamento: parc.status.value === 'true' ? new Date().toISOString() : null
     };
@@ -617,8 +617,8 @@ function mostrarAlert(tipo, mensagem) {
 }
 
 // ===== ABRIR DIÁLOGO DE IMPRESSÃO =====
-function abrirDialogoImpressao(cliente, venda) {
-  const deseja = confirm('✅ Venda salva! Deseja imprimir o comprovante?');
+async function abrirDialogoImpressao(cliente, venda) {
+  const deseja = await modalConfirm('Venda salva com sucesso! Deseja imprimir o comprovante?', { title: 'Imprimir comprovante', okText: 'Imprimir', cancelText: 'Agora não' });
   if (!deseja) {
     // usuário cancelou: esconder loader e voltar
     if (typeof hideLoader === 'function') hideLoader();
@@ -1136,8 +1136,8 @@ function imprimirComprovante(cliente, venda) {
 }
 
 // ===== VOLTAR =====
-function goBack() {
-  if (confirm('Deseja voltar? Os dados não salvos serão perdidos.')) {
+async function goBack() {
+  if (await modalConfirm('Deseja voltar? Os dados não salvos serão perdidos.', { title: 'Voltar', okText: 'Voltar', cancelText: 'Cancelar' })) {
     sessionStorage.removeItem('clienteNovoId');
     sessionStorage.removeItem('clienteNome');
     window.location.href = 'clientes.html';

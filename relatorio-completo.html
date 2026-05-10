@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório Completo - Inteligência Financeira</title>
+  <link rel="icon" type="image/png" href="assets/img/logo.png">
+  <link rel="stylesheet" href="sidebar-dock.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at 18% 0%, #11251f 0%, #050b09 72%);
+      color: #e5f3ee;
+      min-height: 100vh;
+      padding: 22px;
+    }
+    .container { max-width: 1680px; margin: 0 auto; }
+    .header {
+      background: linear-gradient(135deg, rgba(31,163,122,.92), rgba(11,74,56,.95));
+      border: 1px solid rgba(124,240,194,.25);
+      border-radius: 22px;
+      padding: 28px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 20px;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      box-shadow: 0 18px 45px rgba(0,0,0,.28);
+    }
+    .header h1 { font-size: 30px; font-weight: 800; }
+    .header p { color: #d7f7ec; margin-top: 6px; font-size: 14px; }
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      background: rgba(5,11,9,.24);
+      padding: 12px;
+      border-radius: 16px;
+    }
+    select, input {
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.15);
+      color: #e5f3ee;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-family: inherit;
+    }
+    select option { background: #0e1f1a; }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      background: rgba(255,255,255,.12);
+      color: #e5f3ee;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    button:hover { background: rgba(255,255,255,.19); }
+    .grid { display: grid; gap: 18px; }
+    .metrics { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin-bottom: 22px; }
+    .card {
+      background: linear-gradient(135deg, rgba(31,163,122,.10), rgba(124,240,194,.04));
+      border: 1px solid rgba(31,163,122,.24);
+      border-radius: 18px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,.18);
+    }
+    .metric .label {
+      color: #a9d3c6;
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .metric .value { font-size: 27px; font-weight: 800; color: #7cf0c2; }
+    .metric .sub { color: #8fb9ac; font-size: 12px; margin-top: 8px; line-height: 1.4; }
+    .metric.gold .value { color: #d4af37; }
+    .metric.warning .value { color: #ffd166; }
+    .metric.danger .value { color: #ff7b7b; }
+    .metric.info .value { color: #9fd8ff; }
+    .two-cols { grid-template-columns: minmax(360px, 1fr) minmax(360px, 1fr); margin-bottom: 22px; }
+    .three-cols { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-bottom: 22px; }
+    .section-title { font-size: 20px; font-weight: 800; margin-bottom: 14px; color: #7cf0c2; }
+    .section-subtitle { color: #8fb9ac; font-size: 13px; margin-top: -8px; margin-bottom: 14px; line-height: 1.45; }
+    .diagnostico-item {
+      padding: 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.04);
+      border-left: 4px solid #1fa37a;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    .diagnostico-item.alerta { border-left-color: #ff7b7b; }
+    .diagnostico-item.aviso { border-left-color: #ffd166; }
+    .diagnostico-item.ok { border-left-color: #7cf0c2; }
+    .diagnostico-item.info { border-left-color: #9fd8ff; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,.08); text-align: left; vertical-align: top; }
+    th { color: #8fb9ac; text-transform: uppercase; font-size: 11px; letter-spacing: .06em; }
+    .status-insuficiente { color: #ffd166; font-weight: 700; }
+    .definitions { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-top: 22px; }
+    .definition h3 { color: #d4af37; margin-bottom: 8px; font-size: 16px; }
+    .definition p { color: #cfe7df; font-size: 13px; line-height: 1.55; margin-bottom: 8px; }
+    .formula { color: #8fb9ac; font-size: 12px; background: rgba(255,255,255,.04); border-radius: 10px; padding: 10px; }
+    .loading { text-align: center; padding: 50px; color: #7cf0c2; }
+    .spinner {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(124,240,194,.2);
+      border-top-color: #7cf0c2;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .note { color: #8fb9ac; font-size: 12px; line-height: 1.5; margin-top: 8px; }
+    .pill {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.05);
+      color: #cfe7df;
+      font-size: 12px;
+      margin-right: 6px;
+      margin-top: 6px;
+    }
+    canvas { max-height: 320px; }
+    @media (max-width: 920px) {
+      body { padding: 14px; }
+      .two-cols { grid-template-columns: 1fr; }
+      .header h1 { font-size: 24px; }
+      .controls { width: 100%; }
+      .controls select, .controls button { flex: 1 1 140px; }
+    }
+  </style>
+  <script src="modais-globais.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div>
+        <h1>🧠 Relatório Completo</h1>
+        <p>Inteligência financeira real: vendas, recebimentos, custos, margens, riscos e qualidade dos dados.</p>
+      </div>
+      <div class="controls">
+        <select id="filtroMes" onchange="atualizarRelatorioCompleto()">
+          <option value="">Todos os meses</option>
+          <option value="1">Janeiro</option>
+          <option value="2">Fevereiro</option>
+          <option value="3">Março</option>
+          <option value="4">Abril</option>
+          <option value="5">Maio</option>
+          <option value="6">Junho</option>
+          <option value="7">Julho</option>
+          <option value="8">Agosto</option>
+          <option value="9">Setembro</option>
+          <option value="10">Outubro</option>
+          <option value="11">Novembro</option>
+          <option value="12">Dezembro</option>
+        </select>
+        <select id="filtroAno" onchange="atualizarRelatorioCompleto()">
+          <option value="">Todos os anos</option>
+        </select>
+        <select id="filtroVendedor" onchange="atualizarRelatorioCompleto()">
+          <option value="">Todos os vendedores</option>
+        </select>
+        <select id="filtroCliente" onchange="atualizarRelatorioCompleto()">
+          <option value="">Todos os clientes</option>
+        </select>
+        <button onclick="abrirSobreEmpresa()">🏢 Sobre a empresa</button>
+        <button onclick="window.location.href='index.html'">⬅ Voltar</button>
+      </div>
+    </header>
+
+    <div id="relatorioCompletoConteudo">
+      <div class="loading">
+        <div class="spinner"></div>
+        <div>Carregando análise financeira completa...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="auth-utils.js"></script>
+  <script src="categorias-inteligentes.js"></script>
+  <script src="relatorio-completo.js"></script>
+  <script src="sidebar-dock.js"></script>
+  <script src="alertas-ligacoes.js"></script>
+</body>
+</html>
+
