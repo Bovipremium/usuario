@@ -1106,7 +1106,6 @@
       console.log('📋 Dados:', dados);
 
       // Transformar dados
-      let linhasIgnoradas = 0;
       arquivoProcessado = dados.map((row, idx) => {
         let data = '';
         let descricao = '';
@@ -1172,25 +1171,16 @@
         return {
           Data: String(data).trim(),
           Descricao: String(descricao).trim(),
-          Valor: valor > 0 ? valor : 0,
+          Valor: valor > 0 ? valor : 0,  // Garante que não seja zero
           Categoria: categoriaFinal
         };
-      }).filter(item => {
-        const descricaoNormalizada = String(item.Descricao || '').trim().toUpperCase();
-        const valida = !!item.Data && !!descricaoNormalizada && item.Valor > 0 && descricaoNormalizada !== 'SALDO ANTERIOR';
-        if (!valida) linhasIgnoradas += 1;
-        return valida;
       });
-
-      if (linhasIgnoradas > 0) {
-        console.warn(`⚠️ ${linhasIgnoradas} linha(s) inválida(s) foram ignoradas: sem descrição, valor zero ou saldo anterior.`);
-      }
 
       // Mostrar preview
       renderizarPreview();
       document.getElementById('previewSection').style.display = 'block';
       document.getElementById('btnSalvar').style.display = 'block';
-      mostrarAlerta(`✅ ${arquivoProcessado.length} linhas válidas carregadas com sucesso!${linhasIgnoradas > 0 ? ` ${linhasIgnoradas} linha(s) inválida(s) ignorada(s).` : ''}`, 'success');
+      mostrarAlerta(`✅ ${arquivoProcessado.length} linhas carregadas com sucesso!`, 'success');
 
     } catch (erro) {
       console.error('❌ Erro ao processar arquivo:', erro);
