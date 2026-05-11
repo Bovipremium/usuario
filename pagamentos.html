@@ -352,12 +352,12 @@
           </div>
 
           <div class="filtro-item">
-            <label>Data Venda (De)</label>
+            <label>Vencimento Boleto (De)</label>
             <input type="date" id="filtroDataVendaDe" onchange="aplicarFiltros()">
           </div>
 
           <div class="filtro-item">
-            <label>Data Venda (Até)</label>
+            <label>Vencimento Boleto (Até)</label>
             <input type="date" id="filtroDataVendaAte" onchange="aplicarFiltros()">
           </div>
 
@@ -372,7 +372,7 @@
           </div>
 
           <div class="filtro-item">
-            <label>Mín. de Vendas</label>
+            <label>Mín. de Boletos</label>
             <input type="number" id="filtroMinVendas" placeholder="0" onchange="aplicarFiltros()" min="0">
           </div>
 
@@ -381,7 +381,8 @@
             <select id="filtroStatusPagamento" onchange="aplicarFiltros()">
               <option value="">Todos</option>
               <option value="pago">Pago</option>
-              <option value="pendente">Pendente</option>
+              <option value="aberto">Em aberto</option>
+              <option value="pendente">A vencer</option>
               <option value="vencido">Vencido</option>
             </select>
           </div>
@@ -420,24 +421,220 @@
       window.location.replace('keygate.html');
     }
 
+    function normalizarTexto(valor) {
+      return String(valor || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+    }
+
+    function parseDataLocal(valor) {
+      if (!valor) return null;
+
+      if (valor instanceof Date && !isNaN(valor)) {
+        return new Date(valor.getFullYear(), valor.getMonth(), valor.getDate());
+      }
+
+      const texto = String(valor).trim();
+
+      // yyyy-mm-dd
+      const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) {
+        return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+      }
+
+      // dd/mm/yyyy
+      const br = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (br) {
+        return new Date(Number(br[3]), Number(br[2]) - 1, Number(br[1]));
+      }
+
+      const data = new Date(texto);
+      if (isNaN(data)) return null;
+      return new Date(data.getFullYear(), data.getMonth(), data.getDate());
+    }
+
+    function formatarDataBR(valor) {
+      const d = parseDataLocal(valor);
+      if (!d) return '-';
+      return d.toLocaleDateString('pt-BR');
+    }
+
+    function formatarMoeda(valor) {
+      return (Number(valor) || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+
+    function hojeLocal() {
+      const h = new Date();
+      h.setHours(0, 0, 0, 0);
+      return h;
+    }
+
+    function obterValorParcela(parcela) {
+      return Number(
+        parcela.Valor ??
+        parcela.valor ??
+        parcela.ValorParcela ??
+        parcela.valorParcela ??
+        parcela.Total ??
+        parcela.total ??
+        0
+      ) || 0;
+    }
+
+    function obterDataVencimentoParcela(parcela) {
+      return parcela.DataVencimento ||
+             parcela.dataVencimento ||
+             parcela.Vencimento ||
+             parcela.vencimento ||
+             parcela.Data ||
+             parcela.data ||
+             '';
+    }
+
+    function parcelaEstaPaga(parcela) {
+      return parcela.Pago === true ||
+             parcela.Pago === 'true' ||
+             parcela.pago === true ||
+             parcela.pago === 'true' ||
+             normalizarTexto(parcela.Status || parcela.status || '') === 'pago';
+    }
+
+    function statusParcela(parcela) {
+      if (parcelaEstaPaga(parcela)) return 'pago';
+
+      const dataVenc = parseDataLocal(obterDataVencimentoParcela(parcela));
+      if (!dataVenc) return 'aberto';
+
+      return dataVenc < hojeLocal() ? 'vencido' : 'pendente';
+    }
+
+    function numeroParcela(parcela, idx) {
+      return parcela.Numero ||
+             parcela.numero ||
+             parcela.Parcela ||
+             parcela.parcela ||
+             parcela.N ||
+             (idx + 1);
+    }
+
+    function vendaId(venda, idx) {
+      return venda.Id ||
+             venda.id ||
+             venda.NumeroVenda ||
+             venda.numeroVenda ||
+             venda.NF ||
+             venda.NumeroNF ||
+             venda.numeroNF ||
+             `Venda ${idx + 1}`;
+    }
+
+    function obterTodosBoletos(cliente) {
+      const boletos = [];
+
+      (cliente.Vendas || []).forEach((venda, vendaIdx) => {
+        const parcelas = Array.isArray(venda.Parcelas) ? venda.Parcelas : [];
+
+        parcelas.forEach((parcela, parcelaIdx) => {
+          const dataVencimento = obterDataVencimentoParcela(parcela);
+          const status = statusParcela(parcela);
+          const valor = obterValorParcela(parcela);
+
+          boletos.push({
+            cliente,
+            venda,
+            parcela,
+            clienteNome: cliente.Nome || cliente.nome || 'Sem nome',
+            vendaId: vendaId(venda, vendaIdx),
+            numeroParcela: numeroParcela(parcela, parcelaIdx),
+            dataVencimento,
+            dataVencimentoObj: parseDataLocal(dataVencimento),
+            valor,
+            pago: parcelaEstaPaga(parcela),
+            status
+          });
+        });
+      });
+
+      return boletos;
+    }
+
+    function obterBoletosFiltradosCliente(cliente) {
+      const nome = normalizarTexto(document.getElementById('filtroNome')?.value || '');
+      const vencimentoDe = document.getElementById('filtroDataVendaDe')?.value || '';
+      const vencimentoAte = document.getElementById('filtroDataVendaAte')?.value || '';
+      const dataCadastroDe = document.getElementById('filtroDataCadastroDe')?.value || '';
+      const dataCadastroAte = document.getElementById('filtroDataCadastroAte')?.value || '';
+      const statusPagamento = document.getElementById('filtroStatusPagamento')?.value || '';
+
+      // Nome continua filtrando cliente.
+      if (nome && !normalizarTexto(cliente.Nome || cliente.nome || '').includes(nome)) {
+        return [];
+      }
+
+      // Data de cadastro continua filtrando cliente, pois é dado do cliente.
+      if (dataCadastroDe || dataCadastroAte) {
+        const dataCadastro = parseDataLocal(cliente.DataCadastro || cliente.dataCadastro || '');
+        if (!dataCadastro) return [];
+
+        const de = parseDataLocal(dataCadastroDe);
+        const ate = parseDataLocal(dataCadastroAte);
+
+        if (de && dataCadastro < de) return [];
+        if (ate && dataCadastro > ate) return [];
+      }
+
+      let boletos = obterTodosBoletos(cliente);
+
+      // IMPORTANTE:
+      // Em pagamentos.html, data é filtro de BOLETO/PARCELA,
+      // então usa DataVencimento, não DataVenda.
+      if (vencimentoDe || vencimentoAte) {
+        const de = parseDataLocal(vencimentoDe);
+        const ate = parseDataLocal(vencimentoAte);
+
+        boletos = boletos.filter(b => {
+          if (!b.dataVencimentoObj) return false;
+          if (de && b.dataVencimentoObj < de) return false;
+          if (ate && b.dataVencimentoObj > ate) return false;
+          return true;
+        });
+      }
+
+      if (statusPagamento) {
+        boletos = boletos.filter(b => {
+          if (statusPagamento === 'pago') return b.status === 'pago';
+          if (statusPagamento === 'aberto') return b.status === 'pendente' || b.status === 'vencido' || b.status === 'aberto';
+          if (statusPagamento === 'pendente') return b.status === 'pendente' || b.status === 'aberto';
+          if (statusPagamento === 'vencido') return b.status === 'vencido';
+          return true;
+        });
+      }
+
+      return boletos;
+    }
+
     async function carregarPagamentos() {
       try {
         console.log('📥 Carregando clientes.json via buscarArquivo...');
         let dados = await buscarArquivo('clientes.json');
-        
+
         console.log('📊 Tipo de dados retornado:', typeof dados);
         console.log('📊 É array?', Array.isArray(dados));
-        
+
         if (!Array.isArray(dados)) {
           console.warn('⚠️ Dados não é array, tentando extrair array...');
           dados = dados.dados || dados[0] || [];
         }
-        
+
         clientesGlobal = Array.isArray(dados) ? dados : [];
         console.log(`✅ ${clientesGlobal.length} clientes carregados`);
-        
-        clientesFiltrados = [...clientesGlobal];
-        renderizarTabela();
+
+        aplicarFiltros();
       } catch (error) {
         console.error('❌ Erro ao carregar pagamentos:', error);
         console.error('Stack trace:', error.stack);
@@ -448,9 +645,16 @@
 
     function renderizarTabela() {
       const container = document.getElementById('container-pagamentos');
-      
-      if (clientesFiltrados.length === 0) {
-        container.innerHTML = '<div class="empty-message">📭 Nenhum cliente encontrado</div>';
+
+      const linhas = clientesFiltrados
+        .map(cliente => ({
+          cliente,
+          boletos: cliente.__boletosFiltrados || []
+        }))
+        .filter(item => item.boletos.length > 0);
+
+      if (linhas.length === 0) {
+        container.innerHTML = '<div class="empty-message">📭 Nenhum boleto encontrado no filtro informado</div>';
         return;
       }
 
@@ -460,72 +664,91 @@
             <tr>
               <th style="min-width: 30px; text-align: center;">▶</th>
               <th>Cliente</th>
-              <th style="text-align: center;">Nº Vendas</th>
-              <th style="text-align: center;">Total Boletos</th>
+              <th style="text-align: center;">Vendas c/ Boleto</th>
+              <th style="text-align: center;">Boletos Filtrados</th>
+              <th style="text-align: center;">Valor Filtrado</th>
               <th style="text-align: center;">Pagos</th>
+              <th style="text-align: center;">Vencidos</th>
             </tr>
           </thead>
           <tbody id="tbody-pagamentos">
       `;
 
       let totalClientes = 0;
-      let totalBoletos = 0;
-      let totalPagos = 0;
+      let totalBoletosGeral = 0;
+      let totalPagosGeral = 0;
+      let totalVencidosGeral = 0;
+      let valorTotalGeral = 0;
+      let valorPagoGeral = 0;
+      let valorVencidoGeral = 0;
 
-      clientesFiltrados.forEach((cliente, idx) => {
-        if (!cliente.Vendas || cliente.Vendas.length === 0) return;
+      linhas.forEach(({ cliente, boletos }) => {
+        const vendasComBoleto = new Set(boletos.map(b => b.vendaId)).size;
+        const totalBoletos = boletos.length;
+        const totalPagos = boletos.filter(b => b.status === 'pago').length;
+        const totalVencidos = boletos.filter(b => b.status === 'vencido').length;
+        const valorTotal = boletos.reduce((s, b) => s + b.valor, 0);
+        const valorPago = boletos.filter(b => b.status === 'pago').reduce((s, b) => s + b.valor, 0);
+        const valorVencido = boletos.filter(b => b.status === 'vencido').reduce((s, b) => s + b.valor, 0);
 
-        // Calcular totais
-        let numVendas = cliente.Vendas.length;
-        let totalBoletos = 0;
-        let totalPagos = 0;
-
-        cliente.Vendas.forEach(venda => {
-          if (venda.Parcelas && Array.isArray(venda.Parcelas)) {
-            totalBoletos += venda.Parcelas.length;
-            totalPagos += venda.Parcelas.filter(p => p.Pago).length;
-          }
-        });
-
-        // Determinar cor baseado em pagamento
         let corFundo = 'rgba(255,255,255,.02)';
         if (totalBoletos > 0) {
-          if (totalPagos === 0) corFundo = 'rgba(220, 50, 50, 0.25)'; // VERMELHO
-          else if (totalPagos === totalBoletos) corFundo = 'rgba(50, 200, 50, 0.25)'; // VERDE
-          else corFundo = 'rgba(255, 200, 0, 0.25)'; // AMARELO
+          if (totalVencidos > 0) corFundo = 'rgba(220, 50, 50, 0.25)';
+          else if (totalPagos === totalBoletos) corFundo = 'rgba(50, 200, 50, 0.25)';
+          else corFundo = 'rgba(255, 200, 0, 0.25)';
         }
 
-        html += `<tr style="background-color: ${corFundo}; cursor: pointer;" onclick="abrirDetalhesCliente('${cliente.Nome}')">`;
+        const nomeSeguro = String(cliente.Nome || '').replace(/'/g, "\\'");
+
+        html += `<tr style="background-color: ${corFundo}; cursor: pointer;" onclick="abrirDetalhesCliente('${nomeSeguro}')">`;
         html += `<td style="text-align: center;">▶</td>`;
-        html += `<td><strong>${cliente.Nome}</strong></td>`;
-        html += `<td style="text-align: center;">${numVendas}</td>`;
+        html += `<td><strong>${cliente.Nome || '-'}</strong><br><small style="color:#8fb9ac;">Primeiro venc.: ${formatarDataBR(boletos[0]?.dataVencimento)}</small></td>`;
+        html += `<td style="text-align: center;">${vendasComBoleto}</td>`;
         html += `<td style="text-align: center;">${totalBoletos}</td>`;
-        html += `<td style="text-align: center;"><strong>${totalPagos}</strong></td>`;
+        html += `<td style="text-align: center;"><strong>${formatarMoeda(valorTotal)}</strong></td>`;
+        html += `<td style="text-align: center;"><strong>${totalPagos}</strong><br><small>${formatarMoeda(valorPago)}</small></td>`;
+        html += `<td style="text-align: center;"><strong>${totalVencidos}</strong><br><small>${formatarMoeda(valorVencido)}</small></td>`;
         html += `</tr>`;
 
         totalClientes++;
+        totalBoletosGeral += totalBoletos;
+        totalPagosGeral += totalPagos;
+        totalVencidosGeral += totalVencidos;
+        valorTotalGeral += valorTotal;
+        valorPagoGeral += valorPago;
+        valorVencidoGeral += valorVencido;
       });
 
       html += `</tbody></table>`;
-      
-      // Adicionar resumo
+
       html += `
         <div class="resumo-stats">
           <div class="stat-card">
-            <p>Total de Clientes</p>
+            <p>Clientes com Boletos</p>
             <h3>${totalClientes}</h3>
           </div>
           <div class="stat-card">
-            <p>Total de Boletos</p>
-            <h3>${totalBoletos}</h3>
+            <p>Boletos Filtrados</p>
+            <h3>${totalBoletosGeral}</h3>
+          </div>
+          <div class="stat-card">
+            <p>Valor Filtrado</p>
+            <h3>${formatarMoeda(valorTotalGeral)}</h3>
           </div>
           <div class="stat-card" style="border-left-color: #90ee90;">
             <p style="color: #90ee90;">Boletos Pagos</p>
-            <h3 style="color: #90ee90;">${totalPagos}</h3>
+            <h3 style="color: #90ee90;">${totalPagosGeral}</h3>
+            <small style="color:#8fb9ac;">${formatarMoeda(valorPagoGeral)}</small>
           </div>
           <div class="stat-card" style="border-left-color: #d9534f;">
-            <p style="color: #d9534f;">Boletos Pendentes</p>
-            <h3 style="color: #d9534f;">${totalBoletos - totalPagos}</h3>
+            <p style="color: #d9534f;">Boletos Vencidos</p>
+            <h3 style="color: #d9534f;">${totalVencidosGeral}</h3>
+            <small style="color:#8fb9ac;">${formatarMoeda(valorVencidoGeral)}</small>
+          </div>
+          <div class="stat-card" style="border-left-color: #f0ad4e;">
+            <p style="color: #f0ad4e;">Em Aberto</p>
+            <h3 style="color: #f0ad4e;">${totalBoletosGeral - totalPagosGeral}</h3>
+            <small style="color:#8fb9ac;">${formatarMoeda(valorTotalGeral - valorPagoGeral)}</small>
           </div>
         </div>
       `;
@@ -543,60 +766,28 @@
     }
 
     function aplicarFiltros() {
-      const nome = (document.getElementById('filtroNome').value || '').toLowerCase();
-      const dataVendaDe = document.getElementById('filtroDataVendaDe').value;
-      const dataVendaAte = document.getElementById('filtroDataVendaAte').value;
-      const dataCadastroDe = document.getElementById('filtroDataCadastroDe').value;
-      const dataCadastroAte = document.getElementById('filtroDataCadastroAte').value;
-      const minVendas = parseInt(document.getElementById('filtroMinVendas').value) || 0;
-      const statusPagamento = document.getElementById('filtroStatusPagamento').value;
+      const minBoletos = parseInt(document.getElementById('filtroMinVendas')?.value || '0') || 0;
 
-      clientesFiltrados = clientesGlobal.filter(cliente => {
-        // Filtro por nome
-        if (nome && !cliente.Nome.toLowerCase().includes(nome)) return false;
+      clientesFiltrados = clientesGlobal
+        .map(cliente => {
+          const boletos = obterBoletosFiltradosCliente(cliente);
 
-        // Filtro por mín. de vendas
-        if (cliente.Vendas && cliente.Vendas.length < minVendas) return false;
+          return {
+            ...cliente,
+            __boletosFiltrados: boletos
+          };
+        })
+        .filter(cliente => {
+          if (minBoletos > 0 && cliente.__boletosFiltrados.length < minBoletos) return false;
+          return cliente.__boletosFiltrados.length > 0;
+        });
 
-        // Filtro por data de venda
-        if ((dataVendaDe || dataVendaAte) && cliente.Vendas) {
-          const temVendaNoPeriodo = cliente.Vendas.some(v => {
-            const dataVenda = new Date(v.DataVenda);
-            if (dataVendaDe && dataVenda < new Date(dataVendaDe)) return false;
-            if (dataVendaAte && dataVenda > new Date(dataVendaAte)) return false;
-            return true;
-          });
-          if (!temVendaNoPeriodo) return false;
-        }
-
-        // Filtro por data de cadastro
-        if (dataCadastroDe || dataCadastroAte) {
-          const dataCadastro = new Date(cliente.DataCadastro || '');
-          if (dataCadastroDe && dataCadastro < new Date(dataCadastroDe)) return false;
-          if (dataCadastroAte && dataCadastro > new Date(dataCadastroAte)) return false;
-        }
-
-        // Filtro por status de pagamento
-        if (statusPagamento && cliente.Vendas) {
-          let temStatus = false;
-          const hoje = new Date();
-          hoje.setHours(0, 0, 0, 0);
-
-          cliente.Vendas.forEach(venda => {
-            if (!venda.Parcelas) return;
-            venda.Parcelas.forEach(parcela => {
-              const dataVenc = new Date(parcela.DataVencimento);
-              dataVenc.setHours(0, 0, 0, 0);
-
-              if (statusPagamento === 'pago' && parcela.Pago) temStatus = true;
-              if (statusPagamento === 'pendente' && !parcela.Pago && dataVenc > hoje) temStatus = true;
-              if (statusPagamento === 'vencido' && !parcela.Pago && dataVenc <= hoje) temStatus = true;
-            });
-          });
-          if (!temStatus) return false;
-        }
-
-        return true;
+      console.log('🔎 Filtro de Pagamentos por BOLETOS:', {
+        clientes: clientesFiltrados.length,
+        boletos: clientesFiltrados.reduce((s, c) => s + c.__boletosFiltrados.length, 0),
+        status: document.getElementById('filtroStatusPagamento')?.value || 'todos',
+        vencimentoDe: document.getElementById('filtroDataVendaDe')?.value || '',
+        vencimentoAte: document.getElementById('filtroDataVendaAte')?.value || ''
       });
 
       renderizarTabela();
@@ -610,9 +801,8 @@
       document.getElementById('filtroDataCadastroAte').value = '';
       document.getElementById('filtroMinVendas').value = '';
       document.getElementById('filtroStatusPagamento').value = '';
-      
-      clientesFiltrados = [...clientesGlobal];
-      renderizarTabela();
+
+      aplicarFiltros();
     }
 
     // Carregar ao iniciar
