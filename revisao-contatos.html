@@ -575,7 +575,18 @@
       
       <div class="button-group" style="margin-top: 30px;">
         <button class="btn btn-add" onclick="salvarJSON(this)">💾 Salvar no JSON</button>
+        <button class="btn btn-add" onclick="gerarJSONLigacoes(this)">📄 Gerar JSON de Ligações</button>
         <button class="btn btn-add" onclick="gerarParaLigar(this)">📱 Gerar para Ligar</button>
+      </div>
+
+      <!-- Campo de cópia dos números exibidos na aba Ligações -->
+      <div class="input-section" style="margin-top: 30px;">
+        <label>📋 Números Limpos para Copiar e Colar:</label>
+        <textarea id="campoCopiaNumerosLigacao" placeholder="Os números da aba Ligações aparecerão aqui..." readonly style="background: rgba(31,163,122,.1); border-color: rgba(31,163,122,.3); min-height: 160px;"></textarea>
+        <div class="button-group">
+          <button class="btn btn-add" onclick="copiarCampoNumerosAba('ligacao')">📋 Copiar Todos</button>
+          <button class="btn btn-add" onclick="salvarJSON(this)">💾 Salvar no JSON</button>
+        </div>
       </div>
 
       <!-- Seção para exibir números do Ligar App -->
@@ -598,8 +609,9 @@
       <div id="mensagemWhatsapp" class="message"></div>
       
       <div class="button-group" style="margin-bottom: 30px;">
-        <button class="btn btn-add" onclick="buscarJSONWhatsapp(this)">📥 Buscar JSON (WhatsApp)</button>
-        <button class="btn" onclick="gerarJSONTodos(this)">📄 Gerar JSON</button>
+        <button class="btn btn-add" onclick="gerarJSONWhatsappNaoEnviado(this)">📥 Buscar JSON (WhatsApp não enviados)</button>
+        <button class="btn btn-add" onclick="gerarJSONWhatsappTodos(this)">📄 Gerar JSON WhatsApp</button>
+        <button class="btn btn-add" onclick="gerarJSONWhatsappEnviados(this)">✅ Gerar JSON Enviados Já</button>
       </div>
       
       <div class="table-container">
@@ -627,6 +639,16 @@
         </table>
       </div>
       
+      <!-- Campo de cópia dos números exibidos na aba WhatsApp -->
+      <div class="input-section" style="margin-top: 30px;">
+        <label>📋 Números Limpos para Copiar e Colar:</label>
+        <textarea id="campoCopiaNumerosWhatsapp" placeholder="Os números da aba WhatsApp aparecerão aqui..." readonly style="background: rgba(31,163,122,.1); border-color: rgba(31,163,122,.3); min-height: 160px;"></textarea>
+        <div class="button-group">
+          <button class="btn btn-add" onclick="copiarCampoNumerosAba('whatsapp')">📋 Copiar Todos</button>
+          <button class="btn btn-add" onclick="salvarJSON(this)">💾 Salvar no JSON</button>
+        </div>
+      </div>
+
       <div class="button-group" style="margin-top: 30px;">
         <button class="btn btn-add" onclick="salvarJSON(this)">💾 Salvar no JSON</button>
       </div>
@@ -652,6 +674,16 @@
             <button class="btn btn-add" onclick="copiarNumerosLigarApp(this)">📋 Copiar Todos</button>
             <button class="btn" onclick="limparNumerosLigarApp(this)">🗑️ Limpar</button>
           </div>
+        </div>
+      </div>
+
+      <!-- Campo de cópia dos números exibidos na aba JSON -->
+      <div class="input-section" style="margin-bottom: 30px;">
+        <label>📋 Números Limpos para Copiar e Colar:</label>
+        <textarea id="campoCopiaNumerosJson" placeholder="Os números da aba JSON aparecerão aqui..." readonly style="background: rgba(31,163,122,.1); border-color: rgba(31,163,122,.3); min-height: 160px;"></textarea>
+        <div class="button-group">
+          <button class="btn btn-add" onclick="copiarCampoNumerosAba('json')">📋 Copiar Todos</button>
+          <button class="btn btn-add" onclick="salvarJSON(this)">💾 Salvar no JSON</button>
         </div>
       </div>
 
@@ -744,9 +776,7 @@
   <script src="config.js"></script>
   <script src="auth-utils.js"></script>
   <script src="auth.js"></script>
-  <script src="revisao-contatos.js"></script>
-  <script src="mascaras-globais.js"></script>
+  <script src="revisao-contatos.js"></script><script src="mascaras-globais.js"></script>
 <script src="alertas-ligacoes.js"></script>
-  <script src="sidebar-dock.js"></script>
 </body>
 </html>
