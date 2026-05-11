@@ -115,6 +115,15 @@ async function salvarConta(event) {
       recorrencia = 'mensal';
     }
 
+    if (tipoConta === 'comissao_percentual') {
+      if (!percentual || percentual <= 0) {
+        mostrarMensagem('❌ Informe um percentual de comissão maior que zero!', 'erro');
+        return false;
+      }
+      valor = 0;
+      categoria = categoria || 'Comissões';
+      recorrencia = 'mensal';
+    }
     if (tipoConta === 'taxa_boleto') {
       if (!banco || !taxaPorBoleto || taxaPorBoleto <= 0) {
         mostrarMensagem('❌ Informe o banco e a taxa por boleto!', 'erro');
@@ -141,7 +150,7 @@ async function salvarConta(event) {
       StatusPagamento: statusAutomatico,
       DataPago: null,
       TipoConta: tipoConta,
-      Percentual: tipoConta === 'imposto_percentual' ? percentual : null,
+      Percentual: (tipoConta === 'imposto_percentual' || tipoConta === 'comissao_percentual') ? percentual : null,
       Banco: tipoConta === 'taxa_boleto' ? banco : null,
       TaxaPorBoleto: tipoConta === 'taxa_boleto' ? taxaPorBoleto : null
     };
@@ -591,6 +600,28 @@ async function gerarContasAutomaticasCalculadas(mes, ano) {
       });
     }
 
+
+    if (tipoConta === 'comissao_percentual') {
+      const anterior = obterMesAnterior(mes, ano);
+      const baseVendas = totalVendidoNoPeriodo(clientes, anterior.mes, anterior.ano);
+      const percentual = parseFloat(conta.Percentual || 0) || 0;
+      const valor = baseVendas * (percentual / 100);
+
+      automaticas.push({
+        ...conta,
+        Id: `${conta.Id}__comissao_${ano}_${mes}`,
+        DataPagamento: `${ano}-${String(mes).padStart(2, '0')}-${String(Math.min(criarDataLocal(conta.DataPagamento)?.getDate() || 1, ultimoDiaMes(Number(ano), Number(mes)))).padStart(2, '0')}`,
+        Valor: valor,
+        StatusPagamento: 'Não Pago',
+        Automatica: true,
+        ContaPersistida: false,
+        TipoExibicao: 'calculada',
+        Categoria: conta.Categoria || 'Comissões',
+        Descricao: `${conta.Descricao} — ${percentual}% comissão sobre vendas de ${String(anterior.mes).padStart(2, '0')}/${anterior.ano}`,
+        NotasCalculo: `Base: R$ ${formatarMoeda(baseVendas)} × ${percentual}%`
+      });
+    }
+
     if (tipoConta === 'taxa_boleto') {
       const boletosPagos = contarBoletosPagosNoPeriodo(clientes, mes, ano);
       const taxa = parseFloat(conta.TaxaPorBoleto || 0) || 0;
@@ -637,6 +668,7 @@ async function obterContasDoPeriodo(mes, ano) {
 function descricaoTipoConta(conta) {
   const tipo = normalizarTipoConta(conta);
   if (tipo === 'imposto_percentual') return '🧾 IMPOSTO AUTOMÁTICO';
+  if (tipo === 'comissao_percentual') return '💼 COMISSÃO AUTOMÁTICA';
   if (tipo === 'taxa_boleto') return '🏦 TAXA BOLETO AUTOMÁTICA';
   if (conta.ProjecaoRecorrente) return '📆 PROJETADA';
   return conta.IsRecorrente ? '📅 RECORRENTE' : '🔔 ÚNICA';
@@ -645,6 +677,27 @@ function descricaoTipoConta(conta) {
 // ============================================
 // RENDERIZAR TABELA
 // ============================================
+
+function normalizarFiltroTodosContas(valor) {
+  const v = String(valor ?? '').trim();
+  if (!v) return '';
+  const n = v
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (['todos', 'todas', 'todo', 'toda', 'all'].includes(n)) return '';
+  return v;
+}
+
+
+function normalizarTextoFiltroContas(valor) {
+  return String(valor ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 async function renderizarTabela(aplicarFiltroAtivo = false) {
   const tabelaContainer = document.getElementById('tabelaContainer');
   
@@ -656,8 +709,8 @@ async function renderizarTabela(aplicarFiltroAtivo = false) {
 
   const mes = document.getElementById('filtroMes')?.value || '';
   const ano = document.getElementById('filtroAno')?.value || '';
-  const status = document.getElementById('filtroStatus')?.value || '';
-  const categoria = document.getElementById('filtroCategoria')?.value || '';
+  const status = normalizarFiltroTodosContas(document.getElementById('filtroStatus')?.value || '');
+  const categoria = normalizarFiltroTodosContas(document.getElementById('filtroCategoria')?.value || '');
 
   let contasParaExibir;
 
@@ -691,11 +744,13 @@ async function renderizarTabela(aplicarFiltroAtivo = false) {
         }
       }
 
-      if (status && conta.StatusPagamento !== status) return false;
-      if (categoria && conta.Categoria !== categoria) return false;
+      if (status && normalizarTextoFiltroContas(conta.StatusPagamento) !== normalizarTextoFiltroContas(status)) return false;
+      if (categoria && normalizarTextoFiltroContas(conta.Categoria) !== normalizarTextoFiltroContas(categoria)) return false;
       return true;
     });
   }
+
+  console.log('📅 Contas para exibir após projeção/filtros:', contasParaExibir.length, contasParaExibir.map(c => ({ descricao: c.Descricao, data: c.DataPagamento, status: c.StatusPagamento, categoria: c.Categoria, tipo: c.TipoExibicao })));
 
   if (contasParaExibir.length === 0) {
     tabelaContainer.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">Nenhuma conta encontrada. Tente ajustar seus filtros.</p>';
@@ -993,7 +1048,7 @@ function atualizarCamposTipoConta() {
   const inputCategoria = document.getElementById('inputCategoria');
 
   if (grupoValor) grupoValor.style.display = tipo === 'fixa' ? '' : 'none';
-  if (grupoPercentual) grupoPercentual.style.display = tipo === 'imposto_percentual' ? '' : 'none';
+  if (grupoPercentual) grupoPercentual.style.display = ['imposto_percentual', 'comissao_percentual'].includes(tipo) ? '' : 'none';
   if (grupoBanco) grupoBanco.style.display = tipo === 'taxa_boleto' ? '' : 'none';
   if (grupoTaxa) grupoTaxa.style.display = tipo === 'taxa_boleto' ? '' : 'none';
   if (inputValor) inputValor.required = tipo === 'fixa';
@@ -1001,6 +1056,11 @@ function atualizarCamposTipoConta() {
   if (tipo === 'imposto_percentual') {
     if (inputRecorrencia) inputRecorrencia.value = 'mensal';
     if (inputCategoria && !inputCategoria.value) inputCategoria.value = 'Impostos';
+  }
+
+  if (tipo === 'comissao_percentual') {
+    if (inputRecorrencia) inputRecorrencia.value = 'mensal';
+    if (inputCategoria && !inputCategoria.value) inputCategoria.value = 'Comissões';
   }
 
   if (tipo === 'taxa_boleto') {
@@ -1042,8 +1102,8 @@ function fecharModal(idModal = 'modalFormulario') {
 async function aplicarFiltros() {
   const mes = document.getElementById('filtroMes')?.value || '';
   const ano = document.getElementById('filtroAno')?.value || '';
-  const status = document.getElementById('filtroStatus')?.value || '';
-  const categoria = document.getElementById('filtroCategoria')?.value || '';
+  const status = normalizarFiltroTodosContas(document.getElementById('filtroStatus')?.value || '');
+  const categoria = normalizarFiltroTodosContas(document.getElementById('filtroCategoria')?.value || '');
 
   const contagemFiltros = [mes, ano, status, categoria].filter(v => v !== '').length;
   console.log(`🔍 Aplicando ${contagemFiltros} filtro(s)...`);
