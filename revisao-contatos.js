@@ -1833,3 +1833,667 @@ window.apagarDoJSON = apagarDoJSON;
 window.marcarTodosWhatsapp = marcarTodosWhatsapp;
 
 console.log('✅ revisao-contatos.js CARREGADO');
+
+
+/* ============================================================
+   REVISAO CONTATOS V4 FINAL
+   Fluxo correto: último lote, ligações, WhatsApp não enviados,
+   WhatsApp enviados já e campos de cópia em todas as abas.
+   ============================================================ */
+
+(function(){
+  const CHAVE_ULTIMO_LOTE = 'revisaoContatosUltimoLoteId';
+
+  function v4NormalizarNumero(numero) {
+    return String(numero || '').replace(/\D/g, '');
+  }
+
+  function v4MesmoNumero(a, b) {
+    return v4NormalizarNumero(a) === v4NormalizarNumero(b);
+  }
+
+  function v4EscapeHtml(valor) {
+    return String(valor ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function v4EscapeJs(valor) {
+    return String(valor ?? '')
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/\n/g, ' ')
+      .replace(/\r/g, ' ');
+  }
+
+  function v4FoiEnviadoWhatsapp(contato) {
+    return contato && (
+      contato.enviadoWhatsapp === true ||
+      contato.enviadoWhatsapp === 'true' ||
+      contato.EnviadoWhatsapp === true ||
+      contato.EnviadoWhatsapp === 'true' ||
+      contato.statusWhatsapp === 'enviado' ||
+      contato.StatusWhatsapp === 'Enviado'
+    );
+  }
+
+  function v4FormatarNumeroParaCopia(numero) {
+    let num = v4NormalizarNumero(numero);
+
+    // Remove Brasil 55 quando vier junto.
+    if (num.startsWith('55') && num.length >= 12) {
+      num = num.slice(2);
+    }
+
+    if (!num) return '';
+
+    // Garante prefixo 0 para copiar no padrão do discador/lista.
+    if (!num.startsWith('0')) {
+      num = '0' + num;
+    }
+
+    return num;
+  }
+
+  function v4ListaLimpa(contatos) {
+    return (Array.isArray(contatos) ? contatos : [])
+      .filter(c => c && c.numero && !estaNaBlacklist(c.numero));
+  }
+
+  function v4Unicos(contatos) {
+    const mapa = new Map();
+    v4ListaLimpa(contatos).forEach(c => mapa.set(v4NormalizarNumero(c.numero), c));
+    return Array.from(mapa.values());
+  }
+
+  function v4ContatosWhatsappTodos() {
+    return v4Unicos(contatosGlobais).filter(c => c.tipo === 'whatsapp');
+  }
+
+  function v4ContatosWhatsappNaoEnviados() {
+    return v4ContatosWhatsappTodos().filter(c => !v4FoiEnviadoWhatsapp(c));
+  }
+
+  function v4ContatosWhatsappEnviados() {
+    return v4ContatosWhatsappTodos().filter(c => v4FoiEnviadoWhatsapp(c));
+  }
+
+  function v4ContatosLigacaoTodos() {
+    return v4Unicos(contatosGlobais).filter(c => c.tipo !== 'whatsapp');
+  }
+
+  function v4ContatosUltimoLoteLigacao() {
+    const lote = localStorage.getItem(CHAVE_ULTIMO_LOTE) || '';
+    if (!lote) return [];
+    return v4ContatosLigacaoTodos().filter(c => c.loteId === lote);
+  }
+
+  function v4PreencherCampoCopia(aba, contatos) {
+    const ids = {
+      cola: 'campoCopiaNumerosLimpos',
+      ligacao: 'campoCopiaNumerosLigacao',
+      whatsapp: 'campoCopiaNumerosWhatsapp',
+      json: 'campoCopiaNumerosJson'
+    };
+
+    const campo = document.getElementById(ids[aba]);
+    if (!campo) return;
+
+    const texto = v4Unicos(contatos)
+      .map(c => v4FormatarNumeroParaCopia(c.numero))
+      .filter(Boolean)
+      .join('\n');
+
+    campo.value = texto;
+  }
+
+  window.copiarCampoNumerosAba = async function(aba) {
+    const ids = {
+      cola: 'campoCopiaNumerosLimpos',
+      ligacao: 'campoCopiaNumerosLigacao',
+      whatsapp: 'campoCopiaNumerosWhatsapp',
+      json: 'campoCopiaNumerosJson'
+    };
+
+    const campo = document.getElementById(ids[aba]);
+    if (!campo || !campo.value.trim()) {
+      exibirMensagem(aba, '❌ Nenhum número para copiar', 'error');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(campo.value);
+      exibirMensagem(aba, `✅ ${campo.value.split('\n').filter(Boolean).length} número(s) copiado(s)!`, 'success');
+    } catch (erro) {
+      campo.select();
+      document.execCommand('copy');
+      exibirMensagem(aba, '✅ Números copiados!', 'success');
+    }
+  };
+
+  window.atualizarCampoCopia = function() {
+    v4PreencherCampoCopia('cola', numerosTemporarios);
+  };
+
+  window.copiarCampo = function(botao) {
+    return window.copiarCampoNumerosAba('cola');
+  };
+
+  window.contatosParaAba = function(tipoAba) {
+    if (tipoAba === 'whatsapp') {
+      return v4ContatosWhatsappNaoEnviados();
+    }
+
+    if (tipoAba === 'ligacao') {
+      if (numerosTemporarios.length > 0) {
+        return v4Unicos(numerosTemporarios).filter(c => c.tipo !== 'whatsapp');
+      }
+
+      // Ao entrar em Ligações, mostra somente o último lote salvo.
+      // Para todos os contatos de ligação, use o botão Gerar JSON de Ligações.
+      return v4ContatosUltimoLoteLigacao();
+    }
+
+    return v4Unicos([...contatosGlobais, ...numerosTemporarios]);
+  };
+
+  window.renderizarTabelaLigacoes = function(contatos) {
+    const tbody = document.getElementById('tabelaLigacoes');
+    contatos = v4Unicos(contatos).filter(c => c.tipo !== 'whatsapp');
+
+    v4PreencherCampoCopia('ligacao', contatos);
+
+    if (!tbody) return;
+
+    if (contatos.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #8fb9ac;">Vazio</td></tr>`;
+      atualizarCheckboxTudoWhatsapp();
+      return;
+    }
+
+    tbody.innerHTML = contatos.map((item, idx) => `
+      <tr>
+        <td class="numeracao">${idx + 1}</td>
+        <td class="numero-celula"><strong>${v4EscapeHtml(item.numero)}</strong></td>
+        <td><input type="text" value="${v4EscapeHtml(item.nome || '')}" placeholder="Nome" onchange="atualizarContato('${v4EscapeJs(item.numero)}', 'nome', this.value)" style="width: 100%; padding: 6px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.2); border-radius: 6px; color: #e5f3ee; font-size: 12px;"></td>
+        <td><input type="text" value="${v4EscapeHtml(item.obs || '')}" placeholder="Obs" onchange="atualizarContato('${v4EscapeJs(item.numero)}', 'obs', this.value)" style="width: 100%; padding: 6px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.2); border-radius: 6px; color: #e5f3ee; font-size: 12px;"></td>
+        <td style="text-align: center;">
+          <input type="checkbox" onchange="marcarWhatsapp('${v4EscapeJs(item.numero)}', this.checked)" style="width: 18px; height: 18px; cursor: pointer;">
+        </td>
+        <td class="acoes-celula" style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button class="btn-whatsapp" onclick="fazerChamada('${v4EscapeJs(item.numero)}')">📞 Ligar</button>
+          <button class="btn-agendar" onclick="abrirAgendamento('${v4EscapeJs(item.numero)}', '${v4EscapeJs(item.nome || '')}', '${v4EscapeJs(item.obs || '')}')">📅 Agendar</button>
+          <button class="btn-delete" onclick="apagarDoJSON('${v4EscapeJs(item.numero)}')">🗑️ Deletar</button>
+        </td>
+      </tr>
+    `).join('');
+
+    atualizarCheckboxTudoWhatsapp();
+  };
+
+  window.renderizarTabelaWhatsapp = function(contatos) {
+    const tbody = document.getElementById('tabelaWhatsapp');
+    contatos = v4Unicos(contatos).filter(c => c.tipo === 'whatsapp');
+
+    v4PreencherCampoCopia('whatsapp', contatos);
+
+    if (!tbody) return;
+
+    if (contatos.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #8fb9ac;">Vazio</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = contatos.map((item, idx) => {
+      const enviado = v4FoiEnviadoWhatsapp(item);
+      return `
+        <tr>
+          <td class="numeracao">${idx + 1}</td>
+          <td class="numero-celula"><strong>${v4EscapeHtml(item.numero)}</strong></td>
+          <td><input type="text" value="${v4EscapeHtml(item.nome || '')}" placeholder="Nome" onchange="atualizarContato('${v4EscapeJs(item.numero)}', 'nome', this.value)" style="width: 100%; padding: 6px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.2); border-radius: 6px; color: #e5f3ee; font-size: 12px;"></td>
+          <td><input type="text" value="${v4EscapeHtml(item.obs || '')}" placeholder="Obs" onchange="atualizarContato('${v4EscapeJs(item.numero)}', 'obs', this.value)" style="width: 100%; padding: 6px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.2); border-radius: 6px; color: #e5f3ee; font-size: 12px;"></td>
+          <td class="acoes-celula" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="btn-whatsapp" onclick="abrirWhatsapp('${v4EscapeJs(item.numero)}')">💬 Enviar</button>
+            <a href="https://wa.me/55${v4NormalizarNumero(item.numero)}" target="_blank" style="padding: 6px 12px; border-radius: 8px; text-decoration: none; background: linear-gradient(145deg, rgba(34,177,76,.3), rgba(34,177,76,.15)); color: #22b14c; border: 1px solid rgba(34,177,76,.3); font-size: 12px; display: inline-block;">🔗 Link</a>
+            <button class="btn-agendar" onclick="abrirAgendamento('${v4EscapeJs(item.numero)}', '${v4EscapeJs(item.nome || '')}', '${v4EscapeJs(item.obs || '')}')">📅 Agendar</button>
+            <button class="btn btn-add" onclick="marcarWhatsappEnviado('${v4EscapeJs(item.numero)}')" ${enviado ? 'disabled style="opacity:.55; cursor:not-allowed;"' : ''}>${enviado ? '✅ Enviado' : '✅ Enviado Já'}</button>
+            <button class="btn-delete" onclick="apagarDoJSON('${v4EscapeJs(item.numero)}')">🗑️ Deletar</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  };
+
+  window.renderizarTabelaJSON = function(contatos) {
+    const tbody = document.getElementById('tabelaJSON');
+    contatos = v4Unicos(contatos);
+
+    v4PreencherCampoCopia('json', contatos);
+
+    if (!tbody) return;
+
+    if (contatos.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #8fb9ac;">Vazio</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = contatos.map((item, idx) => `
+      <tr>
+        <td class="numeracao">${idx + 1}</td>
+        <td class="numero-celula"><strong>${v4EscapeHtml(item.numero)}</strong></td>
+        <td>${v4EscapeHtml(item.nome || '-')}</td>
+        <td>${v4EscapeHtml(item.obs || '-')}</td>
+        <td><span style="color: ${item.tipo === 'whatsapp' ? '#22b14c' : '#4285f4'}; font-weight: 600;">${item.tipo === 'whatsapp' ? '💬 WA' : '📞 LG'}</span></td>
+        <td><span style="color: ${v4FoiEnviadoWhatsapp(item) ? '#22b14c' : '#1fa37a'};">${item.tipo === 'whatsapp' && v4FoiEnviadoWhatsapp(item) ? '✅ Enviado' : '✓'}</span></td>
+        <td class="acoes-celula">
+          <button class="btn-agendar" onclick="abrirAgendamento('${v4EscapeJs(item.numero)}', '${v4EscapeJs(item.nome || '')}', '${v4EscapeJs(item.obs || '')}')">📅 Agendar</button>
+          <button class="btn-delete" onclick="apagarDoJSON('${v4EscapeJs(item.numero)}')">🗑️ Apagar</button>
+        </td>
+      </tr>
+    `).join('');
+  };
+
+  window.salvarJSON = async function(botao) {
+    try {
+      mostrarLoadingTela();
+
+      const temTemporarios = numerosTemporarios.length > 0;
+      const agora = new Date().toISOString();
+      const loteNovoId = temTemporarios ? `lote_${Date.now()}` : '';
+
+      if (temTemporarios) {
+        numerosTemporarios.forEach(c => {
+          c.loteId = loteNovoId;
+          c.loteSalvoEm = agora;
+          c.tipo = c.tipo || 'ligacao';
+          if (c.tipo === 'whatsapp' && c.enviadoWhatsapp === undefined) {
+            c.enviadoWhatsapp = false;
+          }
+        });
+      }
+
+      // Globais primeiro, temporários depois. Assim o último lote/editado prevalece.
+      const paraGravar = temTemporarios
+        ? [...contatosGlobais, ...numerosTemporarios]
+        : contatosGlobais;
+
+      if (paraGravar.length === 0) {
+        esconderLoadingTela();
+        exibirMensagem(abaAtivaAtual(), '❌ Nenhum número para salvar', 'error');
+        return;
+      }
+
+      await carregarBlacklist();
+
+      const semBlacklist = v4Unicos(paraGravar)
+        .filter(c => !estaNaBlacklist(c.numero))
+        .map(c => ({
+          ...c,
+          data: c.data || agora,
+          tipo: c.tipo || 'ligacao'
+        }));
+
+      if (semBlacklist.length === 0) {
+        esconderLoadingTela();
+        exibirMensagem(abaAtivaAtual(), '❌ Todos os números estão na blacklist', 'error');
+        return;
+      }
+
+      const sucesso = await salvarNoGoogleDrive(semBlacklist);
+      esconderLoadingTela();
+
+      if (!sucesso) {
+        exibirMensagem(abaAtivaAtual(), '❌ Erro ao salvar', 'error');
+        return;
+      }
+
+      contatosGlobais = semBlacklist;
+      numerosTemporarios = [];
+
+      if (loteNovoId) {
+        localStorage.setItem(CHAVE_ULTIMO_LOTE, loteNovoId);
+      }
+
+      const aba = abaAtivaAtual();
+      exibirMensagem(aba, `✅ ${semBlacklist.length} contato(s) salvo(s)!`, 'success');
+
+      if (typeof registrarAuditoria === 'function') {
+        registrarAuditoria(
+          'Atualizar',
+          'Contatos',
+          semBlacklist.length.toString(),
+          `Revisão de ${semBlacklist.length} contatos`,
+          `Salvos ${semBlacklist.length} números de contatos`,
+          '',
+          JSON.stringify(semBlacklist.slice(0, 5))
+        );
+      }
+
+      const raw = document.getElementById('textareaNumerosRaw');
+      if (raw) raw.value = '';
+
+      renderizarTabelaNumerosProcessados();
+
+      if (loteNovoId) {
+        renderizarTabelaLigacoes(v4ContatosUltimoLoteLigacao());
+      } else {
+        renderizarTabelaLigacoes(contatosParaAba('ligacao'));
+      }
+
+      renderizarTabelaWhatsapp(v4ContatosWhatsappNaoEnviados());
+      renderizarJSON();
+
+    } catch (erro) {
+      console.error('❌ Erro ao salvar JSON V4:', erro);
+      esconderLoadingTela();
+      exibirMensagem(abaAtivaAtual(), '❌ Erro: ' + erro.message, 'error');
+    }
+  };
+
+  window.gerarJSONLigacoes = async function(botao) {
+    try {
+      mostrarLoadingTela();
+      await carregarDoGoogleDrive();
+      esconderLoadingTela();
+
+      const lista = v4ContatosLigacaoTodos();
+
+      if (lista.length === 0) {
+        renderizarTabelaLigacoes([]);
+        exibirMensagem('ligacao', '⚠️ Nenhum contato de ligação pendente', 'info');
+        return;
+      }
+
+      renderizarTabelaLigacoes(lista);
+      exibirMensagem('ligacao', `✅ ${lista.length} contato(s) de ligação carregado(s)`, 'success');
+
+    } catch (erro) {
+      esconderLoadingTela();
+      console.error('❌ Erro ao gerar JSON de ligações:', erro);
+      exibirMensagem('ligacao', '❌ Erro ao carregar ligações', 'error');
+    }
+  };
+
+  window.gerarLigacoesJSON = window.gerarJSONLigacoes;
+
+  window.gerarJSONWhatsappNaoEnviado = async function(botao) {
+    try {
+      mostrarLoadingTela();
+      await carregarDoGoogleDrive();
+      esconderLoadingTela();
+
+      const lista = v4ContatosWhatsappNaoEnviados();
+
+      if (lista.length === 0) {
+        renderizarTabelaWhatsapp([]);
+        exibirMensagem('whatsapp', '⚠️ Nenhum WhatsApp pendente de envio', 'info');
+        return;
+      }
+
+      renderizarTabelaWhatsapp(lista);
+      exibirMensagem('whatsapp', `✅ ${lista.length} WhatsApp(s) não enviado(s)`, 'success');
+
+    } catch (erro) {
+      esconderLoadingTela();
+      console.error('❌ Erro ao carregar WhatsApp não enviados:', erro);
+      exibirMensagem('whatsapp', '❌ Erro ao carregar WhatsApp não enviados', 'error');
+    }
+  };
+
+  window.buscarJSONWhatsapp = window.gerarJSONWhatsappNaoEnviado;
+  window.gerarWhatsapp = window.gerarJSONWhatsappNaoEnviado;
+
+  window.gerarJSONWhatsappTodos = async function(botao) {
+    try {
+      mostrarLoadingTela();
+      await carregarDoGoogleDrive();
+      esconderLoadingTela();
+
+      const lista = v4ContatosWhatsappTodos();
+
+      if (lista.length === 0) {
+        renderizarTabelaWhatsapp([]);
+        exibirMensagem('whatsapp', '⚠️ Nenhum contato marcado como WhatsApp', 'info');
+        return;
+      }
+
+      renderizarTabelaWhatsapp(lista);
+      exibirMensagem('whatsapp', `✅ ${lista.length} WhatsApp(s) carregado(s), incluindo enviados`, 'success');
+
+    } catch (erro) {
+      esconderLoadingTela();
+      console.error('❌ Erro ao carregar todos WhatsApp:', erro);
+      exibirMensagem('whatsapp', '❌ Erro ao carregar WhatsApp', 'error');
+    }
+  };
+
+  // Compatibilidade com botão antigo "Gerar JSON" da aba WhatsApp.
+  window.gerarJSONTodos = window.gerarJSONWhatsappTodos;
+
+  window.gerarJSONWhatsappEnviados = async function(botao) {
+    try {
+      mostrarLoadingTela();
+      await carregarDoGoogleDrive();
+      esconderLoadingTela();
+
+      const lista = v4ContatosWhatsappEnviados();
+
+      if (lista.length === 0) {
+        renderizarTabelaWhatsapp([]);
+        exibirMensagem('whatsapp', '⚠️ Nenhum WhatsApp marcado como enviado já', 'info');
+        return;
+      }
+
+      renderizarTabelaWhatsapp(lista);
+      exibirMensagem('whatsapp', `✅ ${lista.length} WhatsApp(s) enviado(s) já`, 'success');
+
+    } catch (erro) {
+      esconderLoadingTela();
+      console.error('❌ Erro ao carregar enviados:', erro);
+      exibirMensagem('whatsapp', '❌ Erro ao carregar enviados', 'error');
+    }
+  };
+
+  window.marcarWhatsappEnviado = async function(numero) {
+    try {
+      mostrarLoadingTela();
+
+      await carregarDoGoogleDrive();
+
+      let encontrou = false;
+      contatosGlobais.forEach(c => {
+        if (v4MesmoNumero(c.numero, numero)) {
+          c.tipo = 'whatsapp';
+          c.enviadoWhatsapp = true;
+          c.dataEnviadoWhatsapp = new Date().toISOString();
+          encontrou = true;
+        }
+      });
+
+      numerosTemporarios.forEach(c => {
+        if (v4MesmoNumero(c.numero, numero)) {
+          c.tipo = 'whatsapp';
+          c.enviadoWhatsapp = true;
+          c.dataEnviadoWhatsapp = new Date().toISOString();
+          encontrou = true;
+        }
+      });
+
+      if (!encontrou) {
+        esconderLoadingTela();
+        exibirMensagem('whatsapp', '❌ Número não encontrado', 'error');
+        return;
+      }
+
+      const contatosParaSalvar = v4Unicos([...contatosGlobais, ...numerosTemporarios]);
+      const sucesso = await salvarNoGoogleDrive(contatosParaSalvar);
+
+      esconderLoadingTela();
+
+      if (!sucesso) {
+        exibirMensagem('whatsapp', '❌ Erro ao registrar enviado', 'error');
+        return;
+      }
+
+      contatosGlobais = contatosParaSalvar;
+      numerosTemporarios = [];
+
+      renderizarTabelaWhatsapp(v4ContatosWhatsappNaoEnviados());
+      renderizarTabelaLigacoes(contatosParaAba('ligacao'));
+      renderizarJSON();
+
+      exibirMensagem('whatsapp', '✅ Marcado como enviado. Não aparecerá no JSON de não enviados.', 'success');
+
+      if (typeof registrarAuditoria === 'function') {
+        registrarAuditoria('Atualizar', 'Contato WhatsApp', numero, numero, 'Marcado como enviado no WhatsApp');
+      }
+
+    } catch (erro) {
+      esconderLoadingTela();
+      console.error('❌ Erro ao marcar enviado:', erro);
+      exibirMensagem('whatsapp', '❌ Erro: ' + erro.message, 'error');
+    }
+  };
+
+  window.marcarWhatsapp = async function(numero, marcado) {
+    try {
+      mostrarLoadingTela();
+
+      const novoTipo = marcado ? 'whatsapp' : 'ligacao';
+      let encontrou = false;
+
+      numerosTemporarios.forEach(c => {
+        if (v4MesmoNumero(c.numero, numero)) {
+          c.tipo = novoTipo;
+          if (marcado && c.enviadoWhatsapp === undefined) c.enviadoWhatsapp = false;
+          encontrou = true;
+        }
+      });
+
+      contatosGlobais.forEach(c => {
+        if (v4MesmoNumero(c.numero, numero)) {
+          c.tipo = novoTipo;
+          if (marcado && c.enviadoWhatsapp === undefined) c.enviadoWhatsapp = false;
+          encontrou = true;
+        }
+      });
+
+      if (!encontrou) {
+        esconderLoadingTela();
+        exibirMensagem('ligacao', '❌ Número não encontrado para marcar', 'error');
+        return;
+      }
+
+      const contatosParaSalvar = v4Unicos([...contatosGlobais, ...numerosTemporarios]);
+      const sucesso = await salvarNoGoogleDrive(contatosParaSalvar);
+
+      esconderLoadingTela();
+
+      if (!sucesso) {
+        exibirMensagem('ligacao', '❌ Erro ao salvar marcação', 'error');
+        return;
+      }
+
+      contatosGlobais = contatosParaSalvar;
+      numerosTemporarios = [];
+
+      renderizarTabelaLigacoes(contatosParaAba('ligacao'));
+      renderizarTabelaWhatsapp(v4ContatosWhatsappNaoEnviados());
+      renderizarJSON();
+
+      exibirMensagem(marcado ? 'ligacao' : 'whatsapp', marcado ? '✅ Número foi para a aba WhatsApp!' : '✅ Número voltou para Ligações!', 'success');
+
+    } catch (erro) {
+      esconderLoadingTela();
+      console.error('❌ Erro ao marcar WhatsApp:', erro);
+      exibirMensagem('ligacao', '❌ Erro: ' + erro.message, 'error');
+    }
+  };
+
+  window.marcarTodosWhatsapp = async function(marcado) {
+    if (!marcado) {
+      atualizarCheckboxTudoWhatsapp();
+      return;
+    }
+
+    const contatosDaLigacao = contatosParaAba('ligacao');
+
+    if (contatosDaLigacao.length === 0) {
+      exibirMensagem('ligacao', '⚠️ Nenhum contato para marcar', 'info');
+      atualizarCheckboxTudoWhatsapp();
+      return;
+    }
+
+    if (typeof modalConfirm === 'function') {
+      const ok = await modalConfirm(`Marcar ${contatosDaLigacao.length} contato(s) como WhatsApp?`, { title: 'Mover contatos', okText: 'Mover', cancelText: 'Cancelar' });
+      if (!ok) {
+        atualizarCheckboxTudoWhatsapp();
+        return;
+      }
+    }
+
+    try {
+      mostrarLoadingTela();
+
+      const chaves = new Set(contatosDaLigacao.map(c => v4NormalizarNumero(c.numero)));
+
+      contatosGlobais.forEach(c => {
+        if (chaves.has(v4NormalizarNumero(c.numero))) {
+          c.tipo = 'whatsapp';
+          if (c.enviadoWhatsapp === undefined) c.enviadoWhatsapp = false;
+        }
+      });
+
+      numerosTemporarios.forEach(c => {
+        if (chaves.has(v4NormalizarNumero(c.numero))) {
+          c.tipo = 'whatsapp';
+          if (c.enviadoWhatsapp === undefined) c.enviadoWhatsapp = false;
+        }
+      });
+
+      const contatosParaSalvar = v4Unicos([...contatosGlobais, ...numerosTemporarios]);
+      const sucesso = await salvarNoGoogleDrive(contatosParaSalvar);
+
+      esconderLoadingTela();
+
+      if (!sucesso) {
+        exibirMensagem('ligacao', '❌ Erro ao salvar todos como WhatsApp', 'error');
+        atualizarCheckboxTudoWhatsapp();
+        return;
+      }
+
+      contatosGlobais = contatosParaSalvar;
+      numerosTemporarios = [];
+
+      renderizarTabelaLigacoes(contatosParaAba('ligacao'));
+      renderizarTabelaWhatsapp(v4ContatosWhatsappNaoEnviados());
+      renderizarJSON();
+
+      exibirMensagem('ligacao', `✅ ${contatosDaLigacao.length} contato(s) movido(s) para WhatsApp!`, 'success');
+
+    } catch (erro) {
+      esconderLoadingTela();
+      console.error('❌ Erro ao marcar todos:', erro);
+      exibirMensagem('ligacao', '❌ Erro: ' + erro.message, 'error');
+      atualizarCheckboxTudoWhatsapp();
+    }
+  };
+
+  // Ao carregar depois dos dados do Drive, atualiza os campos conforme a aba.
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      try {
+        renderizarTabelaLigacoes(contatosParaAba('ligacao'));
+        renderizarTabelaWhatsapp(v4ContatosWhatsappNaoEnviados());
+        renderizarJSON();
+      } catch (e) {
+        console.warn('V4 revisão contatos: render inicial ignorado:', e);
+      }
+    }, 1200);
+  });
+
+})();
+
