@@ -55,6 +55,7 @@ async function carregarContas() {
     }
 
     contasAtivas = Array.isArray(dados) ? dados : [];
+    normalizarContasRecorrentes();
     console.log('✅ Contas carregadas:', contasAtivas.length);
     
     atualizarResumo();
@@ -146,6 +147,7 @@ async function salvarConta(event) {
     };
 
     contasAtivas.push(conta);
+    garantirOcorrenciaBaseConta(conta);
 
     const resultado = await salvarContasNoGoogleDrive();
 
@@ -325,6 +327,78 @@ function clonarContaParaExibicao(conta, ajustes = {}) {
   };
 }
 
+
+function chaveOcorrenciaConta(data) {
+  return formatarDataISO(data);
+}
+
+function obterMapaOcorrencias(conta) {
+  if (!conta || !conta.IsRecorrente) return {};
+  if (!conta.Ocorrencias || typeof conta.Ocorrencias !== 'object' || Array.isArray(conta.Ocorrencias)) {
+    conta.Ocorrencias = {};
+  }
+  return conta.Ocorrencias;
+}
+
+function garantirOcorrenciaBaseConta(conta) {
+  if (!conta || !conta.IsRecorrente || normalizarTipoConta(conta) !== 'fixa') return;
+  const chave = chaveOcorrenciaConta(conta.DataPagamento);
+  if (!chave) return;
+  const ocorrencias = obterMapaOcorrencias(conta);
+  if (!ocorrencias[chave]) {
+    ocorrencias[chave] = {
+      DataPagamento: chave,
+      StatusPagamento: conta.StatusPagamento === 'Pago' ? 'Pago' : 'Não Pago',
+      DataPago: conta.DataPago || null,
+      Valor: parseFloat(conta.Valor || 0) || 0,
+      Notas: conta.Notas || ''
+    };
+  }
+}
+
+function normalizarContasRecorrentes() {
+  contasAtivas.forEach(conta => garantirOcorrenciaBaseConta(conta));
+}
+
+function obterOcorrenciaConta(conta, dataPagamento) {
+  if (!conta || !conta.IsRecorrente) return null;
+  garantirOcorrenciaBaseConta(conta);
+  const chave = chaveOcorrenciaConta(dataPagamento);
+  const ocorrencias = obterMapaOcorrencias(conta);
+  return chave && ocorrencias[chave] ? ocorrencias[chave] : null;
+}
+
+function montarContaOcorrencia(conta, dataPagamento, ajustes = {}) {
+  const dataISO = chaveOcorrenciaConta(dataPagamento);
+  const ocorrencia = obterOcorrenciaConta(conta, dataISO);
+  return clonarContaParaExibicao(conta, {
+    Id: `${conta.Id}__${dataISO}`,
+    DataPagamento: dataISO,
+    DataOcorrencia: dataISO,
+    StatusPagamento: ocorrencia?.StatusPagamento || 'Não Pago',
+    DataPago: ocorrencia?.DataPago || null,
+    Valor: ocorrencia?.Valor ?? conta.Valor,
+    Notas: ocorrencia?.Notas ?? conta.Notas,
+    ...ajustes
+  });
+}
+
+function salvarOcorrenciaConta(conta, dataPagamento, ajustes = {}) {
+  if (!conta || !conta.IsRecorrente) return null;
+  const chave = chaveOcorrenciaConta(dataPagamento);
+  if (!chave) return null;
+  garantirOcorrenciaBaseConta(conta);
+  const ocorrencias = obterMapaOcorrencias(conta);
+  ocorrencias[chave] = {
+    DataPagamento: chave,
+    StatusPagamento: ajustes.StatusPagamento || ocorrencias[chave]?.StatusPagamento || 'Não Pago',
+    DataPago: ajustes.DataPago ?? ocorrencias[chave]?.DataPago ?? null,
+    Valor: ajustes.Valor ?? ocorrencias[chave]?.Valor ?? conta.Valor,
+    Notas: ajustes.Notas ?? ocorrencias[chave]?.Notas ?? ''
+  };
+  return ocorrencias[chave];
+}
+
 function intervaloMesesRecorrencia(frequencia) {
   const mapa = {
     mensal: 1,
@@ -344,9 +418,10 @@ function gerarOcorrenciasRecorrentesNoPeriodo(conta, mes, ano) {
   const base = criarDataLocal(conta.DataPagamento);
   if (!base) return [];
 
+  garantirOcorrenciaBaseConta(conta);
+
   const inicioPeriodo = new Date(Number(ano), Number(mes) - 1, 1);
   const fimPeriodo = new Date(Number(ano), Number(mes), 0, 23, 59, 59, 999);
-
   if (fimPeriodo < base) return [];
 
   const frequencia = conta.Frequencia || conta.frequencia || '';
@@ -355,17 +430,13 @@ function gerarOcorrenciasRecorrentesNoPeriodo(conta, mes, ano) {
     const ocorrencias = [];
     const d = new Date(base);
 
-    while (d < inicioPeriodo) {
-      d.setDate(d.getDate() + 15);
-    }
+    while (d < inicioPeriodo) d.setDate(d.getDate() + 15);
 
     while (d <= fimPeriodo) {
-      ocorrencias.push(clonarContaParaExibicao(conta, {
-        Id: `${conta.Id}__${formatarDataISO(d)}`,
-        DataPagamento: formatarDataISO(d),
-        StatusPagamento: 'Não Pago',
-        ProjecaoRecorrente: true,
-        TipoExibicao: 'projetada'
+      const dataISO = formatarDataISO(d);
+      ocorrencias.push(montarContaOcorrencia(conta, dataISO, {
+        ProjecaoRecorrente: dataISO !== formatarDataISO(conta.DataPagamento),
+        TipoExibicao: dataISO === formatarDataISO(conta.DataPagamento) ? 'real' : 'projetada'
       }));
       d.setDate(d.getDate() + 15);
     }
@@ -384,16 +455,11 @@ function gerarOcorrenciasRecorrentesNoPeriodo(conta, mes, ano) {
 
   const dia = Math.min(base.getDate(), ultimoDiaMes(Number(ano), Number(mes)));
   const dataOcorrencia = new Date(Number(ano), Number(mes) - 1, dia);
+  const dataISO = formatarDataISO(dataOcorrencia);
 
-  return [clonarContaParaExibicao(conta, {
-    Id: `${conta.Id}__${formatarDataISO(dataOcorrencia)}`,
-    DataPagamento: formatarDataISO(dataOcorrencia),
-    StatusPagamento:
-      mesmoMesAno(conta.DataPagamento, mes, ano)
-        ? conta.StatusPagamento
-        : 'Não Pago',
-    ProjecaoRecorrente: !mesmoMesAno(conta.DataPagamento, mes, ano),
-    TipoExibicao: mesmoMesAno(conta.DataPagamento, mes, ano) ? 'real' : 'projetada'
+  return [montarContaOcorrencia(conta, dataISO, {
+    ProjecaoRecorrente: dataISO !== formatarDataISO(conta.DataPagamento),
+    TipoExibicao: dataISO === formatarDataISO(conta.DataPagamento) ? 'real' : 'projetada'
   })];
 }
 
@@ -661,7 +727,9 @@ async function renderizarTabela(aplicarFiltroAtivo = false) {
     const detalhesCalculo = conta.NotasCalculo ? `<div style="font-size: 11px; color: #8fb9ac; margin-top: 4px;">${conta.NotasCalculo}</div>` : '';
     const acoes = conta.Automatica
       ? '<span style="color:#8fb9ac;font-size:12px;">Automática</span>'
-      : `<div class="acoes"><button class="btn-editar" onclick="editarConta('${conta.BaseContaId || conta.Id}')">✏️ Editar</button><button class="btn-deletar" onclick="deletarConta('${conta.BaseContaId || conta.Id}')">🗑️ Deletar</button></div>`;
+      : conta.DataOcorrencia
+        ? `<div class="acoes"><button class="btn-editar" onclick="editarOcorrenciaConta('${conta.BaseContaId}', '${conta.DataOcorrencia}')">✏️ Editar ocorrência</button></div>`
+        : `<div class="acoes"><button class="btn-editar" onclick="editarConta('${conta.BaseContaId || conta.Id}')">✏️ Editar regra</button><button class="btn-deletar" onclick="deletarConta('${conta.BaseContaId || conta.Id}')">🗑️ Deletar</button></div>`;
 
     html += `
       <tr>
@@ -720,9 +788,16 @@ function editarConta(id) {
   console.log('📝 Editando conta:', conta);
 
   window.contaEmEdicao = id;
+  window.dataOcorrenciaEmEdicao = null;
+  window.modoEdicaoOcorrencia = false;
+
+  const titulo = document.querySelector('#modalEdicao .modal-header');
+  if (titulo) {
+    titulo.firstChild.textContent = '✏️ Editar conta ';
+  }
 
   document.getElementById('editDescricao').value = conta.Descricao;
-  definirMoedaInput(document.getElementById('editValor'), conta.Valor);
+  document.getElementById('editValor').value = conta.Valor;
   document.getElementById('editDataPagamento').value = conta.DataPagamento;
   document.getElementById('editCategoria').value = conta.Categoria;
   document.getElementById('editStatus').value = conta.StatusPagamento;
@@ -739,6 +814,38 @@ function editarConta(id) {
   }
 }
 
+function editarOcorrenciaConta(baseId, dataOcorrencia) {
+  const conta = contasAtivas.find(c => String(c.Id) === String(baseId));
+  if (!conta) {
+    mostrarMensagem('❌ Conta-base não encontrada', 'erro');
+    return;
+  }
+
+  const ocorrencia = montarContaOcorrencia(conta, dataOcorrencia);
+  window.contaEmEdicao = baseId;
+  window.dataOcorrenciaEmEdicao = dataOcorrencia;
+  window.modoEdicaoOcorrencia = true;
+
+  const titulo = document.querySelector('#modalEdicao .modal-header');
+  if (titulo) {
+    titulo.firstChild.textContent = '✏️ Editar ocorrência ';
+  }
+
+  document.getElementById('editDescricao').value = ocorrencia.Descricao;
+  document.getElementById('editValor').value = ocorrencia.Valor;
+  document.getElementById('editDataPagamento').value = ocorrencia.DataPagamento;
+  document.getElementById('editCategoria').value = ocorrencia.Categoria;
+  document.getElementById('editStatus').value = ocorrencia.StatusPagamento;
+  document.getElementById('editNotas').value = ocorrencia.Notas || '';
+  document.getElementById('editStatusPagamento').value = '';
+
+  const modal = document.getElementById('modalEdicao');
+  if (modal) {
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
 // ============================================
 // SALVAR EDIÇÃO DE CONTA
 // ============================================
@@ -749,46 +856,49 @@ async function salvarEdicaoConta(event) {
     const id = window.contaEmEdicao;
     if (!id) throw new Error('ID da conta não identificado');
 
-    console.log('💾 Salvando edição da conta ID:', id, 'Tipo:', typeof id);
-
-    // Procurar pela conta comparando como string
-    let contaIndex = contasAtivas.findIndex(c => String(c.Id) === String(id));
-    if (contaIndex === -1) {
-      console.error('❌ Conta não encontrada. IDs:', contasAtivas.map(c => c.Id));
-      throw new Error('Conta não encontrada');
-    }
+    const contaIndex = contasAtivas.findIndex(c => String(c.Id) === String(id));
+    if (contaIndex === -1) throw new Error('Conta não encontrada');
 
     const conta = contasAtivas[contaIndex];
-    console.log('✅ Conta encontrada:', conta);
-
     const novoStatus = document.getElementById('editStatusPagamento').value;
-    console.log('🔄 Novo status selecionado:', novoStatus);
+    const notas = document.getElementById('editNotas').value || '';
 
-    if (novoStatus === 'Pago') {
-      conta.StatusPagamento = 'Pago';
-      conta.DataPago = new Date().toISOString();
-      console.log('✅ Marcada como PAGO em:', conta.DataPago);
-    }
-
-    const notas = document.getElementById('editNotas').value;
-    if (notas !== conta.Notas) {
+    if (window.modoEdicaoOcorrencia && window.dataOcorrenciaEmEdicao) {
+      const ocorrenciaAtual = montarContaOcorrencia(conta, window.dataOcorrenciaEmEdicao);
+      const statusFinal = novoStatus === 'Pago' ? 'Pago' : ocorrenciaAtual.StatusPagamento;
+      salvarOcorrenciaConta(conta, window.dataOcorrenciaEmEdicao, {
+        StatusPagamento: statusFinal,
+        DataPago: statusFinal === 'Pago' ? new Date().toISOString() : ocorrenciaAtual.DataPago,
+        Valor: ocorrenciaAtual.Valor,
+        Notas: notas
+      });
+    } else {
+      if (novoStatus === 'Pago') {
+        conta.StatusPagamento = 'Pago';
+        conta.DataPago = new Date().toISOString();
+      }
       conta.Notas = notas;
-      console.log('📝 Notas atualizadas');
+      garantirOcorrenciaBaseConta(conta);
+      if (conta.IsRecorrente) {
+        salvarOcorrenciaConta(conta, conta.DataPagamento, {
+          StatusPagamento: conta.StatusPagamento,
+          DataPago: conta.DataPago,
+          Valor: conta.Valor,
+          Notas: conta.Notas
+        });
+      }
     }
-
-    console.log('💾 Conta editada (final):', conta);
 
     const resultado = await salvarContasNoGoogleDrive();
 
-    console.log('📤 Resultado após salvar:', resultado);
-
     if (resultado) {
-      mostrarMensagem('✅ Conta atualizada com sucesso!', 'sucesso');
-      
+      mostrarMensagem(window.modoEdicaoOcorrencia ? '✅ Ocorrência atualizada com sucesso!' : '✅ Conta atualizada com sucesso!', 'sucesso');
       fecharModal('modalEdicao');
       window.contaEmEdicao = null;
+      window.dataOcorrenciaEmEdicao = null;
+      window.modoEdicaoOcorrencia = false;
       atualizarResumo();
-      await renderizarTabela();
+      await renderizarTabela(true);
     } else {
       throw new Error('Falha ao salvar alterações');
     }
@@ -817,6 +927,9 @@ function atualizarStatusTodasAsContas() {
   contasAtivas.forEach(conta => {
     if (conta.StatusPagamento !== 'Pago') {
       conta.StatusPagamento = 'Não Pago';
+    }
+    if (conta.IsRecorrente) {
+      garantirOcorrenciaBaseConta(conta);
     }
   });
 }
