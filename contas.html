@@ -906,6 +906,7 @@
             <select id="inputTipoConta" onchange="atualizarCamposTipoConta()">
               <option value="fixa">Conta fixa / normal</option>
               <option value="imposto_percentual">Imposto sobre vendas</option>
+              <option value="comissao_percentual">Comissão sobre vendas</option>
               <option value="taxa_boleto">Taxa de boleto por banco</option>
             </select>
           </div>
@@ -916,8 +917,8 @@
           </div>
 
           <div class="form-group" id="grupoPercentualConta" style="display:none;">
-            <label>Imposto (%)</label>
-            <input type="number" id="inputPercentual" step="0.01" min="0" placeholder="Ex: 6">
+            <label>Percentual (%)</label>
+            <input type="number" id="inputPercentual" step="0.01" min="0" placeholder="Ex: 5">
           </div>
 
           <div class="form-group" id="grupoBancoConta" style="display:none;">
