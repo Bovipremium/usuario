@@ -5333,5 +5333,399 @@ if (!Array.isArray(dados) || dados.length === 0) {
   })();
   </script>
 
+
+  <script>
+  /* ============================================================
+     CLIENTES DETALHES VALOR UNITARIO PRODUTO V1
+     Correção cirúrgica do preenchimento/edição de produtos da venda.
+
+     REGRA OFICIAL:
+     - Produto.Valor = valor unitário da unidade/balde.
+     - Total da linha = Quantidade × Valor unitário.
+     - Produto.PesoUnidade = peso de uma unidade/balde.
+     - Peso total de exibição = Quantidade × PesoUnidade.
+
+     NÃO altera estrutura do JSON.
+     NÃO cria JSON local.
+     NÃO mexe no fluxo antigo, apenas corrige a tabela de produtos quando ela aparece.
+     ============================================================ */
+  (function(){
+    function vuNorm(valor) {
+      return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    }
+
+    function vuNum(valor) {
+      if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
+
+      let txt = String(valor || '').trim();
+      if (!txt) return 0;
+
+      txt = txt
+        .replace(/\s/g, '')
+        .replace(/[R$\u00A0]/g, '')
+        .replace(/[^\d,.-]/g, '');
+
+      if (!txt) return 0;
+
+      if (txt.includes(',')) {
+        txt = txt.replace(/\./g, '').replace(',', '.');
+      }
+
+      const n = parseFloat(txt);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function vuMoeda(n) {
+      n = Number(n) || 0;
+      return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function vuNumero(n) {
+      n = Number(n) || 0;
+      if (Math.abs(n - Math.round(n)) < 0.00001) return String(Math.round(n));
+      return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+    }
+
+    function vuSet(el, valor, tipo) {
+      if (!el) return;
+
+      const texto = tipo === 'moeda' ? vuMoeda(valor) : vuNumero(valor);
+
+      if ('value' in el) {
+        el.value = texto;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        el.textContent = texto;
+      }
+    }
+
+    function vuInputCelula(td) {
+      if (!td) return null;
+      return td.querySelector('input, select, textarea') || td;
+    }
+
+    function vuValorCelula(td) {
+      if (!td) return 0;
+      const input = td.querySelector('input, select, textarea');
+      return vuNum(input ? input.value : td.textContent);
+    }
+
+    function vuHeaders(tabela) {
+      return Array.from(tabela.querySelectorAll('thead th, tr:first-child th, tr:first-child td'))
+        .map(th => String(th.textContent || '').trim().toLowerCase());
+    }
+
+    function vuEhTabelaPreenchimentoProdutos(tabela) {
+      const h = vuHeaders(tabela);
+      return h.some(x => x.includes('nome') || x.includes('produto')) &&
+             h.some(x => x.includes('qtd')) &&
+             h.some(x => x.includes('valor unit')) &&
+             h.some(x => x.includes('total')) &&
+             h.some(x => x.includes('ncm'));
+    }
+
+    function vuIdx(tabela) {
+      const h = vuHeaders(tabela);
+      const achar = fn => h.findIndex(fn);
+
+      return {
+        produto: achar(x => x.includes('nome') || x.includes('produto')),
+        qtd: achar(x => x.includes('qtd') || x.includes('quantidade')),
+        unid: achar(x => x.includes('unid')),
+        peso: achar(x => x.includes('peso')),
+        valorUnit: achar(x => x.includes('valor unit') || x.includes('valor un')),
+        total: achar(x => x.includes('total')),
+        ncm: achar(x => x.includes('ncm'))
+      };
+    }
+
+    function vuLinhasProduto(tabela) {
+      return Array.from(tabela.querySelectorAll('tbody tr, tr')).filter(tr => {
+        const tds = Array.from(tr.querySelectorAll('td'));
+        if (tds.length < 6) return false;
+        const txt = String(tr.textContent || '').trim().toLowerCase();
+        if (!txt) return false;
+        if (txt.startsWith('total')) return false;
+        return !!tr.querySelector('select, input');
+      });
+    }
+
+    function vuProdutoSelecionado(row, idx) {
+      const tds = Array.from(row.querySelectorAll('td'));
+      const cel = tds[idx.produto];
+      if (!cel) return null;
+
+      const sel = cel.querySelector('select');
+      if (sel) {
+        const opt = sel.options[sel.selectedIndex];
+        return {
+          id: sel.value,
+          nome: opt ? opt.textContent : '',
+          option: opt,
+          select: sel
+        };
+      }
+
+      const input = cel.querySelector('input');
+      return {
+        id: '',
+        nome: input ? input.value : cel.textContent,
+        option: null,
+        select: null
+      };
+    }
+
+    function vuLerNumeroDataset(opt, nomes) {
+      if (!opt || !opt.dataset) return 0;
+      for (const nome of nomes) {
+        if (opt.dataset[nome] !== undefined && opt.dataset[nome] !== '') {
+          const n = vuNum(opt.dataset[nome]);
+          if (n) return n;
+        }
+      }
+      return 0;
+    }
+
+    function vuCatalogosGlobais() {
+      const nomes = [
+        'produtos',
+        'insumos',
+        'listaProdutos',
+        'produtosCadastrados',
+        'materiasPrimas',
+        'estoque',
+        'itensEstoque',
+        'catalogoProdutos'
+      ];
+
+      const listas = [];
+
+      nomes.forEach(nome => {
+        try {
+          const valor = window[nome];
+          if (Array.isArray(valor)) listas.push(valor);
+        } catch(e) {}
+      });
+
+      return listas.flat();
+    }
+
+    function vuCampo(obj, nomes) {
+      if (!obj) return undefined;
+      for (const n of nomes) {
+        if (obj[n] !== undefined && obj[n] !== null && obj[n] !== '') return obj[n];
+      }
+      return undefined;
+    }
+
+    function vuBuscarProdutoCatalogo(prodSel) {
+      const id = String(prodSel?.id || '').trim();
+      const nome = vuNorm(prodSel?.nome || '');
+
+      const lista = vuCatalogosGlobais();
+
+      let achado = null;
+
+      if (id) {
+        achado = lista.find(p => String(vuCampo(p, ['Id','id','InsumoId','insumoId','Codigo','codigo','NCM','ncm']) || '') === id);
+      }
+
+      if (!achado && nome) {
+        achado = lista.find(p => {
+          const n = vuNorm(vuCampo(p, ['Nome','nome','Produto','produto','Descricao','descricao']) || '');
+          return n && (n === nome || n.includes(nome) || nome.includes(n));
+        });
+      }
+
+      return achado || null;
+    }
+
+    function vuDadosProduto(prodSel) {
+      const opt = prodSel?.option;
+      const catalogo = vuBuscarProdutoCatalogo(prodSel);
+
+      let valorUnitario =
+        vuLerNumeroDataset(opt, ['valor', 'preco', 'precoUnitario', 'valorUnitario', 'valorun', 'valorUnit']) ||
+        vuNum(vuCampo(catalogo, ['Valor','valor','Preco','preco','PrecoVenda','precoVenda','ValorUnitario','valorUnitario']));
+
+      let pesoUnidade =
+        vuLerNumeroDataset(opt, ['peso', 'pesoUnidade', 'pesounidade', 'pesoUnitario']) ||
+        vuNum(vuCampo(catalogo, ['PesoUnidade','pesoUnidade','PesoUnitario','pesoUnitario','Peso','peso']));
+
+      const ncm = String(
+        (opt && (opt.dataset.ncm || opt.getAttribute('data-ncm'))) ||
+        vuCampo(catalogo, ['NCM','ncm']) ||
+        ''
+      );
+
+      const unidade = String(
+        (opt && (opt.dataset.unidade || opt.getAttribute('data-unidade'))) ||
+        vuCampo(catalogo, ['Unidade','unidade']) ||
+        ''
+      );
+
+      return { valorUnitario, pesoUnidade, ncm, unidade };
+    }
+
+    function vuValorVendaContainer(container) {
+      if (!container) return 0;
+      const texto = String(container.textContent || '');
+
+      let m = texto.match(/💰\s*R\$\s*([\d.\,]+)/);
+      if (m) return vuNum('R$ ' + m[1]);
+
+      m = texto.match(/Valor\s*Total[^R$]*R\$\s*([\d.\,]+)/i);
+      if (m) return vuNum('R$ ' + m[1]);
+
+      m = texto.match(/R\$\s*([\d.\,]+)/);
+      if (m) return vuNum('R$ ' + m[1]);
+
+      return 0;
+    }
+
+    function vuCorrigirTabela(tabela) {
+      if (!vuEhTabelaPreenchimentoProdutos(tabela)) return;
+
+      const idx = vuIdx(tabela);
+      if (idx.qtd < 0 || idx.valorUnit < 0 || idx.total < 0) return;
+
+      const linhas = vuLinhasProduto(tabela);
+      if (!linhas.length) return;
+
+      const container = tabela.closest('.modal-content, .card, .venda-card, .venda, section, div') || tabela.parentElement;
+      const valorVenda = vuValorVendaContainer(container);
+
+      let somaTotalAtual = 0;
+      let somaQtdVezesTotalAtual = 0;
+
+      const base = linhas.map(row => {
+        const tds = Array.from(row.querySelectorAll('td'));
+        const qtd = vuValorCelula(tds[idx.qtd]) || 0;
+        const valorUnitAtual = vuValorCelula(tds[idx.valorUnit]) || 0;
+        const totalAtual = vuValorCelula(tds[idx.total]) || 0;
+
+        somaTotalAtual += totalAtual;
+        somaQtdVezesTotalAtual += qtd * totalAtual;
+
+        return { row, tds, qtd, valorUnitAtual, totalAtual };
+      });
+
+      const totalAtualEhUnitario =
+        valorVenda > 0 &&
+        Math.abs(somaTotalAtual - valorVenda) > 0.05 &&
+        Math.abs(somaQtdVezesTotalAtual - valorVenda) < 0.05;
+
+      base.forEach(item => {
+        const { row, tds, qtd } = item;
+        if (!qtd) return;
+
+        const prodSel = vuProdutoSelecionado(row, idx);
+        const dadosProduto = vuDadosProduto(prodSel);
+
+        let valorUnit = item.valorUnitAtual;
+        let totalLinha = item.totalAtual;
+
+        // Caso crítico descoberto:
+        // se a soma dos "totais" antigos multiplicados pela quantidade bate com a venda,
+        // então a coluna Total antiga estava guardando o valor unitário real.
+        if (totalAtualEhUnitario && item.totalAtual > 0) {
+          valorUnit = item.totalAtual;
+          totalLinha = qtd * valorUnit;
+        } else {
+          // Preenchimento novo: se ao escolher produto o valor veio zerado,
+          // pega o valor unitário oficial do catálogo/opção.
+          if (!valorUnit && dadosProduto.valorUnitario) {
+            valorUnit = dadosProduto.valorUnitario;
+          }
+
+          totalLinha = qtd * valorUnit;
+        }
+
+        // Peso no formulário continua sendo peso por unidade/balde.
+        // Não transforma em peso total aqui para não corromper PesoUnidade no JSON.
+        if (idx.peso >= 0) {
+          const pesoAtual = vuValorCelula(tds[idx.peso]) || 0;
+          if (!pesoAtual && dadosProduto.pesoUnidade) {
+            vuSet(vuInputCelula(tds[idx.peso]), dadosProduto.pesoUnidade, 'numero');
+          }
+        }
+
+        if (idx.unid >= 0 && dadosProduto.unidade) {
+          const el = vuInputCelula(tds[idx.unid]);
+          if (el && 'value' in el && !el.value) {
+            el.value = dadosProduto.unidade;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+
+        if (idx.ncm >= 0 && dadosProduto.ncm) {
+          const el = vuInputCelula(tds[idx.ncm]);
+          if (el && 'value' in el && (!el.value || vuNorm(el.value) === 'ncm')) {
+            el.value = dadosProduto.ncm;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+
+        vuSet(vuInputCelula(tds[idx.valorUnit]), valorUnit, 'moeda');
+        vuSet(vuInputCelula(tds[idx.total]), totalLinha, 'moeda');
+      });
+    }
+
+    function vuInstalarEventosTabela(tabela) {
+      if (!vuEhTabelaPreenchimentoProdutos(tabela)) return;
+      if (tabela.dataset.valorUnitarioProdutoV1 === '1') return;
+
+      tabela.dataset.valorUnitarioProdutoV1 = '1';
+
+      tabela.addEventListener('change', function(e) {
+        const tag = e.target && e.target.tagName;
+        if (tag === 'SELECT' || tag === 'INPUT') {
+          setTimeout(() => vuCorrigirTabela(tabela), 40);
+        }
+      }, true);
+
+      tabela.addEventListener('input', function(e) {
+        if (e.target && e.target.tagName === 'INPUT') {
+          setTimeout(() => vuCorrigirTabela(tabela), 80);
+        }
+      }, true);
+
+      setTimeout(() => vuCorrigirTabela(tabela), 80);
+    }
+
+    function vuRodar() {
+      document.querySelectorAll('table').forEach(tabela => {
+        vuInstalarEventosTabela(tabela);
+        vuCorrigirTabela(tabela);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => setTimeout(vuRodar, 300));
+    window.addEventListener('load', () => setTimeout(vuRodar, 600));
+    document.addEventListener('click', () => setTimeout(vuRodar, 120));
+    document.addEventListener('change', () => setTimeout(vuRodar, 120), true);
+    document.addEventListener('input', () => setTimeout(vuRodar, 160), true);
+
+    const observer = new MutationObserver(() => {
+      clearTimeout(window.__valorUnitarioProdutoV1Timer);
+      window.__valorUnitarioProdutoV1Timer = setTimeout(vuRodar, 120);
+    });
+
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+
+    window.corrigirValorUnitarioProdutosClienteDetalhesV1 = vuRodar;
+  })();
+  </script>
+
 </body>
 </html>
