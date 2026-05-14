@@ -3565,425 +3565,34 @@ if (!Array.isArray(dados) || dados.length === 0) {
 
   <script>
   /* ============================================================
-     RASTREIO CLIENTE V6 - SALVAR NO CLIENTE E ENTREGAR
-     - mantém rastreamento.json no esqueleto codigo -> status -> [{text,time}]
-     - salva o código também na venda/cliente em clientes.json
-     - se já existir rastreio, mostra o código e permite marcar Produto Entregue
+     CLIENTES DETALHES PRODUTOS OFICIAL V3
+     Correção final e compatível com vendas antigas e novas.
+
+     PADRÃO OFICIAL DO SISTEMA ANTIGO:
+     - Produto.Valor = TOTAL da linha.
+       Ex.: Qtd 2, Valor 400 => Valor UN 200, Total 400.
+
+     ERRO NOVO DETECTADO:
+     - Algumas vendas novas foram gravadas como:
+       Produto.Valor = valor UNITÁRIO.
+       Ex.: Qtd 4, Valor 147, ValorTotal da venda 1885.
+       Nesse caso a tela precisa ler como unitário, e ao salvar
+       normalizar para o padrão antigo.
+
+     REGRAS:
+     - Leitura/visualização aceita os dois modelos automaticamente.
+     - Salvamento em clientes.json normaliza para:
+       Produto.Valor = total da linha.
+       Produto.ValorUnitario = unitário, usando campo já existente.
+     - Não muda estrutura do JSON.
+     - Não cria JSON local.
+     - Não mexe em contas/relatórios diretamente.
      ============================================================ */
   (function(){
-    const gerarRastreioOriginalV6 = window.gerarRastreio;
+    if (window.__clientesDetalhesProdutosOficialV3) return;
+    window.__clientesDetalhesProdutosOficialV3 = true;
 
-    function rastreioV6NormalizarTexto(valor) {
-      return String(valor || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .trim();
-    }
-
-    function rastreioV6FormatarDataHora(data) {
-      const d = data instanceof Date ? data : new Date(data);
-      const dia = String(d.getDate()).padStart(2, '0');
-      const mes = String(d.getMonth() + 1).padStart(2, '0');
-      const ano = d.getFullYear();
-      const hora = String(d.getHours()).padStart(2, '0');
-      const min = String(d.getMinutes()).padStart(2, '0');
-      return `${dia}/${mes}/${ano} ${hora}:${min}`;
-    }
-
-    function rastreioV6DestinoCliente() {
-      const cidade = String(clienteAtual?.Cidade || clienteAtual?.cidade || '').trim();
-      const estado = String(clienteAtual?.Estado || clienteAtual?.UF || clienteAtual?.estado || '').trim().toUpperCase();
-
-      if (cidade && estado) return `${cidade}-${estado}`;
-      if (cidade) return cidade;
-      return 'Destino do cliente';
-    }
-
-    function rastreioV6VendaPrincipal() {
-      if (!clienteAtual || !Array.isArray(clienteAtual.Vendas) || clienteAtual.Vendas.length === 0) return null;
-
-      const comRastreio = [...clienteAtual.Vendas].reverse().find(v =>
-        v.CodigoRastreio ||
-        v.codigoRastreio ||
-        (v.Rastreio && v.Rastreio.Codigo)
-      );
-
-      if (comRastreio) return comRastreio;
-      return clienteAtual.Vendas[clienteAtual.Vendas.length - 1];
-    }
-
-    function rastreioV6ExtrairCodigoVenda(venda) {
-      if (!venda) return '';
-      return venda.CodigoRastreio ||
-             venda.codigoRastreio ||
-             venda.CodigoRastreamento ||
-             (venda.Rastreio && venda.Rastreio.Codigo) ||
-             '';
-    }
-
-    function rastreioV6ListarCodigosCliente() {
-      const lista = [];
-
-      if (clienteAtual?.CodigoRastreio) {
-        lista.push({ codigo: clienteAtual.CodigoRastreio, venda: null, origem: 'cliente' });
-      }
-
-      (clienteAtual?.Vendas || []).forEach((venda, idx) => {
-        const codigo = rastreioV6ExtrairCodigoVenda(venda);
-        if (codigo) {
-          lista.push({ codigo, venda, vendaIdx: idx, origem: 'venda' });
-        }
-      });
-
-      const mapa = new Map();
-      lista.forEach(item => mapa.set(item.codigo, item));
-      return Array.from(mapa.values());
-    }
-
-    async function rastreioV6BuscarRastreamento(codigo) {
-      try {
-        const dados = await buscarArquivo('rastreamento.json');
-        if (!dados || typeof dados !== 'object') return null;
-        return dados[codigo] || null;
-      } catch (erro) {
-        console.warn('Nao consegui buscar rastreamento.json:', erro);
-        return null;
-      }
-    }
-
-    async function rastreioV6SalvarStatus(codigo, status) {
-      // NAO muda o esqueleto do rastreamento.json:
-      // continua codigo -> status -> [{ text, time }]
-      const payload = {
-        [codigo]: {
-          status: (status || []).map(ev => ({
-            text: ev.text,
-            time: ev.time
-          }))
-        }
-      };
-
-      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
-
-      const response = await fetch(CONFIG.API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          acao: 'salvarRastreamento',
-          arquivo: 'rastreamento.json',
-          codigo,
-          dados: JSON.stringify(payload),
-          deviceId
-        })
-      });
-
-      if (!response.ok) throw new Error('Erro HTTP ao salvar rastreamento: ' + response.status);
-
-      let resultado = {};
-      try {
-        resultado = await response.json();
-      } catch (e) {
-        resultado = { sucesso: true };
-      }
-
-      if (!(resultado.sucesso === true || resultado.success === true)) {
-        throw new Error(resultado.erro || resultado.message || 'Servidor nao confirmou o salvamento do rastreamento');
-      }
-
-      return true;
-    }
-
-    async function rastreioV6SalvarClienteComCodigo(codigo, status = 'em_transito') {
-      const venda = rastreioV6VendaPrincipal();
-      const agora = new Date().toISOString();
-
-      if (venda) {
-        venda.CodigoRastreio = codigo;
-        venda.Rastreio = {
-          ...(venda.Rastreio || {}),
-          Codigo: codigo,
-          Status: status,
-          DataAtualizacao: agora
-        };
-
-        if (status === 'entregue') {
-          venda.Rastreio.DataEntrega = agora;
-          venda.Entregue = true;
-          venda.DataEntrega = agora;
-        }
-      }
-
-      clienteAtual.CodigoRastreio = clienteAtual.CodigoRastreio || codigo;
-
-      if (!Array.isArray(clienteAtual.Rastreios)) clienteAtual.Rastreios = [];
-      const idxR = clienteAtual.Rastreios.findIndex(r => r.Codigo === codigo || r.codigo === codigo);
-      const registro = {
-        Codigo: codigo,
-        Status: status,
-        DataAtualizacao: agora
-      };
-
-      if (status === 'entregue') {
-        registro.DataEntrega = agora;
-      }
-
-      if (idxR >= 0) {
-        clienteAtual.Rastreios[idxR] = { ...clienteAtual.Rastreios[idxR], ...registro };
-      } else {
-        clienteAtual.Rastreios.push(registro);
-      }
-
-      const clientes = await buscarArquivo('clientes.json');
-      if (!Array.isArray(clientes)) throw new Error('clientes.json invalido');
-
-      const idx = clientes.findIndex(c => String(c.Id) === String(clienteAtual.Id));
-      if (idx < 0) throw new Error('Cliente nao encontrado no clientes.json');
-
-      clientes[idx] = clienteAtual;
-
-      const salvou = await salvarDadosComAuditoria(
-        'clientes.json',
-        clientes,
-        'auditoria',
-        'Atualizar',
-        'Rastreio',
-        String(clienteAtual.Id),
-        clienteAtual.Nome || '',
-        status === 'entregue' ? 'Rastreio marcado como entregue' : 'Codigo de rastreio salvo no cliente',
-        '',
-        JSON.stringify({ codigo, status })
-      );
-
-      if (!salvou) throw new Error('Nao consegui salvar clientes.json');
-
-      sessionStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
-      localStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
-      localStorage.removeItem('arquivo_clientes.json_cache');
-
-      return true;
-    }
-
-    function rastreioV6CompletarEntrega(statusAtual, destinoCliente) {
-      const status = Array.isArray(statusAtual) ? statusAtual.map(ev => ({ text: ev.text, time: ev.time })) : [];
-      const destinoNorm = rastreioV6NormalizarTexto(destinoCliente);
-      const jaEntregue = status.some(ev => rastreioV6NormalizarTexto(ev.text).includes('produto entregue'));
-
-      if (jaEntregue) return status;
-
-      const agora = new Date();
-      const rotaPara = new Date(agora);
-      rotaPara.setHours(Math.max(8, Math.min(17, agora.getHours())), 45, 0, 0);
-
-      const chegou = new Date(agora);
-      chegou.setMinutes(Math.max(chegou.getMinutes(), 45));
-
-      const ultimoTexto = status.length ? status[status.length - 1].text : '';
-      const ultimoNorm = rastreioV6NormalizarTexto(ultimoTexto);
-
-      // Se a rota ainda nao chegou a cidade destino, adiciona os passos finais coerentes.
-      if (destinoNorm && !ultimoNorm.includes(destinoNorm)) {
-        status.push({
-          text: `Rota para - ${destinoCliente}`,
-          time: rastreioV6FormatarDataHora(rotaPara)
-        });
-
-        status.push({
-          text: `Objeto está em - ${destinoCliente}`,
-          time: rastreioV6FormatarDataHora(chegou)
-        });
-      }
-
-      status.push({
-        text: `Produto entregue - ${destinoCliente}`,
-        time: rastreioV6FormatarDataHora(new Date())
-      });
-
-      return status;
-    }
-
-    async function rastreioV6MarcarEntregue(codigo) {
-      const ok = await modalConfirm(
-        `Marcar o rastreio ${codigo} como PRODUTO ENTREGUE?\n\nO sistema vai continuar a rota atual ate a cidade do cliente e salvar no rastreamento.json.`,
-        { title: 'Confirmar entrega', okText: 'Marcar entregue', cancelText: 'Cancelar' }
-      );
-
-      if (!ok) return;
-
-      try {
-        mostrarLoading();
-
-        const destino = rastreioV6DestinoCliente();
-        const atual = await rastreioV6BuscarRastreamento(codigo);
-        const statusAtual = atual && Array.isArray(atual.status) ? atual.status : [];
-
-        const novoStatus = rastreioV6CompletarEntrega(statusAtual, destino);
-
-        await rastreioV6SalvarStatus(codigo, novoStatus);
-        await rastreioV6SalvarClienteComCodigo(codigo, 'entregue');
-
-        ocultarLoading();
-        alert('Produto entregue salvo no rastreamento.json e no cliente.');
-        location.reload();
-
-      } catch (erro) {
-        console.error('Erro ao marcar entrega:', erro);
-        ocultarLoading();
-        alert('Erro ao marcar entregue: ' + erro.message);
-      }
-    }
-
-    function rastreioV6MostrarModalExistente(codigos) {
-      const modal = document.createElement('div');
-      modal.style.cssText = `
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,.92);
-        z-index: 10000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        backdrop-filter: blur(6px);
-      `;
-
-      const lista = codigos.map(item => `
-        <div style="background: rgba(31,163,122,.08); border: 1px solid rgba(31,163,122,.25); border-radius: 12px; padding: 14px; margin-bottom: 10px;">
-          <div style="color:#8fb9ac; font-size:11px; text-transform:uppercase;">Código salvo</div>
-          <button onclick="rastreioV6MarcarEntregueGlobal('${item.codigo}')" style="margin-top:6px; background:none; border:none; color:#7cf0c2; font-size:20px; font-weight:800; font-family:monospace; cursor:pointer; text-decoration:underline;">
-            ${item.codigo}
-          </button>
-          <div style="margin-top:8px; color:#d4af37; font-size:12px;">Clique no código para marcar como Produto Entregue.</div>
-        </div>
-      `).join('');
-
-      modal.innerHTML = `
-        <div style="background: linear-gradient(180deg, rgba(14,31,26,.98), rgba(5,11,9,.98)); border: 2px solid rgba(31,163,122,.45); border-radius: 16px; padding: 28px; width: min(560px, 96vw); box-shadow: 0 18px 60px rgba(0,0,0,.45);">
-          <h2 style="color:#1fa37a; margin:0 0 12px; text-align:center;">Rastreio ja gerado</h2>
-          <p style="color:#8fb9ac; font-size:13px; margin-bottom:18px; text-align:center;">
-            Este cliente/venda ja tem código salvo. Clique no código para concluir a entrega, ou gere outro se realmente precisar.
-          </p>
-          ${lista}
-          <div style="display:flex; gap:10px; margin-top:18px;">
-            <button onclick="this.closest('[data-modal-rastreio-existente]').remove()" class="btn danger" style="flex:1;">Fechar</button>
-            <button id="btnGerarOutroRastreioV6" class="btn" style="flex:1; background:linear-gradient(145deg,rgba(31,163,122,.3),rgba(31,163,122,.15)); color:#7cf0c2; border-color:rgba(31,163,122,.3);">Gerar outro</button>
-          </div>
-        </div>
-      `;
-
-      modal.setAttribute('data-modal-rastreio-existente', '1');
-      document.body.appendChild(modal);
-
-      document.getElementById('btnGerarOutroRastreioV6').onclick = () => {
-        modal.remove();
-        gerarRastreioOriginalV6();
-      };
-    }
-
-    window.rastreioV6MarcarEntregueGlobal = rastreioV6MarcarEntregue;
-
-    window.gerarRastreio = async function() {
-      const existentes = rastreioV6ListarCodigosCliente();
-
-      if (existentes.length > 0) {
-        rastreioV6MostrarModalExistente(existentes);
-        return;
-      }
-
-      return gerarRastreioOriginalV6();
-    };
-
-    // Sobrescreve o salvamento antigo:
-    // antes salvava so rastreamento.json; agora salva rastreamento + cliente/venda.
-    window.salvarRastreioNoCliente = salvarRastreioNoCliente = async function(codigo, historico, rota, modal) {
-      try {
-        mostrarLoading();
-
-        const rastreamentoData = {
-          [codigo]: {
-            status: historico.map(evento => ({
-              text: evento.text,
-              time: evento.time
-            }))
-          }
-        };
-
-        const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
-
-        const response = await fetch(CONFIG.API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            acao: 'salvarRastreamento',
-            arquivo: 'rastreamento.json',
-            codigo,
-            dados: JSON.stringify(rastreamentoData),
-            deviceId
-          })
-        });
-
-        if (!response.ok) throw new Error('Erro HTTP ao salvar rastreamento: ' + response.status);
-
-        let resultado = {};
-        try {
-          resultado = await response.json();
-        } catch (e) {
-          resultado = { sucesso: true };
-        }
-
-        if (!(resultado.sucesso === true || resultado.success === true)) {
-          throw new Error(resultado.erro || resultado.message || 'Servidor nao confirmou o salvamento');
-        }
-
-        await rastreioV6SalvarClienteComCodigo(codigo, 'em_transito');
-
-        if (modal) modal.remove();
-        ocultarLoading();
-
-        mostrarModalSucessoRastreioSimples(codigo);
-
-      } catch (erro) {
-        console.error('Erro ao salvar rastreio no cliente:', erro);
-        ocultarLoading();
-        alert('Erro ao salvar rastreio: ' + erro.message);
-      }
-    };
-  })();
-  </script>
-
-
-  <script>
-  /* ============================================================
-     RASTREIO ENTREGA CONTINUA V7
-     - não sobrescreve histórico existente
-     - continua a rota da última cidade até a cidade destino do cliente
-     - entrega com a mesma data da PREVISÃO DE ENTREGA
-     - adiciona seletor de "cidade atual" por rota sugerida
-     - mantém rastreamento.json no formato codigo -> status -> [{text,time}]
-     ============================================================ */
-  (function(){
-    const salvarRastreioAnteriorV7 = window.salvarRastreioNoCliente || (typeof salvarRastreioNoCliente !== 'undefined' ? salvarRastreioNoCliente : null);
-
-    const UF_ALIASES_RASTREIO_V7 = {
-      'anapolis': 'GO',
-      'abadiania': 'GO',
-      'alexania': 'GO',
-      'goiania': 'GO',
-      'aparecida de goiania': 'GO',
-      'brasilia': 'DF',
-      'recanto das emas': 'DF',
-      'taguatinga': 'DF',
-      'samambaia': 'DF',
-      'ceilândia': 'DF',
-      'ceilandia': 'DF',
-      'araras': 'SP',
-      'uberlandia': 'MG',
-      'belo horizonte': 'MG',
-      'sao paulo': 'SP',
-      'rio de janeiro': 'RJ'
-    };
-
-    function rV7Norm(valor) {
+    function poNorm(valor) {
       return String(valor || '')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
@@ -3992,1374 +3601,7 @@ if (!Array.isArray(dados) || dados.length === 0) {
         .trim();
     }
 
-    function rV7NomeLimpo(valor) {
-      return String(valor || '')
-        .replace(/\s*-\s*[A-Za-z]{2}$/,'')
-        .trim();
-    }
-
-    function rV7Titulo(valor) {
-      return String(valor || '')
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean)
-        .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
-        .join(' ');
-    }
-
-    function rV7FormatarDataHora(data) {
-      const d = data instanceof Date ? data : new Date(data);
-      const dia = String(d.getDate()).padStart(2, '0');
-      const mes = String(d.getMonth() + 1).padStart(2, '0');
-      const ano = d.getFullYear();
-      const hora = String(d.getHours()).padStart(2, '0');
-      const min = String(d.getMinutes()).padStart(2, '0');
-      return `${dia}/${mes}/${ano} ${hora}:${min}`;
-    }
-
-    function rV7ParseDataHoraBR(texto) {
-      const m = String(texto || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
-      if (!m) return null;
-      return new Date(
-        Number(m[3]),
-        Number(m[2]) - 1,
-        Number(m[1]),
-        Number(m[4] || 12),
-        Number(m[5] || 0),
-        0,
-        0
-      );
-    }
-
-    function rV7ExtrairDataPrevista(status) {
-      const lista = Array.isArray(status) ? status : [];
-      for (const ev of lista) {
-        const txt = String(ev.text || '');
-        const m = txt.match(/PREVIS[AÃ]O DE ENTREGA\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
-        if (m) {
-          const d = rV7ParseDataHoraBR(m[1] + ' 18:00');
-          if (d) return d;
-        }
-      }
-
-      // fallback: tenta o primeiro evento de previsão pelo time
-      const previsao = lista.find(ev => /PREVIS/i.test(String(ev.text || '')));
-      if (previsao) {
-        const d = rV7ParseDataHoraBR(previsao.time);
-        if (d) {
-          d.setHours(18, 0, 0, 0);
-          return d;
-        }
-      }
-
-      const f = new Date();
-      f.setDate(f.getDate() + 3);
-      f.setHours(18, 0, 0, 0);
-      return f;
-    }
-
-    function rV7UltimaDataStatus(status) {
-      const lista = Array.isArray(status) ? status : [];
-      for (let i = lista.length - 1; i >= 0; i--) {
-        const d = rV7ParseDataHoraBR(lista[i].time);
-        if (d) return d;
-      }
-      return new Date();
-    }
-
-    function rV7UltimaCidadeStatus(status) {
-      const lista = Array.isArray(status) ? status : [];
-      for (let i = lista.length - 1; i >= 0; i--) {
-        const txt = String(lista[i].text || '');
-        let m = txt.match(/Objeto está em\s*-\s*(.+)$/i);
-        if (m && m[1]) return m[1].trim();
-
-        m = txt.match(/Rota para\s*-\s*(.+)$/i);
-        if (m && m[1]) return m[1].trim();
-      }
-      return '';
-    }
-
-    function rV7CidadeDestinoCliente() {
-      const cidade = String(clienteAtual?.Cidade || clienteAtual?.cidade || '').trim();
-      const estado = String(clienteAtual?.Estado || clienteAtual?.UF || clienteAtual?.estado || '').trim().toUpperCase();
-      if (cidade && estado) return `${cidade}-${estado}`;
-      if (cidade) return cidade;
-      return 'Destino do cliente';
-    }
-
-    function rV7CidadeParaBusca(cidade, fallbackUf = '') {
-      const original = String(cidade || '').trim();
-      if (!original) return '';
-
-      if (/-.{2}$/.test(original)) return original;
-
-      if (typeof rastreioBuscarCoordCache === 'function') {
-        const coord = rastreioBuscarCoordCache(original);
-        if (coord && coord.uf) return `${coord.nome || original}-${coord.uf}`;
-      }
-
-      const chave = rV7Norm(original);
-      const uf = UF_ALIASES_RASTREIO_V7[chave] || fallbackUf || '';
-      if (uf) return `${rV7NomeLimpo(original)}-${uf}`;
-      return original;
-    }
-
-    function rV7CidadeBonitaDeInput(cidadeInput) {
-      const txt = String(cidadeInput || '').trim();
-      const semUf = rV7NomeLimpo(txt);
-      const ufMatch = txt.match(/-([A-Za-z]{2})$/);
-      if (ufMatch) return `${rV7Titulo(semUf)}-${ufMatch[1].toUpperCase()}`;
-      return rV7Titulo(semUf);
-    }
-
-    async function rV7BuscarStatus(codigo) {
-      try {
-        localStorage.removeItem('arquivo_rastreamento.json_cache');
-        const rast = await buscarArquivo('rastreamento.json');
-        const status = rast && rast[codigo] && Array.isArray(rast[codigo].status) ? rast[codigo].status : null;
-        if (status && status.length) return status.map(ev => ({ text: ev.text, time: ev.time }));
-      } catch (erro) {
-        console.warn('V7: não consegui buscar rastreamento.json:', erro);
-      }
-
-      // fallback pelo cliente/venda salvo na geração
-      try {
-        const vendas = clienteAtual?.Vendas || [];
-        for (const venda of vendas) {
-          const cod = venda.CodigoRastreio || venda.codigoRastreio || venda.Rastreio?.Codigo;
-          if (String(cod || '') === String(codigo) && Array.isArray(venda.Rastreio?.Historico)) {
-            return venda.Rastreio.Historico.map(ev => ({ text: ev.text, time: ev.time }));
-          }
-        }
-
-        const r = (clienteAtual?.Rastreios || []).find(x => String(x.Codigo || x.codigo || '') === String(codigo));
-        if (r && Array.isArray(r.Historico)) return r.Historico.map(ev => ({ text: ev.text, time: ev.time }));
-      } catch (e) {}
-
-      return [];
-    }
-
-    async function rV7SalvarStatus(codigo, status) {
-      const payload = {
-        [codigo]: {
-          status: (status || []).map(ev => ({
-            text: ev.text,
-            time: ev.time
-          }))
-        }
-      };
-
-      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
-
-      const response = await fetch(CONFIG.API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          acao: 'salvarRastreamento',
-          arquivo: 'rastreamento.json',
-          codigo,
-          dados: JSON.stringify(payload),
-          deviceId
-        })
-      });
-
-      if (!response.ok) throw new Error('Erro HTTP ao salvar rastreamento: ' + response.status);
-
-      let resultado = {};
-      try { resultado = await response.json(); } catch (e) { resultado = { sucesso: true }; }
-
-      if (!(resultado.sucesso === true || resultado.success === true)) {
-        throw new Error(resultado.erro || resultado.message || 'Servidor não confirmou o salvamento do rastreamento');
-      }
-
-      localStorage.removeItem('arquivo_rastreamento.json_cache');
-      return true;
-    }
-
-    async function rV7SalvarHistoricoNoCliente(codigo, historico, rota, status = 'em_transito') {
-      try {
-        const venda = (clienteAtual?.Vendas || [])[clienteAtual.Vendas.length - 1];
-        const agora = new Date().toISOString();
-
-        if (venda) {
-          venda.CodigoRastreio = codigo;
-          venda.Rastreio = {
-            ...(venda.Rastreio || {}),
-            Codigo: codigo,
-            Status: status,
-            Historico: (historico || []).map(ev => ({ text: ev.text, time: ev.time })),
-            RotaGerada: rota || venda.Rastreio?.RotaGerada || [],
-            DataAtualizacao: agora
-          };
-        }
-
-        clienteAtual.CodigoRastreio = clienteAtual.CodigoRastreio || codigo;
-        if (!Array.isArray(clienteAtual.Rastreios)) clienteAtual.Rastreios = [];
-
-        const idx = clienteAtual.Rastreios.findIndex(r => String(r.Codigo || r.codigo || '') === String(codigo));
-        const registro = {
-          Codigo: codigo,
-          Status: status,
-          Historico: (historico || []).map(ev => ({ text: ev.text, time: ev.time })),
-          RotaGerada: rota || [],
-          DataAtualizacao: agora
-        };
-
-        if (idx >= 0) clienteAtual.Rastreios[idx] = { ...clienteAtual.Rastreios[idx], ...registro };
-        else clienteAtual.Rastreios.push(registro);
-
-        const clientes = await buscarArquivo('clientes.json');
-        if (!Array.isArray(clientes)) return false;
-
-        const idxCliente = clientes.findIndex(c => String(c.Id) === String(clienteAtual.Id));
-        if (idxCliente < 0) return false;
-
-        clientes[idxCliente] = clienteAtual;
-
-        const salvou = await salvarDadosComAuditoria(
-          'clientes.json',
-          clientes,
-          'auditoria',
-          'Atualizar',
-          'Rastreio',
-          String(clienteAtual.Id),
-          clienteAtual.Nome || '',
-          status === 'entregue' ? 'Rastreio entregue' : 'Rastreio salvo no cliente',
-          '',
-          JSON.stringify({ codigo, status })
-        );
-
-        if (salvou) {
-          sessionStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
-          localStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
-          localStorage.removeItem('arquivo_clientes.json_cache');
-        }
-
-        return !!salvou;
-      } catch (erro) {
-        console.warn('V7: não consegui salvar histórico no cliente:', erro);
-        return false;
-      }
-    }
-
-    async function rV7ContinuarRotaAteDestino(statusAtual, destinoCliente) {
-      const status = Array.isArray(statusAtual) ? statusAtual.map(ev => ({ text: ev.text, time: ev.time })) : [];
-
-      if (status.some(ev => rV7Norm(ev.text).includes('produto entregue'))) {
-        return status;
-      }
-
-      const ultimaCidade = rV7UltimaCidadeStatus(status);
-      const destinoBonito = rV7CidadeBonitaDeInput(destinoCliente);
-      const dataEntrega = rV7ExtrairDataPrevista(status);
-      const ultimaData = rV7UltimaDataStatus(status);
-
-      let rotaContinuacao = [];
-      try {
-        const origemBusca = rV7CidadeParaBusca(ultimaCidade);
-        const destinoBusca = rV7CidadeParaBusca(destinoCliente);
-
-        if (origemBusca && destinoBusca) {
-          rotaContinuacao = await gerarRotaComNominatim(origemBusca, destinoBusca, 2);
-        }
-      } catch (erroRota) {
-        console.warn('V7: não consegui gerar rota de continuação, usando fallback:', erroRota);
-      }
-
-      if (!Array.isArray(rotaContinuacao) || rotaContinuacao.length < 2) {
-        rotaContinuacao = [ultimaCidade || 'Origem atual', destinoBonito];
-      }
-
-      // Remove a primeira cidade se ela é a cidade onde o objeto já está.
-      const targets = rotaContinuacao
-        .filter(Boolean)
-        .filter((cidade, idx) => idx > 0 || rV7Norm(cidade) !== rV7Norm(ultimaCidade));
-
-      // Garante destino final como último ponto.
-      if (!targets.length || rV7Norm(targets[targets.length - 1]) !== rV7Norm(destinoBonito)) {
-        targets.push(destinoBonito);
-      } else {
-        targets[targets.length - 1] = destinoBonito;
-      }
-
-      const totalEventosAntesEntrega = (targets.length * 2);
-      const dataFinal = new Date(dataEntrega);
-      dataFinal.setHours(18, 0, 0, 0);
-
-      let dataInicio = new Date(ultimaData || new Date());
-      dataInicio.setHours(dataInicio.getHours() + 2, 0, 0, 0);
-
-      // Se a última data já passou da previsão, distribui no dia da previsão antes da entrega.
-      if (dataInicio >= dataFinal) {
-        dataInicio = new Date(dataFinal);
-        dataInicio.setHours(8, 0, 0, 0);
-      }
-
-      const intervaloMs = Math.max(
-        30 * 60 * 1000,
-        Math.floor((dataFinal.getTime() - dataInicio.getTime()) / Math.max(1, totalEventosAntesEntrega + 1))
-      );
-
-      let passo = 0;
-
-      for (const cidade of targets) {
-        passo++;
-        const dataRota = new Date(dataInicio.getTime() + intervaloMs * passo);
-        status.push({
-          text: `Rota para - ${cidade}`,
-          time: rV7FormatarDataHora(dataRota)
-        });
-
-        passo++;
-        const dataCidade = new Date(dataInicio.getTime() + intervaloMs * passo);
-
-        // Não deixa o "Objeto está em destino" passar da entrega.
-        if (dataCidade >= dataFinal) {
-          dataCidade.setTime(dataFinal.getTime() - 60 * 60 * 1000);
-        }
-
-        status.push({
-          text: `Objeto está em - ${cidade}`,
-          time: rV7FormatarDataHora(dataCidade)
-        });
-      }
-
-      status.push({
-        text: `Produto entregue - ${destinoBonito}`,
-        time: rV7FormatarDataHora(dataFinal)
-      });
-
-      return status;
-    }
-
-    async function rV7MarcarEntregue(codigo) {
-      const ok = await modalConfirm(
-        `Marcar o rastreio ${codigo} como PRODUTO ENTREGUE?\n\nEle vai manter o histórico atual, continuar a rota até a cidade do cliente e usar a mesma data da previsão de entrega.`,
-        { title: 'Confirmar entrega', okText: 'Marcar entregue', cancelText: 'Cancelar' }
-      );
-
-      if (!ok) return;
-
-      try {
-        mostrarLoading();
-
-        const destino = rV7CidadeDestinoCliente();
-        const statusAtual = await rV7BuscarStatus(codigo);
-        const novoStatus = await rV7ContinuarRotaAteDestino(statusAtual, destino);
-
-        await rV7SalvarStatus(codigo, novoStatus);
-        await rV7SalvarHistoricoNoCliente(codigo, novoStatus, [], 'entregue');
-
-        ocultarLoading();
-        alert('Produto entregue salvo mantendo o histórico e a data prevista.');
-        location.reload();
-      } catch (erro) {
-        console.error('V7: erro ao marcar entregue:', erro);
-        ocultarLoading();
-        alert('Erro ao marcar entregue: ' + erro.message);
-      }
-    }
-
-    window.rastreioV6MarcarEntregueGlobal = rV7MarcarEntregue;
-    window.rastreioV7MarcarEntregueGlobal = rV7MarcarEntregue;
-
-    if (salvarRastreioAnteriorV7) {
-      window.salvarRastreioNoCliente = salvarRastreioNoCliente = async function(codigo, historico, rota, modal) {
-        await salvarRastreioAnteriorV7(codigo, historico, rota, modal);
-        await rV7SalvarHistoricoNoCliente(codigo, historico, rota, 'em_transito');
-      };
-    }
-
-    function rV7AdicionarBotaoEscolherCidadeAtual(input) {
-      if (!input || input.dataset.rastreioV7Botao === '1') return;
-      input.dataset.rastreioV7Botao = '1';
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = '🗺️ Escolher pela rota';
-      btn.className = 'btn';
-      btn.style.cssText = 'margin-top:8px; padding:8px 12px; font-size:12px; background:linear-gradient(145deg,rgba(31,163,122,.28),rgba(31,163,122,.12)); color:#7cf0c2; border:1px solid rgba(31,163,122,.35);';
-
-      btn.onclick = () => rV7AbrirOpcoesCidadeAtual();
-      input.insertAdjacentElement('afterend', btn);
-    }
-
-    async function rV7AbrirOpcoesCidadeAtual() {
-      const saida = document.getElementById('inputCidadeSaida')?.value?.trim();
-      const destinoFinal = document.getElementById('inputCidadeDestinoFinal')?.value?.trim();
-      const paradas = parseInt(document.getElementById('inputParadas')?.value || '0') || 0;
-
-      if (!saida || !destinoFinal || !paradas) {
-        alert('Informe primeiro Cidade de Saída, Cidade Destino e quantidade de paradas.');
-        return;
-      }
-
-      if (!cidadeComUfValida(saida) || !cidadeComUfValida(destinoFinal)) {
-        alert('Saída e cidade destino precisam estar no formato cidade-uf. Ex: anapolis-go, uberlandia-mg');
-        return;
-      }
-
-      try {
-        mostrarLoading();
-
-        const rota = await gerarRotaComNominatim(saida, destinoFinal, paradas);
-        const coordDestino = await nominatimBuscarCidade(destinoFinal);
-        const analise = coordDestino ? await analisarRotaAteCidadeDestino(rota, coordDestino) : null;
-
-        ocultarLoading();
-
-        const opcoes = rota.slice(1, -1);
-        if (!opcoes.length) {
-          alert('Não foram encontradas cidades intermediárias. Aumente a quantidade de paradas.');
-          return;
-        }
-
-        const modal = document.createElement('div');
-        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
-
-        const botoes = opcoes.map(cidade => {
-          const ponto = analise?.pontos?.find(p => rV7Norm(p.nome) === rV7Norm(cidade));
-          const km = ponto && typeof ponto.kmAteDestino === 'number' ? `${Math.round(ponto.kmAteDestino)} km até destino` : 'km não calculado';
-          const valorInput = rV7CidadeParaBusca(cidade, String(saida).slice(-2).toUpperCase());
-
-          return `
-            <button type="button" data-cidade-atual="${valorInput}" style="width:100%;text-align:left;margin-bottom:8px;padding:12px;border-radius:10px;border:1px solid rgba(31,163,122,.35);background:rgba(31,163,122,.10);color:#e5f3ee;cursor:pointer;">
-              <strong style="color:#7cf0c2;">${cidade}</strong><br>
-              <small style="color:#8fb9ac;">${km}</small>
-            </button>
-          `;
-        }).join('');
-
-        modal.innerHTML = `
-          <div style="width:min(560px,96vw);background:#07120f;border:1px solid rgba(31,163,122,.45);border-radius:16px;padding:22px;box-shadow:0 18px 60px rgba(0,0,0,.5);">
-            <h2 style="color:#1fa37a;margin:0 0 8px;">Escolha onde a mercadoria está</h2>
-            <p style="color:#8fb9ac;margin:0 0 16px;">Rota calculada de ${saida} até ${destinoFinal}. Clique na cidade atual da mercadoria.</p>
-            ${botoes}
-            <button type="button" id="fecharOpcoesCidadeAtualV7" class="btn danger" style="width:100%;margin-top:10px;">Cancelar</button>
-          </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        modal.querySelectorAll('[data-cidade-atual]').forEach(btn => {
-          btn.onclick = () => {
-            const valor = btn.getAttribute('data-cidade-atual');
-            const input = document.getElementById('inputCidadeAtual');
-            if (input) input.value = valor;
-            modal.remove();
-          };
-        });
-
-        modal.querySelector('#fecharOpcoesCidadeAtualV7').onclick = () => modal.remove();
-
-      } catch (erro) {
-        ocultarLoading();
-        console.error('Erro ao gerar opções de cidade atual:', erro);
-        alert('Erro ao gerar opções de cidade atual: ' + erro.message);
-      }
-    }
-
-    document.addEventListener('focusin', (ev) => {
-      if (ev.target && ev.target.id === 'inputCidadeAtual') {
-        rV7AdicionarBotaoEscolherCidadeAtual(ev.target);
-      }
-    });
-
-    document.addEventListener('click', () => {
-      const input = document.getElementById('inputCidadeAtual');
-      if (input) rV7AdicionarBotaoEscolherCidadeAtual(input);
-    });
-  })();
-  </script>
-
-
-  <script>
-  /* ============================================================
-     RASTREIO ENTREGA SEM DUPLICAR DESTINO V8
-     - corrige duplicidade: Araras -> Araras-SP
-     - entrega usa a data da PREVISÃO DE ENTREGA
-     - botão para preencher Cidade Destino com Cidade-UF do cliente
-     - mantém rastreamento.json: codigo -> status -> [{text,time}]
-     ============================================================ */
-  (function(){
-    const UF_ALIASES_V8 = {
-      'anapolis':'GO','abadiania':'GO','alexania':'GO','terezopolis de goias':'GO','goiania':'GO',
-      'brasilia':'DF','recanto das emas':'DF','taguatinga':'DF','samambaia':'DF',
-      'uberaba':'MG','uberlandia':'MG','ipua':'SP','araras':'SP','sao paulo':'SP'
-    };
-
-    function n8(valor) {
-      return String(valor || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g,'')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g,' ')
-        .trim();
-    }
-
-    function semUf8(valor) {
-      return String(valor || '').replace(/\s*-\s*[A-Za-z]{2}$/,'').trim();
-    }
-
-    function titulo8(valor) {
-      return String(valor || '')
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean)
-        .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
-        .join(' ');
-    }
-
-    function cidadeClienteInput8() {
-      const cidade = String(clienteAtual?.Cidade || clienteAtual?.cidade || '').trim();
-      const uf = String(clienteAtual?.Estado || clienteAtual?.UF || clienteAtual?.estado || '').trim().toUpperCase();
-      if (cidade && uf) return `${cidade.toLowerCase()}-${uf.toLowerCase()}`;
-      if (cidade) return cidade.toLowerCase();
-      return '';
-    }
-
-    function cidadeClienteBonita8() {
-      const cidade = String(clienteAtual?.Cidade || clienteAtual?.cidade || '').trim();
-      const uf = String(clienteAtual?.Estado || clienteAtual?.UF || clienteAtual?.estado || '').trim().toUpperCase();
-      if (cidade && uf) return `${titulo8(cidade)}-${uf}`;
-      if (cidade) return titulo8(cidade);
-      return 'Destino do cliente';
-    }
-
-    function bonita8(cidade) {
-      const txt = String(cidade || '').trim();
-      const uf = txt.match(/-([A-Za-z]{2})$/)?.[1]?.toUpperCase() || '';
-      const base = titulo8(semUf8(txt));
-      return uf ? `${base}-${uf}` : base;
-    }
-
-    function busca8(cidade) {
-      const txt = String(cidade || '').trim();
-      if (!txt) return '';
-      if (/-[A-Za-z]{2}$/.test(txt)) return txt;
-      if (typeof rastreioBuscarCoordCache === 'function') {
-        const c = rastreioBuscarCoordCache(txt);
-        if (c && c.uf) return `${c.nome || txt}-${c.uf}`;
-      }
-      const uf = UF_ALIASES_V8[n8(txt)] || '';
-      return uf ? `${semUf8(txt)}-${uf}` : txt;
-    }
-
-    function parse8(texto) {
-      const m = String(texto || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
-      if (!m) return null;
-      return new Date(Number(m[3]), Number(m[2])-1, Number(m[1]), Number(m[4]||12), Number(m[5]||0));
-    }
-
-    function fmt8(data) {
-      const d = data instanceof Date ? data : new Date(data);
-      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-    }
-
-    function previsao8(status) {
-      for (const ev of status || []) {
-        const m = String(ev.text || '').match(/PREVIS[AÃ]O DE ENTREGA\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
-        if (m) {
-          const d = parse8(m[1] + ' 18:00');
-          if (d) return d;
-        }
-      }
-      const f = new Date();
-      f.setDate(f.getDate()+3);
-      f.setHours(18,0,0,0);
-      return f;
-    }
-
-    function ultimaData8(status) {
-      for (let i=(status||[]).length-1;i>=0;i--) {
-        const d = parse8(status[i].time);
-        if (d) return d;
-      }
-      return new Date();
-    }
-
-    function ultimaCidade8(status) {
-      for (let i=(status||[]).length-1;i>=0;i--) {
-        const txt = String(status[i].text || '');
-        let m = txt.match(/Objeto está em\s*-\s*(.+)$/i);
-        if (m) return m[1].trim();
-        m = txt.match(/Rota para\s*-\s*(.+)$/i);
-        if (m) return m[1].trim();
-      }
-      return '';
-    }
-
-    function extrairCodigoVenda8(venda) {
-      return venda?.CodigoRastreio || venda?.codigoRastreio || venda?.CodigoRastreamento || venda?.Rastreio?.Codigo || '';
-    }
-
-    async function buscarStatus8(codigo) {
-      try {
-        localStorage.removeItem('arquivo_rastreamento.json_cache');
-        const dados = await buscarArquivo('rastreamento.json');
-        if (dados && dados[codigo] && Array.isArray(dados[codigo].status)) {
-          return dados[codigo].status.map(ev => ({ text: ev.text, time: ev.time }));
-        }
-      } catch(e) {
-        console.warn('V8: falha buscando rastreamento.json:', e);
-      }
-
-      for (const venda of (clienteAtual?.Vendas || [])) {
-        const cod = extrairCodigoVenda8(venda);
-        if (String(cod) === String(codigo) && Array.isArray(venda.Rastreio?.Historico)) {
-          return venda.Rastreio.Historico.map(ev => ({ text: ev.text, time: ev.time }));
-        }
-      }
-
-      const r = (clienteAtual?.Rastreios || []).find(x => String(x.Codigo || x.codigo || '') === String(codigo));
-      if (r && Array.isArray(r.Historico)) return r.Historico.map(ev => ({ text: ev.text, time: ev.time }));
-
-      return [];
-    }
-
-    async function salvarStatus8(codigo, status) {
-      const payload = {
-        [codigo]: {
-          status: (status || []).map(ev => ({ text: ev.text, time: ev.time }))
-        }
-      };
-
-      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
-      const response = await fetch(CONFIG.API_URL, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
-        body:new URLSearchParams({
-          acao:'salvarRastreamento',
-          arquivo:'rastreamento.json',
-          codigo,
-          dados:JSON.stringify(payload),
-          deviceId
-        })
-      });
-
-      if (!response.ok) throw new Error('Erro HTTP ao salvar rastreamento: ' + response.status);
-      localStorage.removeItem('arquivo_rastreamento.json_cache');
-      return true;
-    }
-
-    async function salvarCliente8(codigo, historico, status='entregue') {
-      try {
-        const vendas = clienteAtual?.Vendas || [];
-        const venda = [...vendas].reverse().find(v => String(extrairCodigoVenda8(v)) === String(codigo)) || vendas[vendas.length-1];
-
-        if (venda) {
-          venda.CodigoRastreio = codigo;
-          venda.Rastreio = {
-            ...(venda.Rastreio || {}),
-            Codigo: codigo,
-            Status: status,
-            Historico: historico.map(ev => ({ text: ev.text, time: ev.time })),
-            DataAtualizacao: new Date().toISOString()
-          };
-          if (status === 'entregue') {
-            venda.Entregue = true;
-            venda.DataEntrega = new Date().toISOString();
-            venda.Rastreio.DataEntrega = venda.DataEntrega;
-          }
-        }
-
-        clienteAtual.CodigoRastreio = clienteAtual.CodigoRastreio || codigo;
-        if (!Array.isArray(clienteAtual.Rastreios)) clienteAtual.Rastreios = [];
-
-        const idx = clienteAtual.Rastreios.findIndex(r => String(r.Codigo || r.codigo || '') === String(codigo));
-        const reg = {
-          Codigo: codigo,
-          Status: status,
-          Historico: historico.map(ev => ({ text: ev.text, time: ev.time })),
-          DataAtualizacao: new Date().toISOString()
-        };
-
-        if (idx >= 0) clienteAtual.Rastreios[idx] = { ...clienteAtual.Rastreios[idx], ...reg };
-        else clienteAtual.Rastreios.push(reg);
-
-        const clientes = await buscarArquivo('clientes.json');
-        if (!Array.isArray(clientes)) return false;
-
-        const idxCliente = clientes.findIndex(c => String(c.Id) === String(clienteAtual.Id));
-        if (idxCliente < 0) return false;
-
-        clientes[idxCliente] = clienteAtual;
-
-        const ok = await salvarDadosComAuditoria(
-          'clientes.json',
-          clientes,
-          'auditoria',
-          'Atualizar',
-          'Rastreio',
-          String(clienteAtual.Id),
-          clienteAtual.Nome || '',
-          status === 'entregue' ? 'Rastreio entregue sem duplicar destino' : 'Rastreio atualizado',
-          '',
-          JSON.stringify({ codigo, status })
-        );
-
-        if (ok) {
-          sessionStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
-          localStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
-          localStorage.removeItem('arquivo_clientes.json_cache');
-        }
-
-        return !!ok;
-      } catch(e) {
-        console.warn('V8: não consegui salvar cliente:', e);
-        return false;
-      }
-    }
-
-    function limparTargets8(rota, ultimaCidade, destinoBonito) {
-      const destinoBase = n8(semUf8(destinoBonito));
-      const ultimaBase = n8(semUf8(ultimaCidade));
-
-      let lista = (rota || [])
-        .filter(Boolean)
-        .map(c => bonita8(c))
-        .filter(c => n8(semUf8(c)) !== ultimaBase);
-
-      // Remove qualquer cidade que seja a mesma base do destino.
-      // Exemplo: remove "Araras" para não ficar "Araras" + "Araras-SP".
-      lista = lista.filter(c => n8(semUf8(c)) !== destinoBase);
-
-      // Mantém no máximo duas cidades intermediárias antes do destino.
-      if (lista.length > 2) {
-        lista = lista.slice(-2);
-      }
-
-      lista.push(destinoBonito);
-
-      const out = [];
-      const vistos = new Set();
-      for (const c of lista) {
-        const chave = n8(semUf8(c));
-        if (vistos.has(chave)) continue;
-        vistos.add(chave);
-        out.push(c);
-      }
-
-      if (!out.length || n8(semUf8(out[out.length-1])) !== destinoBase) {
-        out.push(destinoBonito);
-      } else {
-        out[out.length-1] = destinoBonito;
-      }
-
-      return out;
-    }
-
-    async function continuarAteDestino8(statusAtual, destinoInput) {
-      const status = Array.isArray(statusAtual) ? statusAtual.map(ev => ({ text: ev.text, time: ev.time })) : [];
-
-      if (status.some(ev => n8(ev.text).includes('produto entregue'))) return status;
-
-      const ultimaCidade = ultimaCidade8(status);
-      const destinoBonito = bonita8(destinoInput);
-      const dataFinal = previsao8(status);
-      dataFinal.setHours(18,0,0,0);
-
-      let rota = [];
-      try {
-        const origemBusca = busca8(ultimaCidade);
-        const destinoBusca = busca8(destinoInput);
-        if (origemBusca && destinoBusca && typeof gerarRotaComNominatim === 'function') {
-          rota = await gerarRotaComNominatim(origemBusca, destinoBusca, 2);
-        }
-      } catch(e) {
-        console.warn('V8: rota de continuação falhou, usando destino direto:', e);
-      }
-
-      const targets = limparTargets8(rota, ultimaCidade, destinoBonito);
-
-      let inicio = ultimaData8(status);
-      inicio.setHours(inicio.getHours()+2, 0, 0, 0);
-      if (inicio >= dataFinal) {
-        inicio = new Date(dataFinal);
-        inicio.setHours(8,0,0,0);
-      }
-
-      const totalEventos = targets.length * 2;
-      const intervalo = Math.max(30*60*1000, Math.floor((dataFinal - inicio) / Math.max(1, totalEventos + 1)));
-      let passo = 0;
-
-      for (const cidade of targets) {
-        passo++;
-        const dataRota = new Date(inicio.getTime() + intervalo * passo);
-        if (dataRota >= dataFinal) dataRota.setTime(dataFinal.getTime() - 2*60*60*1000);
-
-        status.push({
-          text: `Rota para - ${cidade}`,
-          time: fmt8(dataRota)
-        });
-
-        passo++;
-        const dataCidade = new Date(inicio.getTime() + intervalo * passo);
-        if (dataCidade >= dataFinal) dataCidade.setTime(dataFinal.getTime() - 60*60*1000);
-
-        status.push({
-          text: `Objeto está em - ${cidade}`,
-          time: fmt8(dataCidade)
-        });
-      }
-
-      status.push({
-        text: `Produto entregue - ${destinoBonito}`,
-        time: fmt8(dataFinal)
-      });
-
-      return status;
-    }
-
-    async function marcarEntregue8(codigo) {
-      const ok = await modalConfirm(
-        `Marcar o rastreio ${codigo} como PRODUTO ENTREGUE?\n\nO sistema vai manter o histórico, remover duplicidade do destino e usar a data da previsão de entrega.`,
-        { title:'Confirmar entrega', okText:'Marcar entregue', cancelText:'Cancelar' }
-      );
-
-      if (!ok) return;
-
-      try {
-        mostrarLoading();
-        const statusAtual = await buscarStatus8(codigo);
-        const destino = cidadeClienteBonita8();
-        const novoStatus = await continuarAteDestino8(statusAtual, destino);
-
-        await salvarStatus8(codigo, novoStatus);
-        await salvarCliente8(codigo, novoStatus, 'entregue');
-
-        ocultarLoading();
-        alert('Produto entregue salvo corretamente, sem duplicar a cidade destino.');
-        location.reload();
-      } catch(e) {
-        ocultarLoading();
-        console.error('V8 erro ao entregar:', e);
-        alert('Erro ao marcar entregue: ' + e.message);
-      }
-    }
-
-    window.rastreioV6MarcarEntregueGlobal = marcarEntregue8;
-    window.rastreioV7MarcarEntregueGlobal = marcarEntregue8;
-    window.rastreioV8MarcarEntregueGlobal = marcarEntregue8;
-
-    function adicionarBotaoDestinoCliente8() {
-      const input = document.getElementById('inputCidadeDestinoFinal');
-      if (!input || input.dataset.botaoClienteV8 === '1') return;
-
-      input.dataset.botaoClienteV8 = '1';
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = '📍 Usar cidade do cliente';
-      btn.className = 'btn';
-      btn.style.cssText = 'margin-top:8px; padding:8px 12px; font-size:12px; background:linear-gradient(145deg,rgba(31,163,122,.28),rgba(31,163,122,.12)); color:#7cf0c2; border:1px solid rgba(31,163,122,.35);';
-
-      btn.onclick = () => {
-        const valor = cidadeClienteInput8();
-        if (!valor) {
-          alert('Este cliente não tem Cidade/Estado cadastrados.');
-          return;
-        }
-        input.value = valor;
-        input.dispatchEvent(new Event('input', { bubbles:true }));
-        input.dispatchEvent(new Event('change', { bubbles:true }));
-      };
-
-      input.insertAdjacentElement('afterend', btn);
-    }
-
-    document.addEventListener('focusin', (ev) => {
-      if (ev.target && ev.target.id === 'inputCidadeDestinoFinal') {
-        adicionarBotaoDestinoCliente8();
-      }
-    });
-
-    document.addEventListener('click', () => adicionarBotaoDestinoCliente8());
-    window.addEventListener('load', () => setTimeout(adicionarBotaoDestinoCliente8, 1200));
-  })();
-  </script>
-
-
-  <script>
-  /* ============================================================
-     CLIENTE RASTREIO CONECTA TRANSPORTE V10
-     - se o transporte foi criado primeiro com código, Gerar Rastreio usa esse código
-     - depois que gera rastreio no cliente, atualiza transporte.json correspondente
-     ============================================================ */
-  (function(){
-    const salvarRastreioAnteriorClienteV10 = window.salvarRastreioNoCliente || (typeof salvarRastreioNoCliente !== 'undefined' ? salvarRastreioNoCliente : null);
-
-    function crV10Norm(valor) {
-      return String(valor || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim();
-    }
-
-    function crV10CodigoValido(codigo) {
-      return /^BR\d{6,}$/i.test(String(codigo || '').trim());
-    }
-
-    function crV10Codigo(codigo) {
-      return String(codigo || '').trim().toUpperCase();
-    }
-
-    function crV10ExtrairNFsCliente() {
-      const nfs = [];
-      (clienteAtual?.Vendas || []).forEach(v => {
-        const nf = String(v.NumeroNF || v.NF || v.numeroNF || v.NotaFiscal || '').trim();
-        if (nf && !nfs.includes(nf)) nfs.push(nf);
-      });
-      return nfs;
-    }
-
-    async function crV10BuscarCodigoTransporteRelacionado() {
-      try {
-        const transportes = await buscarArquivo('transporte.json');
-        if (!Array.isArray(transportes)) return '';
-
-        const nomeCliente = crV10Norm(clienteAtual?.Nome || '');
-        const nfs = crV10ExtrairNFsCliente().map(crV10Norm);
-
-        let encontrado = '';
-
-        for (const t of transportes) {
-          const codigo = crV10Codigo(t.CodigoRastreio);
-          if (!crV10CodigoValido(codigo)) continue;
-
-          const nomeT = crV10Norm(t.NomeCliente || '');
-          const nfT = crV10Norm(t.NumeroNF || '');
-
-          const bateNome = nomeCliente && nomeT && (nomeCliente === nomeT || nomeT.includes(nomeCliente) || nomeCliente.includes(nomeT));
-          const bateNF = nfT && nfs.includes(nfT);
-
-          if (bateNF || bateNome) {
-            encontrado = codigo;
-            if (bateNF) return encontrado;
-          }
-        }
-
-        return encontrado;
-      } catch (erro) {
-        console.warn('V10 cliente: não consegui buscar código no transporte:', erro);
-        return '';
-      }
-    }
-
-    async function crV10AtualizarTransporteComCodigo(codigo) {
-      try {
-        codigo = crV10Codigo(codigo);
-        if (!crV10CodigoValido(codigo)) return false;
-
-        const transportes = await buscarArquivo('transporte.json');
-        if (!Array.isArray(transportes)) return false;
-
-        const nomeCliente = crV10Norm(clienteAtual?.Nome || '');
-        const nfs = crV10ExtrairNFsCliente().map(crV10Norm);
-        let alterou = false;
-
-        transportes.forEach(t => {
-          const nomeT = crV10Norm(t.NomeCliente || '');
-          const nfT = crV10Norm(t.NumeroNF || '');
-
-          const bateNome = nomeCliente && nomeT && (nomeCliente === nomeT || nomeT.includes(nomeCliente) || nomeCliente.includes(nomeT));
-          const bateNF = nfT && nfs.includes(nfT);
-
-          if (bateNF || bateNome) {
-            if (!crV10CodigoValido(t.CodigoRastreio) || crV10Codigo(t.CodigoRastreio) === codigo) {
-              t.CodigoRastreio = codigo;
-              alterou = true;
-            }
-          }
-        });
-
-        if (!alterou) return false;
-
-        const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
-        const response = await fetch(CONFIG.API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            acao: 'salvar',
-            arquivo: 'transporte.json',
-            dados: JSON.stringify(transportes),
-            deviceId
-          })
-        });
-
-        if (response.ok) {
-          localStorage.removeItem('arquivo_transporte.json_cache');
-          return true;
-        }
-
-        return false;
-      } catch (erro) {
-        console.warn('V10 cliente: não consegui atualizar transporte.json:', erro);
-        return false;
-      }
-    }
-
-    if (salvarRastreioAnteriorClienteV10 && !salvarRastreioAnteriorClienteV10.__conectaTransporteV10) {
-      const wrapper = async function(codigo, historico, rota, modal) {
-        const codigoTransporte = await crV10BuscarCodigoTransporteRelacionado();
-
-        // Se o transporte foi criado primeiro com código real, usa esse código.
-        if (crV10CodigoValido(codigoTransporte)) {
-          codigo = codigoTransporte;
-        }
-
-        await salvarRastreioAnteriorClienteV10.call(this, codigo, historico, rota, modal);
-
-        // Se o cliente gerou código primeiro, tenta preencher o transporte relacionado.
-        await crV10AtualizarTransporteComCodigo(codigo);
-      };
-
-      wrapper.__conectaTransporteV10 = true;
-      window.salvarRastreioNoCliente = salvarRastreioNoCliente = wrapper;
-    }
-
-    window.crV10BuscarCodigoTransporteRelacionado = crV10BuscarCodigoTransporteRelacionado;
-  })();
-  </script>
-
-
-  <script>
-  /* ============================================================
-     CLIENTE RASTREIO TRANSPORTE PROVISORIO V11
-     - Se transporte foi criado primeiro com código "2", "4" etc.,
-       ao gerar rastreio no cliente, troca o provisório pelo BR gerado.
-     ============================================================ */
-  (function(){
-    const salvarOriginalV11 = window.salvarRastreioNoCliente || (typeof salvarRastreioNoCliente !== 'undefined' ? salvarRastreioNoCliente : null);
-
-    function crV11Norm(valor) {
-      return String(valor || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim();
-    }
-
-    function crV11Codigo(codigo) {
-      return String(codigo || '').trim().toUpperCase();
-    }
-
-    function crV11CodigoValido(codigo) {
-      return /^BR\d{6,}$/i.test(crV11Codigo(codigo));
-    }
-
-    function crV11NFsCliente() {
-      const nfs = [];
-      (clienteAtual?.Vendas || []).forEach(v => {
-        const nf = String(v.NumeroNF || v.NF || v.numeroNF || v.NotaFiscal || '').trim();
-        if (nf && !nfs.includes(nf)) nfs.push(nf);
-      });
-      return nfs;
-    }
-
-    async function crV11BuscarArquivoTransporte() {
-      for (const nome of ['transporte.json', 'transportes.json']) {
-        try {
-          localStorage.removeItem(`arquivo_${nome}_cache`);
-          const dados = await buscarArquivo(nome);
-          if (Array.isArray(dados)) return { nome, dados };
-        } catch(e) {}
-      }
-      return { nome: 'transporte.json', dados: [] };
-    }
-
-    async function crV11AtualizarTransporteProvisorio(codigoGerado) {
-      codigoGerado = crV11Codigo(codigoGerado);
-      if (!crV11CodigoValido(codigoGerado)) return false;
-
-      const { nome, dados } = await crV11BuscarArquivoTransporte();
-      if (!Array.isArray(dados)) return false;
-
-      const nomeCliente = crV11Norm(clienteAtual?.Nome || '');
-      const nfs = crV11NFsCliente().map(crV11Norm);
-      let alterou = false;
-
-      dados.forEach(t => {
-        const nomeT = crV11Norm(t.NomeCliente || '');
-        const nfT = crV11Norm(t.NumeroNF || '');
-        const codAtual = crV11Codigo(t.CodigoRastreio);
-
-        const bateNome = nomeCliente && nomeT && (nomeCliente === nomeT || nomeT.includes(nomeCliente) || nomeCliente.includes(nomeT));
-        const bateNF = nfT && nfs.includes(nfT);
-
-        if (bateNF || bateNome) {
-          // troca "2", "4", vazio etc. pelo BR gerado.
-          if (!crV11CodigoValido(codAtual) || codAtual === codigoGerado) {
-            t.CodigoRastreio = codigoGerado;
-            alterou = true;
-          }
-        }
-      });
-
-      if (!alterou) return false;
-
-      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
-      const response = await fetch(CONFIG.API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          acao: 'salvar',
-          arquivo: nome,
-          dados: JSON.stringify(dados),
-          deviceId
-        })
-      });
-
-      if (response.ok) {
-        localStorage.removeItem(`arquivo_${nome}_cache`);
-        return true;
-      }
-
-      return false;
-    }
-
-    if (salvarOriginalV11 && !salvarOriginalV11.__transporteProvisorioV11) {
-      const wrapper = async function(codigo, historico, rota, modal) {
-        await salvarOriginalV11.call(this, codigo, historico, rota, modal);
-        await crV11AtualizarTransporteProvisorio(codigo);
-      };
-
-      wrapper.__transporteProvisorioV11 = true;
-      window.salvarRastreioNoCliente = salvarRastreioNoCliente = wrapper;
-    }
-
-    window.crV11AtualizarTransporteProvisorio = crV11AtualizarTransporteProvisorio;
-  })();
-  </script>
-
-
-  <script>
-  /* ============================================================
-     CLIENTE DETALHES QUANTIDADE GADO V1
-     - mostra "Quantidade de Gado" junto ao nome do cliente
-     ============================================================ */
-  (function(){
-    function qgdObterCliente() {
-      if (typeof clienteAtual !== 'undefined' && clienteAtual) return clienteAtual;
-      if (window.clienteAtual) return window.clienteAtual;
-
-      const chaves = ['clienteSelecionado', 'clienteAtual', 'clienteDetalhes'];
-
-      for (const chave of chaves) {
-        try {
-          const raw = sessionStorage.getItem(chave) || localStorage.getItem(chave);
-          if (raw) {
-            const obj = JSON.parse(raw);
-            if (obj && typeof obj === 'object') return obj;
-          }
-        } catch(e) {}
-      }
-
-      return null;
-    }
-
-    function qgdQuantidade(cliente) {
-      return cliente?.QuantidadeGado ??
-             cliente?.quantidadeGado ??
-             cliente?.QtdGado ??
-             cliente?.qtdGado ??
-             cliente?.Gado ??
-             cliente?.gado ??
-             '';
-    }
-
-    function qgdFormatar(valor) {
-      if (valor === undefined || valor === null || valor === '') return 'Não informado';
-
-      const n = parseInt(String(valor).replace(/\D/g, ''), 10);
-      if (!Number.isFinite(n)) return String(valor);
-
-      return n.toLocaleString('pt-BR') + ' cabeça(s)';
-    }
-
-    function qgdAcharCabecalho(cliente) {
-      const nome = String(cliente?.Nome || cliente?.nome || '').trim();
-      const candidatos = Array.from(document.querySelectorAll('h1,h2,h3,.cliente-nome,#nomeCliente,#nome-cliente,.nome-cliente,.client-name,.titulo-cliente'));
-
-      if (nome) {
-        const achado = candidatos.find(el => String(el.textContent || '').toLowerCase().includes(nome.toLowerCase()));
-        if (achado) return achado;
-      }
-
-      return candidatos[0] || document.querySelector('.card, .container, main, body');
-    }
-
-    function qgdRenderizar() {
-      if (document.getElementById('badgeQuantidadeGadoCliente')) return;
-
-      const cliente = qgdObterCliente();
-      if (!cliente) return;
-
-      const qtd = qgdQuantidade(cliente);
-      const destino = qgdAcharCabecalho(cliente);
-
-      if (!destino) return;
-
-      const badge = document.createElement('span');
-      badge.id = 'badgeQuantidadeGadoCliente';
-      badge.innerHTML = `🐄 Quantidade de gado: <strong>${qgdFormatar(qtd)}</strong>`;
-      badge.style.cssText = `
-        display:inline-flex;
-        align-items:center;
-        gap:6px;
-        margin-left:10px;
-        margin-top:6px;
-        padding:7px 12px;
-        border-radius:999px;
-        border:1px solid rgba(31,163,122,.35);
-        background:rgba(31,163,122,.10);
-        color:#7cf0c2;
-        font-size:13px;
-        font-weight:600;
-        vertical-align:middle;
-      `;
-
-      if (/H1|H2|H3/.test(destino.tagName)) destino.appendChild(badge);
-      else destino.insertAdjacentElement('afterbegin', badge);
-    }
-
-    document.addEventListener('DOMContentLoaded', () => setTimeout(qgdRenderizar, 400));
-    window.addEventListener('load', () => setTimeout(qgdRenderizar, 800));
-    document.addEventListener('click', () => setTimeout(qgdRenderizar, 100));
-  })();
-  </script>
-
-
-  <script>
-  /* ============================================================
-     CLIENTE DETALHES QUANTIDADE GADO V2 DIRETO
-     - mostra Quantidade de Gado junto ao cabeçalho/nome do cliente
-     - lê QuantidadeGado, quantidadeGado, QtdGado ou gado
-     ============================================================ */
-  (function(){
-    function qgdV2ObterCliente() {
-      if (typeof clienteAtual !== 'undefined' && clienteAtual) return clienteAtual;
-      if (window.clienteAtual) return window.clienteAtual;
-
-      const chaves = ['clienteSelecionado', 'clienteAtual', 'clienteDetalhes'];
-      for (const chave of chaves) {
-        try {
-          const raw = sessionStorage.getItem(chave) || localStorage.getItem(chave);
-          if (raw) {
-            const obj = JSON.parse(raw);
-            if (obj && typeof obj === 'object') return obj;
-          }
-        } catch(e) {}
-      }
-      return null;
-    }
-
-    function qgdV2Quantidade(cliente) {
-      return cliente?.QuantidadeGado ??
-             cliente?.quantidadeGado ??
-             cliente?.QtdGado ??
-             cliente?.qtdGado ??
-             cliente?.Gado ??
-             cliente?.gado ??
-             '';
-    }
-
-    function qgdV2Formatar(valor) {
-      if (valor === undefined || valor === null || valor === '') return 'Não informado';
-
-      const n = parseInt(String(valor).replace(/\D/g, ''), 10);
-      if (!Number.isFinite(n)) return String(valor);
-
-      return n.toLocaleString('pt-BR') + ' cabeça(s)';
-    }
-
-    function qgdV2Destino(cliente) {
-      const nome = String(cliente?.Nome || cliente?.nome || '').trim();
-      const candidatos = Array.from(document.querySelectorAll(
-        '.header h1, h1, h2, h3, .cliente-nome, #nomeCliente, #nome-cliente, .nome-cliente, .client-name, .titulo-cliente'
-      ));
-
-      if (nome) {
-        const porNome = candidatos.find(el => String(el.textContent || '').toLowerCase().includes(nome.toLowerCase()));
-        if (porNome) return porNome;
-      }
-
-      return candidatos[0] || document.querySelector('.header, .container, main, body');
-    }
-
-    function qgdV2Renderizar() {
-      const antigo = document.getElementById('badgeQuantidadeGadoClienteV2');
-      if (antigo) antigo.remove();
-
-      const cliente = qgdV2ObterCliente();
-      if (!cliente) return;
-
-      const destino = qgdV2Destino(cliente);
-      if (!destino) return;
-
-      const badge = document.createElement('span');
-      badge.id = 'badgeQuantidadeGadoClienteV2';
-      badge.innerHTML = `🐄 Quantidade de gado: <strong>${qgdV2Formatar(qgdV2Quantidade(cliente))}</strong>`;
-      badge.style.cssText = `
-        display:inline-flex;
-        align-items:center;
-        gap:6px;
-        margin-left:10px;
-        margin-top:6px;
-        padding:7px 12px;
-        border-radius:999px;
-        border:1px solid rgba(31,163,122,.35);
-        background:rgba(31,163,122,.10);
-        color:#7cf0c2;
-        font-size:13px;
-        font-weight:600;
-        vertical-align:middle;
-      `;
-
-      if (/H1|H2|H3/.test(destino.tagName)) {
-        destino.appendChild(badge);
-      } else {
-        destino.insertAdjacentElement('afterbegin', badge);
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => setTimeout(qgdV2Renderizar, 400));
-    window.addEventListener('load', () => setTimeout(qgdV2Renderizar, 800));
-    document.addEventListener('click', () => setTimeout(qgdV2Renderizar, 120));
-  })();
-  </script>
-
-
-  <script>
-  /* ============================================================
-     CLIENTES DETALHES VALOR UNITARIO PRODUTO V1
-     Correção cirúrgica do preenchimento/edição de produtos da venda.
-
-     REGRA OFICIAL:
-     - Produto.Valor = valor unitário da unidade/balde.
-     - Total da linha = Quantidade × Valor unitário.
-     - Produto.PesoUnidade = peso de uma unidade/balde.
-     - Peso total de exibição = Quantidade × PesoUnidade.
-
-     NÃO altera estrutura do JSON.
-     NÃO cria JSON local.
-     NÃO mexe no fluxo antigo, apenas corrige a tabela de produtos quando ela aparece.
-     ============================================================ */
-  (function(){
-    function vuNorm(valor) {
-      return String(valor || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim();
-    }
-
-    function vuNum(valor) {
+    function poNum(valor) {
       if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
 
       let txt = String(valor || '').trim();
@@ -5380,422 +3622,133 @@ if (!Array.isArray(dados) || dados.length === 0) {
       return Number.isFinite(n) ? n : 0;
     }
 
-    function vuMoeda(n) {
+    function poMoeda(n) {
       n = Number(n) || 0;
       return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    function vuNumero(n) {
+    function poNumero(n) {
       n = Number(n) || 0;
       if (Math.abs(n - Math.round(n)) < 0.00001) return String(Math.round(n));
       return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
     }
 
-    function vuSet(el, valor, tipo) {
-      if (!el) return;
-
-      const texto = tipo === 'moeda' ? vuMoeda(valor) : vuNumero(valor);
-
-      if ('value' in el) {
-        el.value = texto;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
+    function poSetCelula(td, valor, tipo) {
+      if (!td) return;
+      const texto = tipo === 'moeda' ? poMoeda(valor) : poNumero(valor);
+      const input = td.querySelector('input, textarea');
+      if (input) {
+        input.value = texto;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
       } else {
-        el.textContent = texto;
+        td.textContent = texto;
       }
     }
 
-    function vuInputCelula(td) {
-      if (!td) return null;
-      return td.querySelector('input, select, textarea') || td;
-    }
-
-    function vuValorCelula(td) {
+    function poValorCelula(td) {
       if (!td) return 0;
-      const input = td.querySelector('input, select, textarea');
-      return vuNum(input ? input.value : td.textContent);
+      const input = td.querySelector('input, textarea');
+      return poNum(input ? input.value : td.textContent);
     }
 
-    function vuHeaders(tabela) {
-      return Array.from(tabela.querySelectorAll('thead th, tr:first-child th, tr:first-child td'))
-        .map(th => String(th.textContent || '').trim().toLowerCase());
-    }
-
-    function vuEhTabelaPreenchimentoProdutos(tabela) {
-      const h = vuHeaders(tabela);
-      return h.some(x => x.includes('nome') || x.includes('produto')) &&
-             h.some(x => x.includes('qtd')) &&
-             h.some(x => x.includes('valor unit')) &&
-             h.some(x => x.includes('total')) &&
-             h.some(x => x.includes('ncm'));
-    }
-
-    function vuIdx(tabela) {
-      const h = vuHeaders(tabela);
-      const achar = fn => h.findIndex(fn);
-
-      return {
-        produto: achar(x => x.includes('nome') || x.includes('produto')),
-        qtd: achar(x => x.includes('qtd') || x.includes('quantidade')),
-        unid: achar(x => x.includes('unid')),
-        peso: achar(x => x.includes('peso')),
-        valorUnit: achar(x => x.includes('valor unit') || x.includes('valor un')),
-        total: achar(x => x.includes('total')),
-        ncm: achar(x => x.includes('ncm'))
-      };
-    }
-
-    function vuLinhasProduto(tabela) {
-      return Array.from(tabela.querySelectorAll('tbody tr, tr')).filter(tr => {
-        const tds = Array.from(tr.querySelectorAll('td'));
-        if (tds.length < 6) return false;
-        const txt = String(tr.textContent || '').trim().toLowerCase();
-        if (!txt) return false;
-        if (txt.startsWith('total')) return false;
-        return !!tr.querySelector('select, input');
-      });
-    }
-
-    function vuProdutoSelecionado(row, idx) {
-      const tds = Array.from(row.querySelectorAll('td'));
-      const cel = tds[idx.produto];
-      if (!cel) return null;
-
-      const sel = cel.querySelector('select');
-      if (sel) {
-        const opt = sel.options[sel.selectedIndex];
-        return {
-          id: sel.value,
-          nome: opt ? opt.textContent : '',
-          option: opt,
-          select: sel
-        };
-      }
-
-      const input = cel.querySelector('input');
-      return {
-        id: '',
-        nome: input ? input.value : cel.textContent,
-        option: null,
-        select: null
-      };
-    }
-
-    function vuLerNumeroDataset(opt, nomes) {
-      if (!opt || !opt.dataset) return 0;
-      for (const nome of nomes) {
-        if (opt.dataset[nome] !== undefined && opt.dataset[nome] !== '') {
-          const n = vuNum(opt.dataset[nome]);
-          if (n) return n;
-        }
-      }
-      return 0;
-    }
-
-    function vuCatalogosGlobais() {
-      const nomes = [
-        'produtos',
-        'insumos',
-        'listaProdutos',
-        'produtosCadastrados',
-        'materiasPrimas',
-        'estoque',
-        'itensEstoque',
-        'catalogoProdutos'
-      ];
-
-      const listas = [];
-
-      nomes.forEach(nome => {
-        try {
-          const valor = window[nome];
-          if (Array.isArray(valor)) listas.push(valor);
-        } catch(e) {}
-      });
-
-      return listas.flat();
-    }
-
-    function vuCampo(obj, nomes) {
-      if (!obj) return undefined;
+    function poCampoProduto(p, nomes, padrao) {
       for (const n of nomes) {
-        if (obj[n] !== undefined && obj[n] !== null && obj[n] !== '') return obj[n];
+        if (p && p[n] !== undefined && p[n] !== null && p[n] !== '') return p[n];
       }
-      return undefined;
+      return padrao;
     }
 
-    function vuBuscarProdutoCatalogo(prodSel) {
-      const id = String(prodSel?.id || '').trim();
-      const nome = vuNorm(prodSel?.nome || '');
-
-      const lista = vuCatalogosGlobais();
-
-      let achado = null;
-
-      if (id) {
-        achado = lista.find(p => String(vuCampo(p, ['Id','id','InsumoId','insumoId','Codigo','codigo','NCM','ncm']) || '') === id);
-      }
-
-      if (!achado && nome) {
-        achado = lista.find(p => {
-          const n = vuNorm(vuCampo(p, ['Nome','nome','Produto','produto','Descricao','descricao']) || '');
-          return n && (n === nome || n.includes(nome) || nome.includes(n));
-        });
-      }
-
-      return achado || null;
+    function poProdutosVenda(venda) {
+      if (!venda) return [];
+      if (Array.isArray(venda.Produtos)) return venda.Produtos;
+      if (Array.isArray(venda.produtos)) return venda.produtos;
+      if (Array.isArray(venda.Itens)) return venda.Itens;
+      if (Array.isArray(venda.itens)) return venda.itens;
+      return [];
     }
 
-    function vuDadosProduto(prodSel) {
-      const opt = prodSel?.option;
-      const catalogo = vuBuscarProdutoCatalogo(prodSel);
-
-      let valorUnitario =
-        vuLerNumeroDataset(opt, ['valor', 'preco', 'precoUnitario', 'valorUnitario', 'valorun', 'valorUnit']) ||
-        vuNum(vuCampo(catalogo, ['Valor','valor','Preco','preco','PrecoVenda','precoVenda','ValorUnitario','valorUnitario']));
-
-      let pesoUnidade =
-        vuLerNumeroDataset(opt, ['peso', 'pesoUnidade', 'pesounidade', 'pesoUnitario']) ||
-        vuNum(vuCampo(catalogo, ['PesoUnidade','pesoUnidade','PesoUnitario','pesoUnitario','Peso','peso']));
-
-      const ncm = String(
-        (opt && (opt.dataset.ncm || opt.getAttribute('data-ncm'))) ||
-        vuCampo(catalogo, ['NCM','ncm']) ||
-        ''
-      );
-
-      const unidade = String(
-        (opt && (opt.dataset.unidade || opt.getAttribute('data-unidade'))) ||
-        vuCampo(catalogo, ['Unidade','unidade']) ||
-        ''
-      );
-
-      return { valorUnitario, pesoUnidade, ncm, unidade };
+    function poNomeProduto(produto) {
+      return String(poCampoProduto(produto, ['Nome','nome','Produto','produto','Descricao','descricao'], '') || '').trim();
     }
 
-    function vuValorVendaContainer(container) {
-      if (!container) return 0;
-      const texto = String(container.textContent || '');
-
-      let m = texto.match(/💰\s*R\$\s*([\d.\,]+)/);
-      if (m) return vuNum('R$ ' + m[1]);
-
-      m = texto.match(/Valor\s*Total[^R$]*R\$\s*([\d.\,]+)/i);
-      if (m) return vuNum('R$ ' + m[1]);
-
-      m = texto.match(/R\$\s*([\d.\,]+)/);
-      if (m) return vuNum('R$ ' + m[1]);
-
-      return 0;
+    function poQtd(produto) {
+      return poNum(poCampoProduto(produto, ['Quantidade','quantidade','Qtd','qtd'], 0));
     }
 
-    function vuCorrigirTabela(tabela) {
-      if (!vuEhTabelaPreenchimentoProdutos(tabela)) return;
+    function poPesoUnidade(produto) {
+      return poNum(poCampoProduto(produto, ['PesoUnidade','pesoUnidade','PesoUnitario','pesoUnitario','Peso','peso'], 0));
+    }
 
-      const idx = vuIdx(tabela);
-      if (idx.qtd < 0 || idx.valorUnit < 0 || idx.total < 0) return;
+    function poValor(produto) {
+      return poNum(poCampoProduto(produto, ['Valor','valor','Total','total','Preco','preco'], 0));
+    }
 
-      const linhas = vuLinhasProduto(tabela);
-      if (!linhas.length) return;
+    function poValorUnitarioCampo(produto) {
+      return poNum(poCampoProduto(produto, ['ValorUnitario','valorUnitario','PrecoUnitario','precoUnitario'], 0));
+    }
 
-      const container = tabela.closest('.modal-content, .card, .venda-card, .venda, section, div') || tabela.parentElement;
-      const valorVenda = vuValorVendaContainer(container);
+    function poValorTotalVenda(venda) {
+      return poNum(poCampoProduto(venda, ['ValorTotal','valorTotal','Total','total'], 0));
+    }
 
-      let somaTotalAtual = 0;
-      let somaQtdVezesTotalAtual = 0;
+    function poSomas(venda) {
+      const produtos = poProdutosVenda(venda);
+      let somaValor = 0;
+      let somaQtdValor = 0;
 
-      const base = linhas.map(row => {
-        const tds = Array.from(row.querySelectorAll('td'));
-        const qtd = vuValorCelula(tds[idx.qtd]) || 0;
-        const valorUnitAtual = vuValorCelula(tds[idx.valorUnit]) || 0;
-        const totalAtual = vuValorCelula(tds[idx.total]) || 0;
-
-        somaTotalAtual += totalAtual;
-        somaQtdVezesTotalAtual += qtd * totalAtual;
-
-        return { row, tds, qtd, valorUnitAtual, totalAtual };
+      produtos.forEach(p => {
+        const qtd = poQtd(p);
+        const valor = poValor(p);
+        somaValor += valor;
+        somaQtdValor += qtd * valor;
       });
 
-      const totalAtualEhUnitario =
-        valorVenda > 0 &&
-        Math.abs(somaTotalAtual - valorVenda) > 0.05 &&
-        Math.abs(somaQtdVezesTotalAtual - valorVenda) < 0.05;
-
-      base.forEach(item => {
-        const { row, tds, qtd } = item;
-        if (!qtd) return;
-
-        const prodSel = vuProdutoSelecionado(row, idx);
-        const dadosProduto = vuDadosProduto(prodSel);
-
-        let valorUnit = item.valorUnitAtual;
-        let totalLinha = item.totalAtual;
-
-        // Caso crítico descoberto:
-        // se a soma dos "totais" antigos multiplicados pela quantidade bate com a venda,
-        // então a coluna Total antiga estava guardando o valor unitário real.
-        if (totalAtualEhUnitario && item.totalAtual > 0) {
-          valorUnit = item.totalAtual;
-          totalLinha = qtd * valorUnit;
-        } else {
-          // Preenchimento novo: se ao escolher produto o valor veio zerado,
-          // pega o valor unitário oficial do catálogo/opção.
-          if (!valorUnit && dadosProduto.valorUnitario) {
-            valorUnit = dadosProduto.valorUnitario;
-          }
-
-          totalLinha = qtd * valorUnit;
-        }
-
-        // Peso no formulário continua sendo peso por unidade/balde.
-        // Não transforma em peso total aqui para não corromper PesoUnidade no JSON.
-        if (idx.peso >= 0) {
-          const pesoAtual = vuValorCelula(tds[idx.peso]) || 0;
-          if (!pesoAtual && dadosProduto.pesoUnidade) {
-            vuSet(vuInputCelula(tds[idx.peso]), dadosProduto.pesoUnidade, 'numero');
-          }
-        }
-
-        if (idx.unid >= 0 && dadosProduto.unidade) {
-          const el = vuInputCelula(tds[idx.unid]);
-          if (el && 'value' in el && !el.value) {
-            el.value = dadosProduto.unidade;
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-        }
-
-        if (idx.ncm >= 0 && dadosProduto.ncm) {
-          const el = vuInputCelula(tds[idx.ncm]);
-          if (el && 'value' in el && (!el.value || vuNorm(el.value) === 'ncm')) {
-            el.value = dadosProduto.ncm;
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-        }
-
-        vuSet(vuInputCelula(tds[idx.valorUnit]), valorUnit, 'moeda');
-        vuSet(vuInputCelula(tds[idx.total]), totalLinha, 'moeda');
-      });
+      return { somaValor, somaQtdValor };
     }
 
-    function vuInstalarEventosTabela(tabela) {
-      if (!vuEhTabelaPreenchimentoProdutos(tabela)) return;
-      if (tabela.dataset.valorUnitarioProdutoV1 === '1') return;
+    function poModoVenda(venda) {
+      const valorVenda = poValorTotalVenda(venda);
+      const { somaValor, somaQtdValor } = poSomas(venda);
 
-      tabela.dataset.valorUnitarioProdutoV1 = '1';
+      if (!valorVenda) return 'total';
 
-      tabela.addEventListener('change', function(e) {
-        const tag = e.target && e.target.tagName;
-        if (tag === 'SELECT' || tag === 'INPUT') {
-          setTimeout(() => vuCorrigirTabela(tabela), 40);
-        }
-      }, true);
+      const diffTotal = Math.abs(somaValor - valorVenda);
+      const diffUnit = Math.abs(somaQtdValor - valorVenda);
 
-      tabela.addEventListener('input', function(e) {
-        if (e.target && e.target.tagName === 'INPUT') {
-          setTimeout(() => vuCorrigirTabela(tabela), 80);
-        }
-      }, true);
+      // Modo antigo/oficial: Valor soma exatamente o total da venda.
+      if (diffTotal <= 0.05) return 'total';
 
-      setTimeout(() => vuCorrigirTabela(tabela), 80);
+      // Modo errado/novo: Quantidade × Valor soma o total da venda.
+      if (diffUnit <= 0.05) return 'unitario';
+
+      // Fallback conservador: mantém padrão antigo para não quebrar relatórios.
+      return 'total';
     }
 
-    function vuRodar() {
-      document.querySelectorAll('table').forEach(tabela => {
-        vuInstalarEventosTabela(tabela);
-        vuCorrigirTabela(tabela);
-      });
-    }
+    function poLinhaValores(produto, modo) {
+      const qtd = poQtd(produto);
+      const valor = poValor(produto);
+      const valorUnitCampo = poValorUnitarioCampo(produto);
+      let valorUnit = 0;
+      let totalLinha = 0;
 
-    document.addEventListener('DOMContentLoaded', () => setTimeout(vuRodar, 300));
-    window.addEventListener('load', () => setTimeout(vuRodar, 600));
-    document.addEventListener('click', () => setTimeout(vuRodar, 120));
-    document.addEventListener('change', () => setTimeout(vuRodar, 120), true);
-    document.addEventListener('input', () => setTimeout(vuRodar, 160), true);
-
-    const observer = new MutationObserver(() => {
-      clearTimeout(window.__valorUnitarioProdutoV1Timer);
-      window.__valorUnitarioProdutoV1Timer = setTimeout(vuRodar, 120);
-    });
-
-    observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true
-    });
-
-    window.corrigirValorUnitarioProdutosClienteDetalhesV1 = vuRodar;
-  })();
-  </script>
-
-
-  <script>
-  /* ============================================================
-     CLIENTES DETALHES RENDER PRODUTOS VALOR UNITARIO V2
-     Correção cirúrgica da VISUALIZAÇÃO dos produtos da venda.
-
-     REGRA OFICIAL:
-     - Produto.Valor = valor unitário da unidade/balde.
-     - Valor Total da linha = Produto.Quantidade × Produto.Valor.
-     - Peso da linha = Produto.Quantidade × Produto.PesoUnidade.
-     - O cabeçalho/parcela já estava certo; o erro era só na tabela de produtos.
-
-     NÃO altera clientes.json.
-     NÃO altera estrutura de JSON.
-     NÃO cria JSON local.
-     ============================================================ */
-  (function(){
-    function v2Norm(valor) {
-      return String(valor || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim();
-    }
-
-    function v2Num(valor) {
-      if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
-
-      let txt = String(valor || '').trim();
-      if (!txt) return 0;
-
-      txt = txt
-        .replace(/\s/g, '')
-        .replace(/[R$\u00A0]/g, '')
-        .replace(/[^\d,.-]/g, '');
-
-      if (!txt) return 0;
-
-      if (txt.includes(',')) {
-        txt = txt.replace(/\./g, '').replace(',', '.');
+      if (modo === 'unitario') {
+        valorUnit = valorUnitCampo || valor;
+        totalLinha = qtd * valorUnit;
+      } else {
+        totalLinha = valor;
+        valorUnit = valorUnitCampo || (qtd ? valor / qtd : valor);
       }
 
-      const n = parseFloat(txt);
-      return Number.isFinite(n) ? n : 0;
+      return { qtd, valorUnit, totalLinha, pesoUnidade: poPesoUnidade(produto) };
     }
 
-    function v2Moeda(n) {
-      n = Number(n) || 0;
-      return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    }
-
-    function v2Numero(n) {
-      n = Number(n) || 0;
-      if (Math.abs(n - Math.round(n)) < 0.00001) return String(Math.round(n));
-      return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
-    }
-
-    function v2ObterClienteAtual() {
+    function poClienteAtual() {
       if (typeof clienteAtual !== 'undefined' && clienteAtual) return clienteAtual;
       if (window.clienteAtual) return window.clienteAtual;
 
-      const chaves = [
-        'clienteAtual',
-        'clienteSelecionado',
-        'clienteDetalhes',
-        'clienteEditando'
-      ];
-
+      const chaves = ['clienteAtual', 'clienteSelecionado', 'clienteDetalhes', 'clienteEditando'];
       for (const chave of chaves) {
         try {
           const raw = sessionStorage.getItem(chave) || localStorage.getItem(chave);
@@ -5804,12 +3757,11 @@ if (!Array.isArray(dados) || dados.length === 0) {
           if (obj && Array.isArray(obj.Vendas)) return obj;
         } catch(e) {}
       }
-
       return null;
     }
 
-    async function v2CarregarClienteDoDriveSePreciso() {
-      const atual = v2ObterClienteAtual();
+    async function poClienteDaPagina() {
+      const atual = poClienteAtual();
       if (atual && Array.isArray(atual.Vendas)) return atual;
 
       if (typeof buscarArquivo !== 'function') return null;
@@ -5818,31 +3770,23 @@ if (!Array.isArray(dados) || dados.length === 0) {
         const clientes = await buscarArquivo('clientes.json');
         if (!Array.isArray(clientes)) return null;
 
-        const textoPagina = v2Norm(document.body.textContent || '');
-        let melhor = null;
-
-        for (const c of clientes) {
-          const nome = v2Norm(c.Nome || c.nome || '');
-          if (nome && textoPagina.includes(nome)) {
-            melhor = c;
-            break;
-          }
-        }
-
-        return melhor;
+        const texto = poNorm(document.body.textContent || '');
+        return clientes.find(c => {
+          const nome = poNorm(c.Nome || c.nome || '');
+          return nome && texto.includes(nome);
+        }) || null;
       } catch(e) {
-        console.warn('[Cliente Detalhes V2] Não consegui carregar clientes.json:', e);
         return null;
       }
     }
 
-    function v2Headers(tabela) {
+    function poHeaders(tabela) {
       return Array.from(tabela.querySelectorAll('thead th, tr:first-child th, tr:first-child td'))
         .map(th => String(th.textContent || '').trim().toLowerCase());
     }
 
-    function v2EhTabelaProdutos(tabela) {
-      const h = v2Headers(tabela);
+    function poEhTabelaProdutos(tabela) {
+      const h = poHeaders(tabela);
       return h.some(x => x.includes('produto')) &&
              h.some(x => x.includes('qtd') || x.includes('quantidade')) &&
              h.some(x => x.includes('unidade')) &&
@@ -5851,10 +3795,9 @@ if (!Array.isArray(dados) || dados.length === 0) {
              h.some(x => x.includes('valor total') || x === 'total');
     }
 
-    function v2Idx(tabela) {
-      const h = v2Headers(tabela);
+    function poIdx(tabela) {
+      const h = poHeaders(tabela);
       const achar = fn => h.findIndex(fn);
-
       return {
         produto: achar(x => x.includes('produto')),
         qtd: achar(x => x.includes('qtd') || x.includes('quantidade')),
@@ -5865,7 +3808,7 @@ if (!Array.isArray(dados) || dados.length === 0) {
       };
     }
 
-    function v2LinhasProduto(tabela) {
+    function poLinhasProduto(tabela) {
       return Array.from(tabela.querySelectorAll('tbody tr')).filter(tr => {
         const txt = String(tr.textContent || '').trim().toLowerCase();
         if (!txt) return false;
@@ -5875,118 +3818,85 @@ if (!Array.isArray(dados) || dados.length === 0) {
       });
     }
 
-    function v2LinhaTotal(tabela) {
+    function poLinhaTotal(tabela) {
       return Array.from(tabela.querySelectorAll('tbody tr')).find(tr => {
         const txt = String(tr.textContent || '').trim().toLowerCase();
         return txt.startsWith('total') || txt.includes('total:');
       }) || null;
     }
 
-    function v2TextoContextoTabela(tabela) {
+    function poInfoTabela(tabela) {
       let el = tabela;
       let texto = '';
-
       for (let i = 0; i < 10 && el; i++) {
         texto += '\n' + String(el.textContent || '');
         if (texto.includes('💰') || texto.includes('NF:') || texto.includes('parcelas')) break;
         el = el.parentElement;
       }
 
-      return texto;
-    }
-
-    function v2InfoVendaDaTabela(tabela) {
-      const texto = v2TextoContextoTabela(tabela);
-
       let valor = 0;
       let nf = '';
 
       let m = texto.match(/💰\s*R\$\s*([\d.\,]+)/);
-      if (m) valor = v2Num('R$ ' + m[1]);
+      if (m) valor = poNum('R$ ' + m[1]);
 
       m = texto.match(/NF:\s*([^\s📅💰]+)/i);
       if (m) nf = String(m[1] || '').trim();
 
-      return { valor, nf, texto };
+      return { texto, valor, nf };
     }
 
-    function v2ProdutoNome(p) {
-      return String(p.Nome || p.nome || p.Produto || p.produto || '').trim();
-    }
-
-    function v2ProdutosDaVenda(venda) {
-      return Array.isArray(venda.Produtos) ? venda.Produtos :
-             Array.isArray(venda.produtos) ? venda.produtos :
-             Array.isArray(venda.Itens) ? venda.Itens :
-             Array.isArray(venda.itens) ? venda.itens : [];
-    }
-
-    function v2ValorTotalProdutoUnitario(venda) {
-      return v2ProdutosDaVenda(venda).reduce((s, p) => {
-        const qtd = v2Num(p.Quantidade ?? p.quantidade ?? p.Qtd ?? p.qtd ?? 0);
-        const valorUnit = v2Num(p.Valor ?? p.valor ?? p.Preco ?? p.preco ?? 0);
-        return s + (qtd * valorUnit);
-      }, 0);
-    }
-
-    function v2PesoTotalProduto(venda) {
-      return v2ProdutosDaVenda(venda).reduce((s, p) => {
-        const qtd = v2Num(p.Quantidade ?? p.quantidade ?? p.Qtd ?? p.qtd ?? 0);
-        const pesoUn = v2Num(p.PesoUnidade ?? p.pesoUnidade ?? p.PesoUnitario ?? p.pesoUnitario ?? p.Peso ?? p.peso ?? 0);
-        return s + (qtd * pesoUn);
-      }, 0);
-    }
-
-    function v2ScoreVendaTabela(venda, tabela, info, linhas, idx) {
-      const produtos = v2ProdutosDaVenda(venda);
+    function poScoreVenda(venda, tabela, linhas, idx) {
+      const produtos = poProdutosVenda(venda);
       if (!produtos.length) return -999999;
+
+      const info = poInfoTabela(tabela);
+      const valorVenda = poValorTotalVenda(venda);
+      const { somaValor, somaQtdValor } = poSomas(venda);
 
       let score = 0;
 
-      const valorVenda = v2Num(venda.ValorTotal ?? venda.valorTotal ?? venda.Total ?? venda.total ?? 0);
-      const somaProdutos = v2ValorTotalProdutoUnitario(venda);
-
       if (info.valor) {
         if (Math.abs(valorVenda - info.valor) < 0.05) score += 1000;
-        if (Math.abs(somaProdutos - info.valor) < 0.05) score += 800;
+        if (Math.abs(somaValor - info.valor) < 0.05) score += 300;
+        if (Math.abs(somaQtdValor - info.valor) < 0.05) score += 300;
       }
 
       const nfVenda = String(venda.NumeroNF ?? venda.NF ?? venda.numeroNF ?? venda.NotaFiscal ?? '').trim();
-      if (info.nf && nfVenda && v2Norm(info.nf) === v2Norm(nfVenda)) score += 700;
-      if (info.nf === '-' && !nfVenda) score += 200;
+      if (info.nf && nfVenda && poNorm(info.nf) === poNorm(nfVenda)) score += 800;
+      if (info.nf === '-' && !nfVenda) score += 180;
 
       if (produtos.length === linhas.length) score += 300;
-      else score -= Math.abs(produtos.length - linhas.length) * 40;
+      else score -= Math.abs(produtos.length - linhas.length) * 50;
 
       const max = Math.min(produtos.length, linhas.length);
       for (let i = 0; i < max; i++) {
         const tds = Array.from(linhas[i].querySelectorAll('td'));
-        const nomeTela = v2Norm(tds[idx.produto]?.textContent || '');
-        const nomeJson = v2Norm(v2ProdutoNome(produtos[i]));
+        const nomeTela = poNorm(tds[idx.produto]?.textContent || '');
+        const nomeJson = poNorm(poNomeProduto(produtos[i]));
 
         if (nomeTela && nomeJson) {
-          if (nomeTela === nomeJson) score += 80;
-          else if (nomeTela.includes(nomeJson) || nomeJson.includes(nomeTela)) score += 40;
-          else score -= 20;
+          if (nomeTela === nomeJson) score += 90;
+          else if (nomeTela.includes(nomeJson) || nomeJson.includes(nomeTela)) score += 45;
+          else score -= 25;
         }
 
-        const qtdTela = v2Num(tds[idx.qtd]?.textContent || '');
-        const qtdJson = v2Num(produtos[i].Quantidade ?? produtos[i].quantidade ?? produtos[i].Qtd ?? produtos[i].qtd ?? 0);
-        if (Math.abs(qtdTela - qtdJson) < 0.001) score += 30;
+        const qtdTela = poNum(tds[idx.qtd]?.textContent || '');
+        const qtdJson = poQtd(produtos[i]);
+        if (Math.abs(qtdTela - qtdJson) < 0.001) score += 35;
       }
 
       return score;
     }
 
-    function v2EncontrarVenda(cliente, tabela, linhas, idx) {
+    function poEncontrarVenda(cliente, tabela, linhas, idx) {
       if (!cliente || !Array.isArray(cliente.Vendas)) return null;
 
-      const info = v2InfoVendaDaTabela(tabela);
       let melhor = null;
       let melhorScore = -999999;
 
       for (const venda of cliente.Vendas) {
-        const score = v2ScoreVendaTabela(venda, tabela, info, linhas, idx);
+        const score = poScoreVenda(venda, tabela, linhas, idx);
         if (score > melhorScore) {
           melhorScore = score;
           melhor = venda;
@@ -5996,97 +3906,243 @@ if (!Array.isArray(dados) || dados.length === 0) {
       return melhorScore > 0 ? melhor : null;
     }
 
-    function v2AtualizarTabelaComVenda(tabela, venda) {
-      if (!v2EhTabelaProdutos(tabela)) return false;
+    function poAtualizarTabela(tabela, venda) {
+      if (!poEhTabelaProdutos(tabela)) return false;
+      if (window.__poV3Aplicando) return false;
 
-      const idx = v2Idx(tabela);
+      const idx = poIdx(tabela);
+      const linhas = poLinhasProduto(tabela);
+      const produtos = poProdutosVenda(venda);
+
+      if (!linhas.length || !produtos.length) return false;
       if (idx.produto < 0 || idx.qtd < 0 || idx.peso < 0 || idx.valorUn < 0 || idx.valorTotal < 0) return false;
 
-      const linhas = v2LinhasProduto(tabela);
-      const produtos = v2ProdutosDaVenda(venda);
-      if (!linhas.length || !produtos.length) return false;
+      const modo = poModoVenda(venda);
 
       let qtdTotal = 0;
-      let pesoTotal = 0;
-      let valorTotal = 0;
+      let pesoVisualTotal = 0;
+      let totalVenda = 0;
 
-      const max = Math.min(linhas.length, produtos.length);
+      window.__poV3Aplicando = true;
 
-      for (let i = 0; i < max; i++) {
-        const tr = linhas[i];
-        const tds = Array.from(tr.querySelectorAll('td'));
-        const p = produtos[i];
+      try {
+        const max = Math.min(linhas.length, produtos.length);
 
-        const qtd = v2Num(p.Quantidade ?? p.quantidade ?? p.Qtd ?? p.qtd ?? 0);
-        const unidade = String(p.Unidade ?? p.unidade ?? 'UN');
-        const pesoUnidade = v2Num(p.PesoUnidade ?? p.pesoUnidade ?? p.PesoUnitario ?? p.pesoUnitario ?? p.Peso ?? p.peso ?? 0);
-        const valorUnit = v2Num(p.Valor ?? p.valor ?? p.Preco ?? p.preco ?? 0);
+        for (let i = 0; i < max; i++) {
+          const tds = Array.from(linhas[i].querySelectorAll('td'));
+          const p = produtos[i];
+          const calc = poLinhaValores(p, modo);
+          const unidade = String(p.Unidade ?? p.unidade ?? 'UN');
 
-        const pesoLinha = qtd * pesoUnidade;
-        const totalLinha = qtd * valorUnit;
+          if (tds[idx.produto]) tds[idx.produto].textContent = poNomeProduto(p);
+          if (tds[idx.qtd]) tds[idx.qtd].textContent = poNumero(calc.qtd);
+          if (tds[idx.unidade]) tds[idx.unidade].textContent = unidade;
 
-        if (tds[idx.produto]) tds[idx.produto].textContent = v2ProdutoNome(p);
-        if (tds[idx.qtd]) tds[idx.qtd].textContent = v2Numero(qtd);
-        if (tds[idx.unidade]) tds[idx.unidade].textContent = unidade;
-        if (tds[idx.peso]) tds[idx.peso].textContent = v2Numero(pesoLinha);
-        if (tds[idx.valorUn]) tds[idx.valorUn].textContent = v2Moeda(valorUnit);
-        if (tds[idx.valorTotal]) tds[idx.valorTotal].textContent = v2Moeda(totalLinha);
+          // Mantém visual antigo: coluna Peso mostra PesoUnidade.
+          // Relatórios/kg devem calcular pelo JSON, não por esta célula visual.
+          if (tds[idx.peso]) tds[idx.peso].textContent = poNumero(calc.pesoUnidade);
 
-        qtdTotal += qtd;
-        pesoTotal += pesoLinha;
-        valorTotal += totalLinha;
+          if (tds[idx.valorUn]) tds[idx.valorUn].textContent = poMoeda(calc.valorUnit);
+          if (tds[idx.valorTotal]) tds[idx.valorTotal].textContent = poMoeda(calc.totalLinha);
+
+          qtdTotal += calc.qtd;
+          pesoVisualTotal += calc.pesoUnidade;
+          totalVenda += calc.totalLinha;
+        }
+
+        const total = poLinhaTotal(tabela);
+        if (total) {
+          const tds = Array.from(total.querySelectorAll('td'));
+          if (tds[idx.qtd]) tds[idx.qtd].textContent = poNumero(qtdTotal);
+          if (tds[idx.peso]) tds[idx.peso].textContent = poNumero(pesoVisualTotal);
+          if (tds[idx.valorTotal]) tds[idx.valorTotal].textContent = poMoeda(totalVenda);
+        }
+
+        tabela.dataset.produtosOficialV3 = modo;
+        console.log('[Cliente Detalhes V3] Tabela de produtos alinhada:', {
+          modo,
+          valorTotalVenda: poValorTotalVenda(venda),
+          totalCalculado: totalVenda
+        });
+      } finally {
+        setTimeout(() => { window.__poV3Aplicando = false; }, 30);
       }
 
-      const total = v2LinhaTotal(tabela);
-      if (total) {
-        const tds = Array.from(total.querySelectorAll('td'));
-        if (tds[idx.qtd]) tds[idx.qtd].textContent = v2Numero(qtdTotal);
-        if (tds[idx.peso]) tds[idx.peso].textContent = v2Numero(pesoTotal);
-        if (tds[idx.valorTotal]) tds[idx.valorTotal].textContent = v2Moeda(valorTotal);
+      return true;
+    }
+
+    async function poCorrigirVisualizacao() {
+      const cliente = await poClienteDaPagina();
+      if (!cliente || !Array.isArray(cliente.Vendas)) return;
+
+      const tabelas = Array.from(document.querySelectorAll('table')).filter(poEhTabelaProdutos);
+
+      for (const tabela of tabelas) {
+        const idx = poIdx(tabela);
+        const linhas = poLinhasProduto(tabela);
+        const venda = poEncontrarVenda(cliente, tabela, linhas, idx);
+        if (venda) poAtualizarTabela(tabela, venda);
       }
+    }
 
-      tabela.dataset.renderProdutosValorUnitarioV2 = '1';
+    function poNormalizarVendaParaPadraoAntigo(venda) {
+      if (!venda) return false;
+      const produtos = poProdutosVenda(venda);
+      if (!produtos.length) return false;
 
-      console.log('[Cliente Detalhes V2] Tabela corrigida pela venda do JSON:', {
-        vendaValorTotal: venda.ValorTotal,
-        somaProdutos: valorTotal,
-        pesoTotal
+      const valorVenda = poValorTotalVenda(venda);
+      if (!valorVenda) return false;
+
+      const { somaValor, somaQtdValor } = poSomas(venda);
+
+      const diffTotal = Math.abs(somaValor - valorVenda);
+      const diffUnit = Math.abs(somaQtdValor - valorVenda);
+
+      // Só normaliza quando está claramente no modelo novo/errado.
+      if (!(diffTotal > 0.05 && diffUnit <= 0.05)) return false;
+
+      produtos.forEach(p => {
+        const qtd = poQtd(p);
+        const unit = poValor(p);
+
+        if (qtd > 0 && unit > 0) {
+          p.ValorUnitario = unit;
+          p.Valor = qtd * unit;
+        }
       });
 
       return true;
     }
 
-    async function v2CorrigirTabelas() {
-      const cliente = await v2CarregarClienteDoDriveSePreciso();
-      if (!cliente || !Array.isArray(cliente.Vendas)) return;
+    function poNormalizarClientesAntesSalvar(dados) {
+      let alterou = false;
 
-      const tabelas = Array.from(document.querySelectorAll('table')).filter(v2EhTabelaProdutos);
+      const clientes = Array.isArray(dados) ? dados : [];
+      clientes.forEach(cliente => {
+        if (!Array.isArray(cliente.Vendas)) return;
+        cliente.Vendas.forEach(venda => {
+          if (poNormalizarVendaParaPadraoAntigo(venda)) alterou = true;
+        });
+      });
 
-      for (const tabela of tabelas) {
-        const idx = v2Idx(tabela);
-        const linhas = v2LinhasProduto(tabela);
-        const venda = v2EncontrarVenda(cliente, tabela, linhas, idx);
+      return { dados, alterou };
+    }
 
-        if (venda) {
-          v2AtualizarTabelaComVenda(tabela, venda);
-        }
+    function poRecriarBody(body, dados) {
+      if (body instanceof URLSearchParams) {
+        body.set('dados', JSON.stringify(dados));
+        return body;
+      }
+
+      if (typeof body === 'string') {
+        const params = new URLSearchParams(body);
+        params.set('dados', JSON.stringify(dados));
+        return params.toString();
+      }
+
+      if (body instanceof FormData) {
+        body.set('dados', JSON.stringify(dados));
+        return body;
+      }
+
+      return body;
+    }
+
+    function poInterceptarInit(init) {
+      try {
+        if (!init || !init.body) return init;
+
+        const body = init.body;
+        let params = null;
+
+        if (body instanceof URLSearchParams) params = body;
+        else if (typeof body === 'string') params = new URLSearchParams(body);
+        else if (body instanceof FormData) params = body;
+
+        if (!params) return init;
+
+        const arquivo = params.get('arquivo') || params.get('file') || '';
+        const raw = params.get('dados') || '';
+
+        if (arquivo !== 'clientes.json' || !raw) return init;
+
+        const dados = JSON.parse(raw);
+        const normalizado = poNormalizarClientesAntesSalvar(dados);
+
+        if (!normalizado.alterou) return init;
+
+        console.warn('[Cliente Detalhes V3] Normalizei venda unitária para padrão antigo antes de salvar clientes.json');
+
+        return {
+          ...init,
+          body: poRecriarBody(body, normalizado.dados)
+        };
+      } catch(e) {
+        console.warn('[Cliente Detalhes V3] Falha ao normalizar antes de salvar:', e);
+        return init;
       }
     }
 
-    function v2Agendar() {
-      clearTimeout(window.__clientesDetalhesRenderProdutosV2Timer);
-      window.__clientesDetalhesRenderProdutosV2Timer = setTimeout(v2CorrigirTabelas, 180);
+    if (!window.__poV3FetchWrap) {
+      window.__poV3FetchWrap = true;
+      const fetchOriginal = window.fetch.bind(window);
+
+      window.fetch = function(input, init) {
+        return fetchOriginal(input, poInterceptarInit(init));
+      };
     }
 
-    document.addEventListener('DOMContentLoaded', () => setTimeout(v2CorrigirTabelas, 500));
-    window.addEventListener('load', () => setTimeout(v2CorrigirTabelas, 900));
-    document.addEventListener('click', v2Agendar);
-    document.addEventListener('change', v2Agendar, true);
+    function poInstalarWrapperAuditoria() {
+      if (typeof window.salvarDadosComAuditoria !== 'function') return;
+      if (window.salvarDadosComAuditoria.__poV3) return;
 
-    const obs = new MutationObserver(v2Agendar);
+      const original = window.salvarDadosComAuditoria;
+
+      const wrapper = function(arquivo, dados, ...resto) {
+        if (arquivo === 'clientes.json') {
+          try {
+            poNormalizarClientesAntesSalvar(dados);
+          } catch(e) {
+            console.warn('[Cliente Detalhes V3] Falha ao normalizar salvarDadosComAuditoria:', e);
+          }
+        }
+
+        return original.call(this, arquivo, dados, ...resto);
+      };
+
+      wrapper.__poV3 = true;
+      window.salvarDadosComAuditoria = wrapper;
+
+      try {
+        if (typeof salvarDadosComAuditoria !== 'undefined') {
+          salvarDadosComAuditoria = wrapper;
+        }
+      } catch(e) {}
+    }
+
+    function poAgendar() {
+      clearTimeout(window.__poV3Timer);
+      window.__poV3Timer = setTimeout(() => {
+        poInstalarWrapperAuditoria();
+        poCorrigirVisualizacao();
+      }, 180);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => setTimeout(poAgendar, 300));
+    window.addEventListener('load', () => setTimeout(poAgendar, 600));
+    document.addEventListener('click', poAgendar);
+    document.addEventListener('change', poAgendar, true);
+
+    const obs = new MutationObserver(() => {
+      if (window.__poV3Aplicando) return;
+      poAgendar();
+    });
+
     obs.observe(document.documentElement, { childList: true, subtree: true });
 
-    window.corrigirRenderProdutosClienteDetalhesV2 = v2CorrigirTabelas;
+    setInterval(poInstalarWrapperAuditoria, 1500);
+
+    window.corrigirProdutosClienteDetalhesOficialV3 = poCorrigirVisualizacao;
   })();
   </script>
 
