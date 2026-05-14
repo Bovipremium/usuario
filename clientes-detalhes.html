@@ -5727,5 +5727,368 @@ if (!Array.isArray(dados) || dados.length === 0) {
   })();
   </script>
 
+
+  <script>
+  /* ============================================================
+     CLIENTES DETALHES RENDER PRODUTOS VALOR UNITARIO V2
+     Correção cirúrgica da VISUALIZAÇÃO dos produtos da venda.
+
+     REGRA OFICIAL:
+     - Produto.Valor = valor unitário da unidade/balde.
+     - Valor Total da linha = Produto.Quantidade × Produto.Valor.
+     - Peso da linha = Produto.Quantidade × Produto.PesoUnidade.
+     - O cabeçalho/parcela já estava certo; o erro era só na tabela de produtos.
+
+     NÃO altera clientes.json.
+     NÃO altera estrutura de JSON.
+     NÃO cria JSON local.
+     ============================================================ */
+  (function(){
+    function v2Norm(valor) {
+      return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    }
+
+    function v2Num(valor) {
+      if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
+
+      let txt = String(valor || '').trim();
+      if (!txt) return 0;
+
+      txt = txt
+        .replace(/\s/g, '')
+        .replace(/[R$\u00A0]/g, '')
+        .replace(/[^\d,.-]/g, '');
+
+      if (!txt) return 0;
+
+      if (txt.includes(',')) {
+        txt = txt.replace(/\./g, '').replace(',', '.');
+      }
+
+      const n = parseFloat(txt);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function v2Moeda(n) {
+      n = Number(n) || 0;
+      return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function v2Numero(n) {
+      n = Number(n) || 0;
+      if (Math.abs(n - Math.round(n)) < 0.00001) return String(Math.round(n));
+      return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+    }
+
+    function v2ObterClienteAtual() {
+      if (typeof clienteAtual !== 'undefined' && clienteAtual) return clienteAtual;
+      if (window.clienteAtual) return window.clienteAtual;
+
+      const chaves = [
+        'clienteAtual',
+        'clienteSelecionado',
+        'clienteDetalhes',
+        'clienteEditando'
+      ];
+
+      for (const chave of chaves) {
+        try {
+          const raw = sessionStorage.getItem(chave) || localStorage.getItem(chave);
+          if (!raw) continue;
+          const obj = JSON.parse(raw);
+          if (obj && Array.isArray(obj.Vendas)) return obj;
+        } catch(e) {}
+      }
+
+      return null;
+    }
+
+    async function v2CarregarClienteDoDriveSePreciso() {
+      const atual = v2ObterClienteAtual();
+      if (atual && Array.isArray(atual.Vendas)) return atual;
+
+      if (typeof buscarArquivo !== 'function') return null;
+
+      try {
+        const clientes = await buscarArquivo('clientes.json');
+        if (!Array.isArray(clientes)) return null;
+
+        const textoPagina = v2Norm(document.body.textContent || '');
+        let melhor = null;
+
+        for (const c of clientes) {
+          const nome = v2Norm(c.Nome || c.nome || '');
+          if (nome && textoPagina.includes(nome)) {
+            melhor = c;
+            break;
+          }
+        }
+
+        return melhor;
+      } catch(e) {
+        console.warn('[Cliente Detalhes V2] Não consegui carregar clientes.json:', e);
+        return null;
+      }
+    }
+
+    function v2Headers(tabela) {
+      return Array.from(tabela.querySelectorAll('thead th, tr:first-child th, tr:first-child td'))
+        .map(th => String(th.textContent || '').trim().toLowerCase());
+    }
+
+    function v2EhTabelaProdutos(tabela) {
+      const h = v2Headers(tabela);
+      return h.some(x => x.includes('produto')) &&
+             h.some(x => x.includes('qtd') || x.includes('quantidade')) &&
+             h.some(x => x.includes('unidade')) &&
+             h.some(x => x.includes('peso')) &&
+             h.some(x => x.includes('valor un')) &&
+             h.some(x => x.includes('valor total') || x === 'total');
+    }
+
+    function v2Idx(tabela) {
+      const h = v2Headers(tabela);
+      const achar = fn => h.findIndex(fn);
+
+      return {
+        produto: achar(x => x.includes('produto')),
+        qtd: achar(x => x.includes('qtd') || x.includes('quantidade')),
+        unidade: achar(x => x.includes('unidade')),
+        peso: achar(x => x.includes('peso')),
+        valorUn: achar(x => x.includes('valor un') || x.includes('valor unit')),
+        valorTotal: achar(x => x.includes('valor total') || x === 'total')
+      };
+    }
+
+    function v2LinhasProduto(tabela) {
+      return Array.from(tabela.querySelectorAll('tbody tr')).filter(tr => {
+        const txt = String(tr.textContent || '').trim().toLowerCase();
+        if (!txt) return false;
+        if (txt.startsWith('total')) return false;
+        if (txt.includes('total:')) return false;
+        return tr.querySelectorAll('td').length >= 5;
+      });
+    }
+
+    function v2LinhaTotal(tabela) {
+      return Array.from(tabela.querySelectorAll('tbody tr')).find(tr => {
+        const txt = String(tr.textContent || '').trim().toLowerCase();
+        return txt.startsWith('total') || txt.includes('total:');
+      }) || null;
+    }
+
+    function v2TextoContextoTabela(tabela) {
+      let el = tabela;
+      let texto = '';
+
+      for (let i = 0; i < 10 && el; i++) {
+        texto += '\n' + String(el.textContent || '');
+        if (texto.includes('💰') || texto.includes('NF:') || texto.includes('parcelas')) break;
+        el = el.parentElement;
+      }
+
+      return texto;
+    }
+
+    function v2InfoVendaDaTabela(tabela) {
+      const texto = v2TextoContextoTabela(tabela);
+
+      let valor = 0;
+      let nf = '';
+
+      let m = texto.match(/💰\s*R\$\s*([\d.\,]+)/);
+      if (m) valor = v2Num('R$ ' + m[1]);
+
+      m = texto.match(/NF:\s*([^\s📅💰]+)/i);
+      if (m) nf = String(m[1] || '').trim();
+
+      return { valor, nf, texto };
+    }
+
+    function v2ProdutoNome(p) {
+      return String(p.Nome || p.nome || p.Produto || p.produto || '').trim();
+    }
+
+    function v2ProdutosDaVenda(venda) {
+      return Array.isArray(venda.Produtos) ? venda.Produtos :
+             Array.isArray(venda.produtos) ? venda.produtos :
+             Array.isArray(venda.Itens) ? venda.Itens :
+             Array.isArray(venda.itens) ? venda.itens : [];
+    }
+
+    function v2ValorTotalProdutoUnitario(venda) {
+      return v2ProdutosDaVenda(venda).reduce((s, p) => {
+        const qtd = v2Num(p.Quantidade ?? p.quantidade ?? p.Qtd ?? p.qtd ?? 0);
+        const valorUnit = v2Num(p.Valor ?? p.valor ?? p.Preco ?? p.preco ?? 0);
+        return s + (qtd * valorUnit);
+      }, 0);
+    }
+
+    function v2PesoTotalProduto(venda) {
+      return v2ProdutosDaVenda(venda).reduce((s, p) => {
+        const qtd = v2Num(p.Quantidade ?? p.quantidade ?? p.Qtd ?? p.qtd ?? 0);
+        const pesoUn = v2Num(p.PesoUnidade ?? p.pesoUnidade ?? p.PesoUnitario ?? p.pesoUnitario ?? p.Peso ?? p.peso ?? 0);
+        return s + (qtd * pesoUn);
+      }, 0);
+    }
+
+    function v2ScoreVendaTabela(venda, tabela, info, linhas, idx) {
+      const produtos = v2ProdutosDaVenda(venda);
+      if (!produtos.length) return -999999;
+
+      let score = 0;
+
+      const valorVenda = v2Num(venda.ValorTotal ?? venda.valorTotal ?? venda.Total ?? venda.total ?? 0);
+      const somaProdutos = v2ValorTotalProdutoUnitario(venda);
+
+      if (info.valor) {
+        if (Math.abs(valorVenda - info.valor) < 0.05) score += 1000;
+        if (Math.abs(somaProdutos - info.valor) < 0.05) score += 800;
+      }
+
+      const nfVenda = String(venda.NumeroNF ?? venda.NF ?? venda.numeroNF ?? venda.NotaFiscal ?? '').trim();
+      if (info.nf && nfVenda && v2Norm(info.nf) === v2Norm(nfVenda)) score += 700;
+      if (info.nf === '-' && !nfVenda) score += 200;
+
+      if (produtos.length === linhas.length) score += 300;
+      else score -= Math.abs(produtos.length - linhas.length) * 40;
+
+      const max = Math.min(produtos.length, linhas.length);
+      for (let i = 0; i < max; i++) {
+        const tds = Array.from(linhas[i].querySelectorAll('td'));
+        const nomeTela = v2Norm(tds[idx.produto]?.textContent || '');
+        const nomeJson = v2Norm(v2ProdutoNome(produtos[i]));
+
+        if (nomeTela && nomeJson) {
+          if (nomeTela === nomeJson) score += 80;
+          else if (nomeTela.includes(nomeJson) || nomeJson.includes(nomeTela)) score += 40;
+          else score -= 20;
+        }
+
+        const qtdTela = v2Num(tds[idx.qtd]?.textContent || '');
+        const qtdJson = v2Num(produtos[i].Quantidade ?? produtos[i].quantidade ?? produtos[i].Qtd ?? produtos[i].qtd ?? 0);
+        if (Math.abs(qtdTela - qtdJson) < 0.001) score += 30;
+      }
+
+      return score;
+    }
+
+    function v2EncontrarVenda(cliente, tabela, linhas, idx) {
+      if (!cliente || !Array.isArray(cliente.Vendas)) return null;
+
+      const info = v2InfoVendaDaTabela(tabela);
+      let melhor = null;
+      let melhorScore = -999999;
+
+      for (const venda of cliente.Vendas) {
+        const score = v2ScoreVendaTabela(venda, tabela, info, linhas, idx);
+        if (score > melhorScore) {
+          melhorScore = score;
+          melhor = venda;
+        }
+      }
+
+      return melhorScore > 0 ? melhor : null;
+    }
+
+    function v2AtualizarTabelaComVenda(tabela, venda) {
+      if (!v2EhTabelaProdutos(tabela)) return false;
+
+      const idx = v2Idx(tabela);
+      if (idx.produto < 0 || idx.qtd < 0 || idx.peso < 0 || idx.valorUn < 0 || idx.valorTotal < 0) return false;
+
+      const linhas = v2LinhasProduto(tabela);
+      const produtos = v2ProdutosDaVenda(venda);
+      if (!linhas.length || !produtos.length) return false;
+
+      let qtdTotal = 0;
+      let pesoTotal = 0;
+      let valorTotal = 0;
+
+      const max = Math.min(linhas.length, produtos.length);
+
+      for (let i = 0; i < max; i++) {
+        const tr = linhas[i];
+        const tds = Array.from(tr.querySelectorAll('td'));
+        const p = produtos[i];
+
+        const qtd = v2Num(p.Quantidade ?? p.quantidade ?? p.Qtd ?? p.qtd ?? 0);
+        const unidade = String(p.Unidade ?? p.unidade ?? 'UN');
+        const pesoUnidade = v2Num(p.PesoUnidade ?? p.pesoUnidade ?? p.PesoUnitario ?? p.pesoUnitario ?? p.Peso ?? p.peso ?? 0);
+        const valorUnit = v2Num(p.Valor ?? p.valor ?? p.Preco ?? p.preco ?? 0);
+
+        const pesoLinha = qtd * pesoUnidade;
+        const totalLinha = qtd * valorUnit;
+
+        if (tds[idx.produto]) tds[idx.produto].textContent = v2ProdutoNome(p);
+        if (tds[idx.qtd]) tds[idx.qtd].textContent = v2Numero(qtd);
+        if (tds[idx.unidade]) tds[idx.unidade].textContent = unidade;
+        if (tds[idx.peso]) tds[idx.peso].textContent = v2Numero(pesoLinha);
+        if (tds[idx.valorUn]) tds[idx.valorUn].textContent = v2Moeda(valorUnit);
+        if (tds[idx.valorTotal]) tds[idx.valorTotal].textContent = v2Moeda(totalLinha);
+
+        qtdTotal += qtd;
+        pesoTotal += pesoLinha;
+        valorTotal += totalLinha;
+      }
+
+      const total = v2LinhaTotal(tabela);
+      if (total) {
+        const tds = Array.from(total.querySelectorAll('td'));
+        if (tds[idx.qtd]) tds[idx.qtd].textContent = v2Numero(qtdTotal);
+        if (tds[idx.peso]) tds[idx.peso].textContent = v2Numero(pesoTotal);
+        if (tds[idx.valorTotal]) tds[idx.valorTotal].textContent = v2Moeda(valorTotal);
+      }
+
+      tabela.dataset.renderProdutosValorUnitarioV2 = '1';
+
+      console.log('[Cliente Detalhes V2] Tabela corrigida pela venda do JSON:', {
+        vendaValorTotal: venda.ValorTotal,
+        somaProdutos: valorTotal,
+        pesoTotal
+      });
+
+      return true;
+    }
+
+    async function v2CorrigirTabelas() {
+      const cliente = await v2CarregarClienteDoDriveSePreciso();
+      if (!cliente || !Array.isArray(cliente.Vendas)) return;
+
+      const tabelas = Array.from(document.querySelectorAll('table')).filter(v2EhTabelaProdutos);
+
+      for (const tabela of tabelas) {
+        const idx = v2Idx(tabela);
+        const linhas = v2LinhasProduto(tabela);
+        const venda = v2EncontrarVenda(cliente, tabela, linhas, idx);
+
+        if (venda) {
+          v2AtualizarTabelaComVenda(tabela, venda);
+        }
+      }
+    }
+
+    function v2Agendar() {
+      clearTimeout(window.__clientesDetalhesRenderProdutosV2Timer);
+      window.__clientesDetalhesRenderProdutosV2Timer = setTimeout(v2CorrigirTabelas, 180);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => setTimeout(v2CorrigirTabelas, 500));
+    window.addEventListener('load', () => setTimeout(v2CorrigirTabelas, 900));
+    document.addEventListener('click', v2Agendar);
+    document.addEventListener('change', v2Agendar, true);
+
+    const obs = new MutationObserver(v2Agendar);
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+
+    window.corrigirRenderProdutosClienteDetalhesV2 = v2CorrigirTabelas;
+  })();
+  </script>
+
 </body>
 </html>
