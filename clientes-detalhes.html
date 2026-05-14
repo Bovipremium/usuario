@@ -2510,6 +2510,13 @@
         throw new Error(`Destino "${cidadeDestino}" não encontrada. Tente: "Brasília" ou "Goiânia"`);
       }
 
+      window.__rastreioUltimaCoordSaida = coordSaida;
+      window.__rastreioUltimaCoordDestinoAtual = coordDestino;
+      rastreioGuardarCoord(cidadeSaida, coordSaida);
+      rastreioGuardarCoord(coordSaida.nome, coordSaida);
+      rastreioGuardarCoord(cidadeDestino, coordDestino);
+      rastreioGuardarCoord(coordDestino.nome, coordDestino);
+
       console.log('✅ Coordenadas encontradas:');
       console.log('  ', coordSaida.nome, '→', coordSaida.lat.toFixed(2), ',', coordSaida.lon.toFixed(2));
       console.log('  ', coordDestino.nome, '→', coordDestino.lat.toFixed(2), ',', coordDestino.lon.toFixed(2));
@@ -2532,6 +2539,7 @@
           const cidadeIntermediaria = await nominatimReverseGeocode(lat, lon);
           
           if (cidadeIntermediaria && cidadeIntermediaria !== rota[rota.length - 1]) {
+            rastreioGuardarCoord(cidadeIntermediaria, { nome: cidadeIntermediaria, lat, lon });
             rota.push(cidadeIntermediaria);
             console.log(`    ✅ ${cidadeIntermediaria}`);
           } else {
@@ -2555,71 +2563,249 @@
   }
 
   // Buscar cidade via Nominatim Search
-  async function nominatimBuscarCidade(nomeCidade) {
-    try {
-      // Limpar nome: remover estado (GO, DF, SP, etc)
-      const cidadeLimpa = nomeCidade
-        .replace(/\s*-\s*(go|sp|mg|ba|df|rj|pr|sc|rs|pe|pa|mt|ms|ce|pi|ma|to|al|se|es|pb|rn|ac|am|ap|rr|br)\s*$/i, '')
-        .replace(/\s*\(.*?\)\s*/g, '')
-        .trim();
+  
+  async function rastreioFetchNominatimSeguro(urlOriginal) {
+    const tentativas = [
+      {
+        nome: 'direto',
+        url: urlOriginal
+      },
+      {
+        nome: 'allorigins',
+        url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(urlOriginal)
+      },
+      {
+        nome: 'corsproxy',
+        url: 'https://corsproxy.io/?' + encodeURIComponent(urlOriginal)
+      }
+    ];
 
-      // Melhorar busca: adicionar estado se disponível
-      let queryBusca = cidadeLimpa;
-      if (nomeCidade.includes('-')) {
-        const estado = nomeCidade.split('-')[1]?.trim().toLowerCase();
-        if (estado) {
-          queryBusca = cidadeLimpa + ' ' + estado;
+    let ultimoErro = null;
+
+    for (const tentativa of tentativas) {
+      try {
+        console.log('Nominatim via:', tentativa.nome);
+
+        const response = await fetch(tentativa.url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} usando ${tentativa.nome}`);
         }
+
+        const texto = await response.text();
+
+        if (!texto || !texto.trim()) {
+          throw new Error(`Resposta vazia usando ${tentativa.nome}`);
+        }
+
+        const json = JSON.parse(texto);
+        return json;
+      } catch (erro) {
+        ultimoErro = erro;
+        console.warn(`Falha no Nominatim usando ${tentativa.nome}:`, erro.message || erro);
+      }
+    }
+
+    throw ultimoErro || new Error('Falha ao consultar cidade');
+  }
+
+async function nominatimBuscarCidade(nomeCidade) {
+    try {
+      const entradaOriginal = String(nomeCidade || '').trim();
+
+      const UF_ESTADOS_BR = {
+        ac: 'Acre',
+        al: 'Alagoas',
+        ap: 'Amapá',
+        am: 'Amazonas',
+        ba: 'Bahia',
+        ce: 'Ceará',
+        df: 'Distrito Federal',
+        es: 'Espírito Santo',
+        go: 'Goiás',
+        ma: 'Maranhão',
+        mt: 'Mato Grosso',
+        ms: 'Mato Grosso do Sul',
+        mg: 'Minas Gerais',
+        pa: 'Pará',
+        pb: 'Paraíba',
+        pr: 'Paraná',
+        pe: 'Pernambuco',
+        pi: 'Piauí',
+        rj: 'Rio de Janeiro',
+        rn: 'Rio Grande do Norte',
+        rs: 'Rio Grande do Sul',
+        ro: 'Rondônia',
+        rr: 'Roraima',
+        sc: 'Santa Catarina',
+        sp: 'São Paulo',
+        se: 'Sergipe',
+        to: 'Tocantins'
+      };
+
+      function removerAcentosBR(valor) {
+        return String(valor || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
       }
 
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(queryBusca)}&countrycode=br&format=json&limit=3`;
-      
-      console.log('🔍 Buscando:', cidadeLimpa);
-      console.log('   Query:', queryBusca);
-      console.log('   URL:', url);
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        console.error(`⚠️ HTTP ${response.status}`);
+      function normalizarChaveCidade(valor) {
+        return removerAcentosBR(valor)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, ' ')
+          .trim();
+      }
+
+      function tituloCidade(valor) {
+        return String(valor || '')
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .map(parte => parte.charAt(0).toUpperCase() + parte.slice(1).toLowerCase())
+          .join(' ');
+      }
+
+      function separarCidadeUF(valor) {
+        const texto = String(valor || '').trim();
+
+        // Aceita cidade-uf, cidade/uf, cidade uf no final.
+        const match = texto.match(/^(.+?)[\s\-\/,]+([a-zA-Z]{2})$/);
+
+        if (!match) {
+          return {
+            cidade: texto,
+            uf: '',
+            estado: ''
+          };
+        }
+
+        const cidade = match[1].trim();
+        const uf = match[2].trim().toLowerCase();
+        const estado = UF_ESTADOS_BR[uf] || '';
+
+        return { cidade, uf, estado };
+      }
+
+      const ALIASES_CIDADES_BR = {
+        'anapolis|go': 'Anápolis',
+        'goiania|go': 'Goiânia',
+        'brasilia|df': 'Brasília',
+        'uberlandia|mg': 'Uberlândia',
+        'aparecida de goiania|go': 'Aparecida de Goiânia',
+        'sao paulo|sp': 'São Paulo',
+        'rio de janeiro|rj': 'Rio de Janeiro',
+        'belo horizonte|mg': 'Belo Horizonte',
+        'belem|pa': 'Belém',
+        'teresina|pi': 'Teresina',
+        'vitoria|es': 'Vitória',
+        'joao pessoa|pb': 'João Pessoa',
+        'florianopolis|sc': 'Florianópolis',
+        'cuiaba|mt': 'Cuiabá'
+      };
+
+      const separado = separarCidadeUF(entradaOriginal);
+      const cidadeSemUF = separado.cidade;
+      const uf = separado.uf;
+      const estado = separado.estado;
+
+      if (!cidadeSemUF) {
+        console.warn('Cidade vazia recebida no rastreio.');
         return null;
       }
 
-      const dados = await response.json();
+      if (!uf || !estado) {
+        console.warn(`Cidade "${entradaOriginal}" sem UF brasileira válida. Use cidade-uf, exemplo: anapolis-go.`);
+        return null;
+      }
 
-      if (dados && dados.length > 0) {
-        // Procurar por municipalidade (city, town, village)
-        let resultado = null;
-        for (let cidade of dados) {
-          if (['city', 'town', 'village'].includes(cidade.type)) {
-            resultado = {
-              nome: cidade.name || cidadeLimpa,
-              lat: parseFloat(cidade.lat),
-              lon: parseFloat(cidade.lon)
-            };
+      const chaveAlias = `${normalizarChaveCidade(cidadeSemUF)}|${uf}`;
+      const cidadeCanonica = ALIASES_CIDADES_BR[chaveAlias] || tituloCidade(cidadeSemUF);
+
+      const tentativas = [
+        `${cidadeCanonica}, ${estado}, Brasil`,
+        `${cidadeCanonica}, ${uf.toUpperCase()}, Brasil`,
+        `${removerAcentosBR(cidadeCanonica)}, ${estado}, Brasil`,
+        `${cidadeSemUF}, ${estado}, Brasil`,
+        `${cidadeSemUF}, ${uf.toUpperCase()}, Brasil`
+      ];
+
+      const tentativasUnicas = [...new Set(tentativas.map(t => t.trim()).filter(Boolean))];
+
+      console.log('Buscando cidade BR:', entradaOriginal);
+      console.log('Cidade normalizada:', cidadeCanonica, '| UF:', uf.toUpperCase(), '| Estado:', estado);
+
+      for (const queryBusca of tentativasUnicas) {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(queryBusca)}&countrycodes=br&format=json&limit=5&addressdetails=1`;
+
+        console.log('Tentando:', queryBusca);
+
+        let dados = [];
+        try {
+          dados = await rastreioFetchNominatimSeguro(url);
+        } catch (erroBusca) {
+          console.warn(`Nominatim falhou para ${queryBusca}:`, erroBusca.message || erroBusca);
+          continue;
+        }
+
+if (!Array.isArray(dados) || dados.length === 0) {
+          continue;
+        }
+
+        // Preferir resultado do estado correto.
+        let melhor = null;
+
+        for (const item of dados) {
+          const endereco = item.address || {};
+          const estadoItem = normalizarChaveCidade(endereco.state || '');
+          const estadoEsperado = normalizarChaveCidade(estado);
+          const ufEsperada = uf.toUpperCase();
+
+          const bateEstado =
+            estadoItem === estadoEsperado ||
+            String(endereco['ISO3166-2-lvl4'] || '').toUpperCase().endsWith('-' + ufEsperada);
+
+          const tipoOk = ['city', 'town', 'village', 'municipality', 'administrative'].includes(item.type);
+
+          if (bateEstado && tipoOk) {
+            melhor = item;
             break;
           }
+
+          if (!melhor && bateEstado) {
+            melhor = item;
+          }
         }
-        
-        // Se não encontrar municipalidade, usar o primeiro
-        if (!resultado && dados[0].name) {
-          resultado = {
-            nome: dados[0].name || cidadeLimpa,
-            lat: parseFloat(dados[0].lat),
-            lon: parseFloat(dados[0].lon)
-          };
+
+        if (!melhor) {
+          melhor = dados[0];
         }
-        
-        if (resultado) {
-          console.log(`✅ Encontrado: ${resultado.nome}`);
+
+        const resultado = {
+          nome: cidadeCanonica,
+          lat: parseFloat(melhor.lat),
+          lon: parseFloat(melhor.lon),
+          uf: uf.toUpperCase(),
+          estado
+        };
+
+        if (!isNaN(resultado.lat) && !isNaN(resultado.lon)) {
+          console.log(`Cidade encontrada: ${resultado.nome}-${resultado.uf}`);
+          rastreioGuardarCoord(entradaOriginal, resultado);
+          rastreioGuardarCoord(resultado.nome, resultado);
+          rastreioGuardarCoord(`${resultado.nome}-${resultado.uf || ''}`, resultado);
           return resultado;
         }
       }
 
-      console.warn(`⚠️ Nenhum resultado para "${cidadeLimpa}"`);
+      console.warn(`Nenhum resultado para "${entradaOriginal}" nas tentativas BR.`);
       return null;
     } catch (erro) {
-      console.error('❌ Erro em nominatimBuscarCidade:', erro);
+      console.error('Erro em nominatimBuscarCidade:', erro);
       return null;
     }
   }
@@ -2635,6 +2821,7 @@
       if (dados && dados.address) {
         const cidade = dados.address.city || dados.address.town || dados.address.village;
         if (cidade) {
+          rastreioGuardarCoord(cidade, { nome: cidade, lat, lon });
           return cidade;
         }
       }
@@ -2645,6 +2832,57 @@
       return null;
     }
   }
+
+
+  // Cache de coordenadas do rastreio.
+  // Necessário porque a rota salva nomes limpos como "Anápolis",
+  // mas a busca brasileira exige cidade-uf para chamadas novas.
+  // Assim, quando a cidade já foi encontrada pela API, os km continuam calculáveis.
+  window.__rastreioCoordsCache = window.__rastreioCoordsCache || {};
+
+  function rastreioNormalizarChaveCoord(nome) {
+    return String(nome || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  function rastreioGuardarCoord(nome, coord) {
+    if (!nome || !coord || !Number.isFinite(Number(coord.lat)) || !Number.isFinite(Number(coord.lon))) return;
+
+    const chave = rastreioNormalizarChaveCoord(nome);
+    if (!chave) return;
+
+    window.__rastreioCoordsCache[chave] = {
+      nome: coord.nome || nome,
+      lat: Number(coord.lat),
+      lon: Number(coord.lon),
+      uf: coord.uf || '',
+      estado: coord.estado || ''
+    };
+  }
+
+  function rastreioBuscarCoordCache(nome) {
+    const chave = rastreioNormalizarChaveCoord(nome);
+    if (!chave) return null;
+    return window.__rastreioCoordsCache[chave] || null;
+  }
+
+  function rastreioInferirCoordEntrePontos(nome, coordAnterior, coordDestinoFinal, passo, totalPassosRestantes) {
+    if (!coordAnterior || !coordDestinoFinal) return null;
+
+    const total = Math.max(1, Number(totalPassosRestantes) || 1);
+    const fracao = Math.min(0.95, Math.max(0.05, Number(passo || 1) / (total + 1)));
+
+    return {
+      nome,
+      lat: Number(coordAnterior.lat) + (Number(coordDestinoFinal.lat) - Number(coordAnterior.lat)) * fracao,
+      lon: Number(coordAnterior.lon) + (Number(coordDestinoFinal.lon) - Number(coordAnterior.lon)) * fracao
+    };
+  }
+
 
   // Distância aproximada em linha reta, usada só no preview demonstrativo.
   function calcularDistanciaKmAproximada(lat1, lon1, lat2, lon2) {
@@ -2665,8 +2903,40 @@
     let distanciaAcumulada = 0;
     let coordAnterior = null;
 
-    for (const nomeCidade of rota) {
-      const coordCidade = await nominatimBuscarCidade(nomeCidade);
+    if (coordDestinoFinal) {
+      rastreioGuardarCoord(coordDestinoFinal.nome, coordDestinoFinal);
+    }
+
+    for (let idxRotaKm = 0; idxRotaKm < rota.length; idxRotaKm++) {
+      const nomeCidade = rota[idxRotaKm];
+
+      // Primeiro tenta cache, pois a rota contém "Anápolis", "Alexânia", etc.
+      // A busca nova exige cidade-uf, mas essas cidades já foram encontradas antes.
+      let coordCidade = rastreioBuscarCoordCache(nomeCidade);
+
+      // Só tenta API se não tiver cache. Não falha se a cidade vier sem UF.
+      if (!coordCidade) {
+        try {
+          coordCidade = await nominatimBuscarCidade(nomeCidade);
+        } catch (erroBuscaKm) {
+          console.warn('Não consegui rebuscar cidade para km:', nomeCidade, erroBuscaKm.message || erroBuscaKm);
+          coordCidade = null;
+        }
+      }
+
+      // Última proteção: se a API não responder, inferir posição pelo trecho
+      // para não sumir os km no demonstrativo.
+      if (!coordCidade && coordAnterior && coordDestinoFinal) {
+        coordCidade = rastreioInferirCoordEntrePontos(
+          nomeCidade,
+          coordAnterior,
+          coordDestinoFinal,
+          1,
+          rota.length - idxRotaKm
+        );
+        rastreioGuardarCoord(nomeCidade, coordCidade);
+        console.warn('Km aproximado por interpolação para:', nomeCidade);
+      }
 
       if (!coordCidade) {
         partes.push(`${nomeCidade} (? km)`);
@@ -3292,5 +3562,1776 @@
 <script src="sidebar-dock.js"></script>
 <script src="mascaras-globais.js"></script>
 <script src="alertas-ligacoes.js"></script>
+
+  <script>
+  /* ============================================================
+     RASTREIO CLIENTE V6 - SALVAR NO CLIENTE E ENTREGAR
+     - mantém rastreamento.json no esqueleto codigo -> status -> [{text,time}]
+     - salva o código também na venda/cliente em clientes.json
+     - se já existir rastreio, mostra o código e permite marcar Produto Entregue
+     ============================================================ */
+  (function(){
+    const gerarRastreioOriginalV6 = window.gerarRastreio;
+
+    function rastreioV6NormalizarTexto(valor) {
+      return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+    }
+
+    function rastreioV6FormatarDataHora(data) {
+      const d = data instanceof Date ? data : new Date(data);
+      const dia = String(d.getDate()).padStart(2, '0');
+      const mes = String(d.getMonth() + 1).padStart(2, '0');
+      const ano = d.getFullYear();
+      const hora = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${dia}/${mes}/${ano} ${hora}:${min}`;
+    }
+
+    function rastreioV6DestinoCliente() {
+      const cidade = String(clienteAtual?.Cidade || clienteAtual?.cidade || '').trim();
+      const estado = String(clienteAtual?.Estado || clienteAtual?.UF || clienteAtual?.estado || '').trim().toUpperCase();
+
+      if (cidade && estado) return `${cidade}-${estado}`;
+      if (cidade) return cidade;
+      return 'Destino do cliente';
+    }
+
+    function rastreioV6VendaPrincipal() {
+      if (!clienteAtual || !Array.isArray(clienteAtual.Vendas) || clienteAtual.Vendas.length === 0) return null;
+
+      const comRastreio = [...clienteAtual.Vendas].reverse().find(v =>
+        v.CodigoRastreio ||
+        v.codigoRastreio ||
+        (v.Rastreio && v.Rastreio.Codigo)
+      );
+
+      if (comRastreio) return comRastreio;
+      return clienteAtual.Vendas[clienteAtual.Vendas.length - 1];
+    }
+
+    function rastreioV6ExtrairCodigoVenda(venda) {
+      if (!venda) return '';
+      return venda.CodigoRastreio ||
+             venda.codigoRastreio ||
+             venda.CodigoRastreamento ||
+             (venda.Rastreio && venda.Rastreio.Codigo) ||
+             '';
+    }
+
+    function rastreioV6ListarCodigosCliente() {
+      const lista = [];
+
+      if (clienteAtual?.CodigoRastreio) {
+        lista.push({ codigo: clienteAtual.CodigoRastreio, venda: null, origem: 'cliente' });
+      }
+
+      (clienteAtual?.Vendas || []).forEach((venda, idx) => {
+        const codigo = rastreioV6ExtrairCodigoVenda(venda);
+        if (codigo) {
+          lista.push({ codigo, venda, vendaIdx: idx, origem: 'venda' });
+        }
+      });
+
+      const mapa = new Map();
+      lista.forEach(item => mapa.set(item.codigo, item));
+      return Array.from(mapa.values());
+    }
+
+    async function rastreioV6BuscarRastreamento(codigo) {
+      try {
+        const dados = await buscarArquivo('rastreamento.json');
+        if (!dados || typeof dados !== 'object') return null;
+        return dados[codigo] || null;
+      } catch (erro) {
+        console.warn('Nao consegui buscar rastreamento.json:', erro);
+        return null;
+      }
+    }
+
+    async function rastreioV6SalvarStatus(codigo, status) {
+      // NAO muda o esqueleto do rastreamento.json:
+      // continua codigo -> status -> [{ text, time }]
+      const payload = {
+        [codigo]: {
+          status: (status || []).map(ev => ({
+            text: ev.text,
+            time: ev.time
+          }))
+        }
+      };
+
+      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+
+      const response = await fetch(CONFIG.API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          acao: 'salvarRastreamento',
+          arquivo: 'rastreamento.json',
+          codigo,
+          dados: JSON.stringify(payload),
+          deviceId
+        })
+      });
+
+      if (!response.ok) throw new Error('Erro HTTP ao salvar rastreamento: ' + response.status);
+
+      let resultado = {};
+      try {
+        resultado = await response.json();
+      } catch (e) {
+        resultado = { sucesso: true };
+      }
+
+      if (!(resultado.sucesso === true || resultado.success === true)) {
+        throw new Error(resultado.erro || resultado.message || 'Servidor nao confirmou o salvamento do rastreamento');
+      }
+
+      return true;
+    }
+
+    async function rastreioV6SalvarClienteComCodigo(codigo, status = 'em_transito') {
+      const venda = rastreioV6VendaPrincipal();
+      const agora = new Date().toISOString();
+
+      if (venda) {
+        venda.CodigoRastreio = codigo;
+        venda.Rastreio = {
+          ...(venda.Rastreio || {}),
+          Codigo: codigo,
+          Status: status,
+          DataAtualizacao: agora
+        };
+
+        if (status === 'entregue') {
+          venda.Rastreio.DataEntrega = agora;
+          venda.Entregue = true;
+          venda.DataEntrega = agora;
+        }
+      }
+
+      clienteAtual.CodigoRastreio = clienteAtual.CodigoRastreio || codigo;
+
+      if (!Array.isArray(clienteAtual.Rastreios)) clienteAtual.Rastreios = [];
+      const idxR = clienteAtual.Rastreios.findIndex(r => r.Codigo === codigo || r.codigo === codigo);
+      const registro = {
+        Codigo: codigo,
+        Status: status,
+        DataAtualizacao: agora
+      };
+
+      if (status === 'entregue') {
+        registro.DataEntrega = agora;
+      }
+
+      if (idxR >= 0) {
+        clienteAtual.Rastreios[idxR] = { ...clienteAtual.Rastreios[idxR], ...registro };
+      } else {
+        clienteAtual.Rastreios.push(registro);
+      }
+
+      const clientes = await buscarArquivo('clientes.json');
+      if (!Array.isArray(clientes)) throw new Error('clientes.json invalido');
+
+      const idx = clientes.findIndex(c => String(c.Id) === String(clienteAtual.Id));
+      if (idx < 0) throw new Error('Cliente nao encontrado no clientes.json');
+
+      clientes[idx] = clienteAtual;
+
+      const salvou = await salvarDadosComAuditoria(
+        'clientes.json',
+        clientes,
+        'auditoria',
+        'Atualizar',
+        'Rastreio',
+        String(clienteAtual.Id),
+        clienteAtual.Nome || '',
+        status === 'entregue' ? 'Rastreio marcado como entregue' : 'Codigo de rastreio salvo no cliente',
+        '',
+        JSON.stringify({ codigo, status })
+      );
+
+      if (!salvou) throw new Error('Nao consegui salvar clientes.json');
+
+      sessionStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
+      localStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
+      localStorage.removeItem('arquivo_clientes.json_cache');
+
+      return true;
+    }
+
+    function rastreioV6CompletarEntrega(statusAtual, destinoCliente) {
+      const status = Array.isArray(statusAtual) ? statusAtual.map(ev => ({ text: ev.text, time: ev.time })) : [];
+      const destinoNorm = rastreioV6NormalizarTexto(destinoCliente);
+      const jaEntregue = status.some(ev => rastreioV6NormalizarTexto(ev.text).includes('produto entregue'));
+
+      if (jaEntregue) return status;
+
+      const agora = new Date();
+      const rotaPara = new Date(agora);
+      rotaPara.setHours(Math.max(8, Math.min(17, agora.getHours())), 45, 0, 0);
+
+      const chegou = new Date(agora);
+      chegou.setMinutes(Math.max(chegou.getMinutes(), 45));
+
+      const ultimoTexto = status.length ? status[status.length - 1].text : '';
+      const ultimoNorm = rastreioV6NormalizarTexto(ultimoTexto);
+
+      // Se a rota ainda nao chegou a cidade destino, adiciona os passos finais coerentes.
+      if (destinoNorm && !ultimoNorm.includes(destinoNorm)) {
+        status.push({
+          text: `Rota para - ${destinoCliente}`,
+          time: rastreioV6FormatarDataHora(rotaPara)
+        });
+
+        status.push({
+          text: `Objeto está em - ${destinoCliente}`,
+          time: rastreioV6FormatarDataHora(chegou)
+        });
+      }
+
+      status.push({
+        text: `Produto entregue - ${destinoCliente}`,
+        time: rastreioV6FormatarDataHora(new Date())
+      });
+
+      return status;
+    }
+
+    async function rastreioV6MarcarEntregue(codigo) {
+      const ok = await modalConfirm(
+        `Marcar o rastreio ${codigo} como PRODUTO ENTREGUE?\n\nO sistema vai continuar a rota atual ate a cidade do cliente e salvar no rastreamento.json.`,
+        { title: 'Confirmar entrega', okText: 'Marcar entregue', cancelText: 'Cancelar' }
+      );
+
+      if (!ok) return;
+
+      try {
+        mostrarLoading();
+
+        const destino = rastreioV6DestinoCliente();
+        const atual = await rastreioV6BuscarRastreamento(codigo);
+        const statusAtual = atual && Array.isArray(atual.status) ? atual.status : [];
+
+        const novoStatus = rastreioV6CompletarEntrega(statusAtual, destino);
+
+        await rastreioV6SalvarStatus(codigo, novoStatus);
+        await rastreioV6SalvarClienteComCodigo(codigo, 'entregue');
+
+        ocultarLoading();
+        alert('Produto entregue salvo no rastreamento.json e no cliente.');
+        location.reload();
+
+      } catch (erro) {
+        console.error('Erro ao marcar entrega:', erro);
+        ocultarLoading();
+        alert('Erro ao marcar entregue: ' + erro.message);
+      }
+    }
+
+    function rastreioV6MostrarModalExistente(codigos) {
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.92);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        backdrop-filter: blur(6px);
+      `;
+
+      const lista = codigos.map(item => `
+        <div style="background: rgba(31,163,122,.08); border: 1px solid rgba(31,163,122,.25); border-radius: 12px; padding: 14px; margin-bottom: 10px;">
+          <div style="color:#8fb9ac; font-size:11px; text-transform:uppercase;">Código salvo</div>
+          <button onclick="rastreioV6MarcarEntregueGlobal('${item.codigo}')" style="margin-top:6px; background:none; border:none; color:#7cf0c2; font-size:20px; font-weight:800; font-family:monospace; cursor:pointer; text-decoration:underline;">
+            ${item.codigo}
+          </button>
+          <div style="margin-top:8px; color:#d4af37; font-size:12px;">Clique no código para marcar como Produto Entregue.</div>
+        </div>
+      `).join('');
+
+      modal.innerHTML = `
+        <div style="background: linear-gradient(180deg, rgba(14,31,26,.98), rgba(5,11,9,.98)); border: 2px solid rgba(31,163,122,.45); border-radius: 16px; padding: 28px; width: min(560px, 96vw); box-shadow: 0 18px 60px rgba(0,0,0,.45);">
+          <h2 style="color:#1fa37a; margin:0 0 12px; text-align:center;">Rastreio ja gerado</h2>
+          <p style="color:#8fb9ac; font-size:13px; margin-bottom:18px; text-align:center;">
+            Este cliente/venda ja tem código salvo. Clique no código para concluir a entrega, ou gere outro se realmente precisar.
+          </p>
+          ${lista}
+          <div style="display:flex; gap:10px; margin-top:18px;">
+            <button onclick="this.closest('[data-modal-rastreio-existente]').remove()" class="btn danger" style="flex:1;">Fechar</button>
+            <button id="btnGerarOutroRastreioV6" class="btn" style="flex:1; background:linear-gradient(145deg,rgba(31,163,122,.3),rgba(31,163,122,.15)); color:#7cf0c2; border-color:rgba(31,163,122,.3);">Gerar outro</button>
+          </div>
+        </div>
+      `;
+
+      modal.setAttribute('data-modal-rastreio-existente', '1');
+      document.body.appendChild(modal);
+
+      document.getElementById('btnGerarOutroRastreioV6').onclick = () => {
+        modal.remove();
+        gerarRastreioOriginalV6();
+      };
+    }
+
+    window.rastreioV6MarcarEntregueGlobal = rastreioV6MarcarEntregue;
+
+    window.gerarRastreio = async function() {
+      const existentes = rastreioV6ListarCodigosCliente();
+
+      if (existentes.length > 0) {
+        rastreioV6MostrarModalExistente(existentes);
+        return;
+      }
+
+      return gerarRastreioOriginalV6();
+    };
+
+    // Sobrescreve o salvamento antigo:
+    // antes salvava so rastreamento.json; agora salva rastreamento + cliente/venda.
+    window.salvarRastreioNoCliente = salvarRastreioNoCliente = async function(codigo, historico, rota, modal) {
+      try {
+        mostrarLoading();
+
+        const rastreamentoData = {
+          [codigo]: {
+            status: historico.map(evento => ({
+              text: evento.text,
+              time: evento.time
+            }))
+          }
+        };
+
+        const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+
+        const response = await fetch(CONFIG.API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            acao: 'salvarRastreamento',
+            arquivo: 'rastreamento.json',
+            codigo,
+            dados: JSON.stringify(rastreamentoData),
+            deviceId
+          })
+        });
+
+        if (!response.ok) throw new Error('Erro HTTP ao salvar rastreamento: ' + response.status);
+
+        let resultado = {};
+        try {
+          resultado = await response.json();
+        } catch (e) {
+          resultado = { sucesso: true };
+        }
+
+        if (!(resultado.sucesso === true || resultado.success === true)) {
+          throw new Error(resultado.erro || resultado.message || 'Servidor nao confirmou o salvamento');
+        }
+
+        await rastreioV6SalvarClienteComCodigo(codigo, 'em_transito');
+
+        if (modal) modal.remove();
+        ocultarLoading();
+
+        mostrarModalSucessoRastreioSimples(codigo);
+
+      } catch (erro) {
+        console.error('Erro ao salvar rastreio no cliente:', erro);
+        ocultarLoading();
+        alert('Erro ao salvar rastreio: ' + erro.message);
+      }
+    };
+  })();
+  </script>
+
+
+  <script>
+  /* ============================================================
+     RASTREIO ENTREGA CONTINUA V7
+     - não sobrescreve histórico existente
+     - continua a rota da última cidade até a cidade destino do cliente
+     - entrega com a mesma data da PREVISÃO DE ENTREGA
+     - adiciona seletor de "cidade atual" por rota sugerida
+     - mantém rastreamento.json no formato codigo -> status -> [{text,time}]
+     ============================================================ */
+  (function(){
+    const salvarRastreioAnteriorV7 = window.salvarRastreioNoCliente || (typeof salvarRastreioNoCliente !== 'undefined' ? salvarRastreioNoCliente : null);
+
+    const UF_ALIASES_RASTREIO_V7 = {
+      'anapolis': 'GO',
+      'abadiania': 'GO',
+      'alexania': 'GO',
+      'goiania': 'GO',
+      'aparecida de goiania': 'GO',
+      'brasilia': 'DF',
+      'recanto das emas': 'DF',
+      'taguatinga': 'DF',
+      'samambaia': 'DF',
+      'ceilândia': 'DF',
+      'ceilandia': 'DF',
+      'araras': 'SP',
+      'uberlandia': 'MG',
+      'belo horizonte': 'MG',
+      'sao paulo': 'SP',
+      'rio de janeiro': 'RJ'
+    };
+
+    function rV7Norm(valor) {
+      return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    }
+
+    function rV7NomeLimpo(valor) {
+      return String(valor || '')
+        .replace(/\s*-\s*[A-Za-z]{2}$/,'')
+        .trim();
+    }
+
+    function rV7Titulo(valor) {
+      return String(valor || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+        .join(' ');
+    }
+
+    function rV7FormatarDataHora(data) {
+      const d = data instanceof Date ? data : new Date(data);
+      const dia = String(d.getDate()).padStart(2, '0');
+      const mes = String(d.getMonth() + 1).padStart(2, '0');
+      const ano = d.getFullYear();
+      const hora = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${dia}/${mes}/${ano} ${hora}:${min}`;
+    }
+
+    function rV7ParseDataHoraBR(texto) {
+      const m = String(texto || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+      if (!m) return null;
+      return new Date(
+        Number(m[3]),
+        Number(m[2]) - 1,
+        Number(m[1]),
+        Number(m[4] || 12),
+        Number(m[5] || 0),
+        0,
+        0
+      );
+    }
+
+    function rV7ExtrairDataPrevista(status) {
+      const lista = Array.isArray(status) ? status : [];
+      for (const ev of lista) {
+        const txt = String(ev.text || '');
+        const m = txt.match(/PREVIS[AÃ]O DE ENTREGA\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+        if (m) {
+          const d = rV7ParseDataHoraBR(m[1] + ' 18:00');
+          if (d) return d;
+        }
+      }
+
+      // fallback: tenta o primeiro evento de previsão pelo time
+      const previsao = lista.find(ev => /PREVIS/i.test(String(ev.text || '')));
+      if (previsao) {
+        const d = rV7ParseDataHoraBR(previsao.time);
+        if (d) {
+          d.setHours(18, 0, 0, 0);
+          return d;
+        }
+      }
+
+      const f = new Date();
+      f.setDate(f.getDate() + 3);
+      f.setHours(18, 0, 0, 0);
+      return f;
+    }
+
+    function rV7UltimaDataStatus(status) {
+      const lista = Array.isArray(status) ? status : [];
+      for (let i = lista.length - 1; i >= 0; i--) {
+        const d = rV7ParseDataHoraBR(lista[i].time);
+        if (d) return d;
+      }
+      return new Date();
+    }
+
+    function rV7UltimaCidadeStatus(status) {
+      const lista = Array.isArray(status) ? status : [];
+      for (let i = lista.length - 1; i >= 0; i--) {
+        const txt = String(lista[i].text || '');
+        let m = txt.match(/Objeto está em\s*-\s*(.+)$/i);
+        if (m && m[1]) return m[1].trim();
+
+        m = txt.match(/Rota para\s*-\s*(.+)$/i);
+        if (m && m[1]) return m[1].trim();
+      }
+      return '';
+    }
+
+    function rV7CidadeDestinoCliente() {
+      const cidade = String(clienteAtual?.Cidade || clienteAtual?.cidade || '').trim();
+      const estado = String(clienteAtual?.Estado || clienteAtual?.UF || clienteAtual?.estado || '').trim().toUpperCase();
+      if (cidade && estado) return `${cidade}-${estado}`;
+      if (cidade) return cidade;
+      return 'Destino do cliente';
+    }
+
+    function rV7CidadeParaBusca(cidade, fallbackUf = '') {
+      const original = String(cidade || '').trim();
+      if (!original) return '';
+
+      if (/-.{2}$/.test(original)) return original;
+
+      if (typeof rastreioBuscarCoordCache === 'function') {
+        const coord = rastreioBuscarCoordCache(original);
+        if (coord && coord.uf) return `${coord.nome || original}-${coord.uf}`;
+      }
+
+      const chave = rV7Norm(original);
+      const uf = UF_ALIASES_RASTREIO_V7[chave] || fallbackUf || '';
+      if (uf) return `${rV7NomeLimpo(original)}-${uf}`;
+      return original;
+    }
+
+    function rV7CidadeBonitaDeInput(cidadeInput) {
+      const txt = String(cidadeInput || '').trim();
+      const semUf = rV7NomeLimpo(txt);
+      const ufMatch = txt.match(/-([A-Za-z]{2})$/);
+      if (ufMatch) return `${rV7Titulo(semUf)}-${ufMatch[1].toUpperCase()}`;
+      return rV7Titulo(semUf);
+    }
+
+    async function rV7BuscarStatus(codigo) {
+      try {
+        localStorage.removeItem('arquivo_rastreamento.json_cache');
+        const rast = await buscarArquivo('rastreamento.json');
+        const status = rast && rast[codigo] && Array.isArray(rast[codigo].status) ? rast[codigo].status : null;
+        if (status && status.length) return status.map(ev => ({ text: ev.text, time: ev.time }));
+      } catch (erro) {
+        console.warn('V7: não consegui buscar rastreamento.json:', erro);
+      }
+
+      // fallback pelo cliente/venda salvo na geração
+      try {
+        const vendas = clienteAtual?.Vendas || [];
+        for (const venda of vendas) {
+          const cod = venda.CodigoRastreio || venda.codigoRastreio || venda.Rastreio?.Codigo;
+          if (String(cod || '') === String(codigo) && Array.isArray(venda.Rastreio?.Historico)) {
+            return venda.Rastreio.Historico.map(ev => ({ text: ev.text, time: ev.time }));
+          }
+        }
+
+        const r = (clienteAtual?.Rastreios || []).find(x => String(x.Codigo || x.codigo || '') === String(codigo));
+        if (r && Array.isArray(r.Historico)) return r.Historico.map(ev => ({ text: ev.text, time: ev.time }));
+      } catch (e) {}
+
+      return [];
+    }
+
+    async function rV7SalvarStatus(codigo, status) {
+      const payload = {
+        [codigo]: {
+          status: (status || []).map(ev => ({
+            text: ev.text,
+            time: ev.time
+          }))
+        }
+      };
+
+      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+
+      const response = await fetch(CONFIG.API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          acao: 'salvarRastreamento',
+          arquivo: 'rastreamento.json',
+          codigo,
+          dados: JSON.stringify(payload),
+          deviceId
+        })
+      });
+
+      if (!response.ok) throw new Error('Erro HTTP ao salvar rastreamento: ' + response.status);
+
+      let resultado = {};
+      try { resultado = await response.json(); } catch (e) { resultado = { sucesso: true }; }
+
+      if (!(resultado.sucesso === true || resultado.success === true)) {
+        throw new Error(resultado.erro || resultado.message || 'Servidor não confirmou o salvamento do rastreamento');
+      }
+
+      localStorage.removeItem('arquivo_rastreamento.json_cache');
+      return true;
+    }
+
+    async function rV7SalvarHistoricoNoCliente(codigo, historico, rota, status = 'em_transito') {
+      try {
+        const venda = (clienteAtual?.Vendas || [])[clienteAtual.Vendas.length - 1];
+        const agora = new Date().toISOString();
+
+        if (venda) {
+          venda.CodigoRastreio = codigo;
+          venda.Rastreio = {
+            ...(venda.Rastreio || {}),
+            Codigo: codigo,
+            Status: status,
+            Historico: (historico || []).map(ev => ({ text: ev.text, time: ev.time })),
+            RotaGerada: rota || venda.Rastreio?.RotaGerada || [],
+            DataAtualizacao: agora
+          };
+        }
+
+        clienteAtual.CodigoRastreio = clienteAtual.CodigoRastreio || codigo;
+        if (!Array.isArray(clienteAtual.Rastreios)) clienteAtual.Rastreios = [];
+
+        const idx = clienteAtual.Rastreios.findIndex(r => String(r.Codigo || r.codigo || '') === String(codigo));
+        const registro = {
+          Codigo: codigo,
+          Status: status,
+          Historico: (historico || []).map(ev => ({ text: ev.text, time: ev.time })),
+          RotaGerada: rota || [],
+          DataAtualizacao: agora
+        };
+
+        if (idx >= 0) clienteAtual.Rastreios[idx] = { ...clienteAtual.Rastreios[idx], ...registro };
+        else clienteAtual.Rastreios.push(registro);
+
+        const clientes = await buscarArquivo('clientes.json');
+        if (!Array.isArray(clientes)) return false;
+
+        const idxCliente = clientes.findIndex(c => String(c.Id) === String(clienteAtual.Id));
+        if (idxCliente < 0) return false;
+
+        clientes[idxCliente] = clienteAtual;
+
+        const salvou = await salvarDadosComAuditoria(
+          'clientes.json',
+          clientes,
+          'auditoria',
+          'Atualizar',
+          'Rastreio',
+          String(clienteAtual.Id),
+          clienteAtual.Nome || '',
+          status === 'entregue' ? 'Rastreio entregue' : 'Rastreio salvo no cliente',
+          '',
+          JSON.stringify({ codigo, status })
+        );
+
+        if (salvou) {
+          sessionStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
+          localStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
+          localStorage.removeItem('arquivo_clientes.json_cache');
+        }
+
+        return !!salvou;
+      } catch (erro) {
+        console.warn('V7: não consegui salvar histórico no cliente:', erro);
+        return false;
+      }
+    }
+
+    async function rV7ContinuarRotaAteDestino(statusAtual, destinoCliente) {
+      const status = Array.isArray(statusAtual) ? statusAtual.map(ev => ({ text: ev.text, time: ev.time })) : [];
+
+      if (status.some(ev => rV7Norm(ev.text).includes('produto entregue'))) {
+        return status;
+      }
+
+      const ultimaCidade = rV7UltimaCidadeStatus(status);
+      const destinoBonito = rV7CidadeBonitaDeInput(destinoCliente);
+      const dataEntrega = rV7ExtrairDataPrevista(status);
+      const ultimaData = rV7UltimaDataStatus(status);
+
+      let rotaContinuacao = [];
+      try {
+        const origemBusca = rV7CidadeParaBusca(ultimaCidade);
+        const destinoBusca = rV7CidadeParaBusca(destinoCliente);
+
+        if (origemBusca && destinoBusca) {
+          rotaContinuacao = await gerarRotaComNominatim(origemBusca, destinoBusca, 2);
+        }
+      } catch (erroRota) {
+        console.warn('V7: não consegui gerar rota de continuação, usando fallback:', erroRota);
+      }
+
+      if (!Array.isArray(rotaContinuacao) || rotaContinuacao.length < 2) {
+        rotaContinuacao = [ultimaCidade || 'Origem atual', destinoBonito];
+      }
+
+      // Remove a primeira cidade se ela é a cidade onde o objeto já está.
+      const targets = rotaContinuacao
+        .filter(Boolean)
+        .filter((cidade, idx) => idx > 0 || rV7Norm(cidade) !== rV7Norm(ultimaCidade));
+
+      // Garante destino final como último ponto.
+      if (!targets.length || rV7Norm(targets[targets.length - 1]) !== rV7Norm(destinoBonito)) {
+        targets.push(destinoBonito);
+      } else {
+        targets[targets.length - 1] = destinoBonito;
+      }
+
+      const totalEventosAntesEntrega = (targets.length * 2);
+      const dataFinal = new Date(dataEntrega);
+      dataFinal.setHours(18, 0, 0, 0);
+
+      let dataInicio = new Date(ultimaData || new Date());
+      dataInicio.setHours(dataInicio.getHours() + 2, 0, 0, 0);
+
+      // Se a última data já passou da previsão, distribui no dia da previsão antes da entrega.
+      if (dataInicio >= dataFinal) {
+        dataInicio = new Date(dataFinal);
+        dataInicio.setHours(8, 0, 0, 0);
+      }
+
+      const intervaloMs = Math.max(
+        30 * 60 * 1000,
+        Math.floor((dataFinal.getTime() - dataInicio.getTime()) / Math.max(1, totalEventosAntesEntrega + 1))
+      );
+
+      let passo = 0;
+
+      for (const cidade of targets) {
+        passo++;
+        const dataRota = new Date(dataInicio.getTime() + intervaloMs * passo);
+        status.push({
+          text: `Rota para - ${cidade}`,
+          time: rV7FormatarDataHora(dataRota)
+        });
+
+        passo++;
+        const dataCidade = new Date(dataInicio.getTime() + intervaloMs * passo);
+
+        // Não deixa o "Objeto está em destino" passar da entrega.
+        if (dataCidade >= dataFinal) {
+          dataCidade.setTime(dataFinal.getTime() - 60 * 60 * 1000);
+        }
+
+        status.push({
+          text: `Objeto está em - ${cidade}`,
+          time: rV7FormatarDataHora(dataCidade)
+        });
+      }
+
+      status.push({
+        text: `Produto entregue - ${destinoBonito}`,
+        time: rV7FormatarDataHora(dataFinal)
+      });
+
+      return status;
+    }
+
+    async function rV7MarcarEntregue(codigo) {
+      const ok = await modalConfirm(
+        `Marcar o rastreio ${codigo} como PRODUTO ENTREGUE?\n\nEle vai manter o histórico atual, continuar a rota até a cidade do cliente e usar a mesma data da previsão de entrega.`,
+        { title: 'Confirmar entrega', okText: 'Marcar entregue', cancelText: 'Cancelar' }
+      );
+
+      if (!ok) return;
+
+      try {
+        mostrarLoading();
+
+        const destino = rV7CidadeDestinoCliente();
+        const statusAtual = await rV7BuscarStatus(codigo);
+        const novoStatus = await rV7ContinuarRotaAteDestino(statusAtual, destino);
+
+        await rV7SalvarStatus(codigo, novoStatus);
+        await rV7SalvarHistoricoNoCliente(codigo, novoStatus, [], 'entregue');
+
+        ocultarLoading();
+        alert('Produto entregue salvo mantendo o histórico e a data prevista.');
+        location.reload();
+      } catch (erro) {
+        console.error('V7: erro ao marcar entregue:', erro);
+        ocultarLoading();
+        alert('Erro ao marcar entregue: ' + erro.message);
+      }
+    }
+
+    window.rastreioV6MarcarEntregueGlobal = rV7MarcarEntregue;
+    window.rastreioV7MarcarEntregueGlobal = rV7MarcarEntregue;
+
+    if (salvarRastreioAnteriorV7) {
+      window.salvarRastreioNoCliente = salvarRastreioNoCliente = async function(codigo, historico, rota, modal) {
+        await salvarRastreioAnteriorV7(codigo, historico, rota, modal);
+        await rV7SalvarHistoricoNoCliente(codigo, historico, rota, 'em_transito');
+      };
+    }
+
+    function rV7AdicionarBotaoEscolherCidadeAtual(input) {
+      if (!input || input.dataset.rastreioV7Botao === '1') return;
+      input.dataset.rastreioV7Botao = '1';
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = '🗺️ Escolher pela rota';
+      btn.className = 'btn';
+      btn.style.cssText = 'margin-top:8px; padding:8px 12px; font-size:12px; background:linear-gradient(145deg,rgba(31,163,122,.28),rgba(31,163,122,.12)); color:#7cf0c2; border:1px solid rgba(31,163,122,.35);';
+
+      btn.onclick = () => rV7AbrirOpcoesCidadeAtual();
+      input.insertAdjacentElement('afterend', btn);
+    }
+
+    async function rV7AbrirOpcoesCidadeAtual() {
+      const saida = document.getElementById('inputCidadeSaida')?.value?.trim();
+      const destinoFinal = document.getElementById('inputCidadeDestinoFinal')?.value?.trim();
+      const paradas = parseInt(document.getElementById('inputParadas')?.value || '0') || 0;
+
+      if (!saida || !destinoFinal || !paradas) {
+        alert('Informe primeiro Cidade de Saída, Cidade Destino e quantidade de paradas.');
+        return;
+      }
+
+      if (!cidadeComUfValida(saida) || !cidadeComUfValida(destinoFinal)) {
+        alert('Saída e cidade destino precisam estar no formato cidade-uf. Ex: anapolis-go, uberlandia-mg');
+        return;
+      }
+
+      try {
+        mostrarLoading();
+
+        const rota = await gerarRotaComNominatim(saida, destinoFinal, paradas);
+        const coordDestino = await nominatimBuscarCidade(destinoFinal);
+        const analise = coordDestino ? await analisarRotaAteCidadeDestino(rota, coordDestino) : null;
+
+        ocultarLoading();
+
+        const opcoes = rota.slice(1, -1);
+        if (!opcoes.length) {
+          alert('Não foram encontradas cidades intermediárias. Aumente a quantidade de paradas.');
+          return;
+        }
+
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+        const botoes = opcoes.map(cidade => {
+          const ponto = analise?.pontos?.find(p => rV7Norm(p.nome) === rV7Norm(cidade));
+          const km = ponto && typeof ponto.kmAteDestino === 'number' ? `${Math.round(ponto.kmAteDestino)} km até destino` : 'km não calculado';
+          const valorInput = rV7CidadeParaBusca(cidade, String(saida).slice(-2).toUpperCase());
+
+          return `
+            <button type="button" data-cidade-atual="${valorInput}" style="width:100%;text-align:left;margin-bottom:8px;padding:12px;border-radius:10px;border:1px solid rgba(31,163,122,.35);background:rgba(31,163,122,.10);color:#e5f3ee;cursor:pointer;">
+              <strong style="color:#7cf0c2;">${cidade}</strong><br>
+              <small style="color:#8fb9ac;">${km}</small>
+            </button>
+          `;
+        }).join('');
+
+        modal.innerHTML = `
+          <div style="width:min(560px,96vw);background:#07120f;border:1px solid rgba(31,163,122,.45);border-radius:16px;padding:22px;box-shadow:0 18px 60px rgba(0,0,0,.5);">
+            <h2 style="color:#1fa37a;margin:0 0 8px;">Escolha onde a mercadoria está</h2>
+            <p style="color:#8fb9ac;margin:0 0 16px;">Rota calculada de ${saida} até ${destinoFinal}. Clique na cidade atual da mercadoria.</p>
+            ${botoes}
+            <button type="button" id="fecharOpcoesCidadeAtualV7" class="btn danger" style="width:100%;margin-top:10px;">Cancelar</button>
+          </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelectorAll('[data-cidade-atual]').forEach(btn => {
+          btn.onclick = () => {
+            const valor = btn.getAttribute('data-cidade-atual');
+            const input = document.getElementById('inputCidadeAtual');
+            if (input) input.value = valor;
+            modal.remove();
+          };
+        });
+
+        modal.querySelector('#fecharOpcoesCidadeAtualV7').onclick = () => modal.remove();
+
+      } catch (erro) {
+        ocultarLoading();
+        console.error('Erro ao gerar opções de cidade atual:', erro);
+        alert('Erro ao gerar opções de cidade atual: ' + erro.message);
+      }
+    }
+
+    document.addEventListener('focusin', (ev) => {
+      if (ev.target && ev.target.id === 'inputCidadeAtual') {
+        rV7AdicionarBotaoEscolherCidadeAtual(ev.target);
+      }
+    });
+
+    document.addEventListener('click', () => {
+      const input = document.getElementById('inputCidadeAtual');
+      if (input) rV7AdicionarBotaoEscolherCidadeAtual(input);
+    });
+  })();
+  </script>
+
+
+  <script>
+  /* ============================================================
+     RASTREIO ENTREGA SEM DUPLICAR DESTINO V8
+     - corrige duplicidade: Araras -> Araras-SP
+     - entrega usa a data da PREVISÃO DE ENTREGA
+     - botão para preencher Cidade Destino com Cidade-UF do cliente
+     - mantém rastreamento.json: codigo -> status -> [{text,time}]
+     ============================================================ */
+  (function(){
+    const UF_ALIASES_V8 = {
+      'anapolis':'GO','abadiania':'GO','alexania':'GO','terezopolis de goias':'GO','goiania':'GO',
+      'brasilia':'DF','recanto das emas':'DF','taguatinga':'DF','samambaia':'DF',
+      'uberaba':'MG','uberlandia':'MG','ipua':'SP','araras':'SP','sao paulo':'SP'
+    };
+
+    function n8(valor) {
+      return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g,'')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g,' ')
+        .trim();
+    }
+
+    function semUf8(valor) {
+      return String(valor || '').replace(/\s*-\s*[A-Za-z]{2}$/,'').trim();
+    }
+
+    function titulo8(valor) {
+      return String(valor || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+        .join(' ');
+    }
+
+    function cidadeClienteInput8() {
+      const cidade = String(clienteAtual?.Cidade || clienteAtual?.cidade || '').trim();
+      const uf = String(clienteAtual?.Estado || clienteAtual?.UF || clienteAtual?.estado || '').trim().toUpperCase();
+      if (cidade && uf) return `${cidade.toLowerCase()}-${uf.toLowerCase()}`;
+      if (cidade) return cidade.toLowerCase();
+      return '';
+    }
+
+    function cidadeClienteBonita8() {
+      const cidade = String(clienteAtual?.Cidade || clienteAtual?.cidade || '').trim();
+      const uf = String(clienteAtual?.Estado || clienteAtual?.UF || clienteAtual?.estado || '').trim().toUpperCase();
+      if (cidade && uf) return `${titulo8(cidade)}-${uf}`;
+      if (cidade) return titulo8(cidade);
+      return 'Destino do cliente';
+    }
+
+    function bonita8(cidade) {
+      const txt = String(cidade || '').trim();
+      const uf = txt.match(/-([A-Za-z]{2})$/)?.[1]?.toUpperCase() || '';
+      const base = titulo8(semUf8(txt));
+      return uf ? `${base}-${uf}` : base;
+    }
+
+    function busca8(cidade) {
+      const txt = String(cidade || '').trim();
+      if (!txt) return '';
+      if (/-[A-Za-z]{2}$/.test(txt)) return txt;
+      if (typeof rastreioBuscarCoordCache === 'function') {
+        const c = rastreioBuscarCoordCache(txt);
+        if (c && c.uf) return `${c.nome || txt}-${c.uf}`;
+      }
+      const uf = UF_ALIASES_V8[n8(txt)] || '';
+      return uf ? `${semUf8(txt)}-${uf}` : txt;
+    }
+
+    function parse8(texto) {
+      const m = String(texto || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+      if (!m) return null;
+      return new Date(Number(m[3]), Number(m[2])-1, Number(m[1]), Number(m[4]||12), Number(m[5]||0));
+    }
+
+    function fmt8(data) {
+      const d = data instanceof Date ? data : new Date(data);
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    }
+
+    function previsao8(status) {
+      for (const ev of status || []) {
+        const m = String(ev.text || '').match(/PREVIS[AÃ]O DE ENTREGA\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+        if (m) {
+          const d = parse8(m[1] + ' 18:00');
+          if (d) return d;
+        }
+      }
+      const f = new Date();
+      f.setDate(f.getDate()+3);
+      f.setHours(18,0,0,0);
+      return f;
+    }
+
+    function ultimaData8(status) {
+      for (let i=(status||[]).length-1;i>=0;i--) {
+        const d = parse8(status[i].time);
+        if (d) return d;
+      }
+      return new Date();
+    }
+
+    function ultimaCidade8(status) {
+      for (let i=(status||[]).length-1;i>=0;i--) {
+        const txt = String(status[i].text || '');
+        let m = txt.match(/Objeto está em\s*-\s*(.+)$/i);
+        if (m) return m[1].trim();
+        m = txt.match(/Rota para\s*-\s*(.+)$/i);
+        if (m) return m[1].trim();
+      }
+      return '';
+    }
+
+    function extrairCodigoVenda8(venda) {
+      return venda?.CodigoRastreio || venda?.codigoRastreio || venda?.CodigoRastreamento || venda?.Rastreio?.Codigo || '';
+    }
+
+    async function buscarStatus8(codigo) {
+      try {
+        localStorage.removeItem('arquivo_rastreamento.json_cache');
+        const dados = await buscarArquivo('rastreamento.json');
+        if (dados && dados[codigo] && Array.isArray(dados[codigo].status)) {
+          return dados[codigo].status.map(ev => ({ text: ev.text, time: ev.time }));
+        }
+      } catch(e) {
+        console.warn('V8: falha buscando rastreamento.json:', e);
+      }
+
+      for (const venda of (clienteAtual?.Vendas || [])) {
+        const cod = extrairCodigoVenda8(venda);
+        if (String(cod) === String(codigo) && Array.isArray(venda.Rastreio?.Historico)) {
+          return venda.Rastreio.Historico.map(ev => ({ text: ev.text, time: ev.time }));
+        }
+      }
+
+      const r = (clienteAtual?.Rastreios || []).find(x => String(x.Codigo || x.codigo || '') === String(codigo));
+      if (r && Array.isArray(r.Historico)) return r.Historico.map(ev => ({ text: ev.text, time: ev.time }));
+
+      return [];
+    }
+
+    async function salvarStatus8(codigo, status) {
+      const payload = {
+        [codigo]: {
+          status: (status || []).map(ev => ({ text: ev.text, time: ev.time }))
+        }
+      };
+
+      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+      const response = await fetch(CONFIG.API_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
+        body:new URLSearchParams({
+          acao:'salvarRastreamento',
+          arquivo:'rastreamento.json',
+          codigo,
+          dados:JSON.stringify(payload),
+          deviceId
+        })
+      });
+
+      if (!response.ok) throw new Error('Erro HTTP ao salvar rastreamento: ' + response.status);
+      localStorage.removeItem('arquivo_rastreamento.json_cache');
+      return true;
+    }
+
+    async function salvarCliente8(codigo, historico, status='entregue') {
+      try {
+        const vendas = clienteAtual?.Vendas || [];
+        const venda = [...vendas].reverse().find(v => String(extrairCodigoVenda8(v)) === String(codigo)) || vendas[vendas.length-1];
+
+        if (venda) {
+          venda.CodigoRastreio = codigo;
+          venda.Rastreio = {
+            ...(venda.Rastreio || {}),
+            Codigo: codigo,
+            Status: status,
+            Historico: historico.map(ev => ({ text: ev.text, time: ev.time })),
+            DataAtualizacao: new Date().toISOString()
+          };
+          if (status === 'entregue') {
+            venda.Entregue = true;
+            venda.DataEntrega = new Date().toISOString();
+            venda.Rastreio.DataEntrega = venda.DataEntrega;
+          }
+        }
+
+        clienteAtual.CodigoRastreio = clienteAtual.CodigoRastreio || codigo;
+        if (!Array.isArray(clienteAtual.Rastreios)) clienteAtual.Rastreios = [];
+
+        const idx = clienteAtual.Rastreios.findIndex(r => String(r.Codigo || r.codigo || '') === String(codigo));
+        const reg = {
+          Codigo: codigo,
+          Status: status,
+          Historico: historico.map(ev => ({ text: ev.text, time: ev.time })),
+          DataAtualizacao: new Date().toISOString()
+        };
+
+        if (idx >= 0) clienteAtual.Rastreios[idx] = { ...clienteAtual.Rastreios[idx], ...reg };
+        else clienteAtual.Rastreios.push(reg);
+
+        const clientes = await buscarArquivo('clientes.json');
+        if (!Array.isArray(clientes)) return false;
+
+        const idxCliente = clientes.findIndex(c => String(c.Id) === String(clienteAtual.Id));
+        if (idxCliente < 0) return false;
+
+        clientes[idxCliente] = clienteAtual;
+
+        const ok = await salvarDadosComAuditoria(
+          'clientes.json',
+          clientes,
+          'auditoria',
+          'Atualizar',
+          'Rastreio',
+          String(clienteAtual.Id),
+          clienteAtual.Nome || '',
+          status === 'entregue' ? 'Rastreio entregue sem duplicar destino' : 'Rastreio atualizado',
+          '',
+          JSON.stringify({ codigo, status })
+        );
+
+        if (ok) {
+          sessionStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
+          localStorage.setItem('clienteSelecionado', JSON.stringify(clienteAtual));
+          localStorage.removeItem('arquivo_clientes.json_cache');
+        }
+
+        return !!ok;
+      } catch(e) {
+        console.warn('V8: não consegui salvar cliente:', e);
+        return false;
+      }
+    }
+
+    function limparTargets8(rota, ultimaCidade, destinoBonito) {
+      const destinoBase = n8(semUf8(destinoBonito));
+      const ultimaBase = n8(semUf8(ultimaCidade));
+
+      let lista = (rota || [])
+        .filter(Boolean)
+        .map(c => bonita8(c))
+        .filter(c => n8(semUf8(c)) !== ultimaBase);
+
+      // Remove qualquer cidade que seja a mesma base do destino.
+      // Exemplo: remove "Araras" para não ficar "Araras" + "Araras-SP".
+      lista = lista.filter(c => n8(semUf8(c)) !== destinoBase);
+
+      // Mantém no máximo duas cidades intermediárias antes do destino.
+      if (lista.length > 2) {
+        lista = lista.slice(-2);
+      }
+
+      lista.push(destinoBonito);
+
+      const out = [];
+      const vistos = new Set();
+      for (const c of lista) {
+        const chave = n8(semUf8(c));
+        if (vistos.has(chave)) continue;
+        vistos.add(chave);
+        out.push(c);
+      }
+
+      if (!out.length || n8(semUf8(out[out.length-1])) !== destinoBase) {
+        out.push(destinoBonito);
+      } else {
+        out[out.length-1] = destinoBonito;
+      }
+
+      return out;
+    }
+
+    async function continuarAteDestino8(statusAtual, destinoInput) {
+      const status = Array.isArray(statusAtual) ? statusAtual.map(ev => ({ text: ev.text, time: ev.time })) : [];
+
+      if (status.some(ev => n8(ev.text).includes('produto entregue'))) return status;
+
+      const ultimaCidade = ultimaCidade8(status);
+      const destinoBonito = bonita8(destinoInput);
+      const dataFinal = previsao8(status);
+      dataFinal.setHours(18,0,0,0);
+
+      let rota = [];
+      try {
+        const origemBusca = busca8(ultimaCidade);
+        const destinoBusca = busca8(destinoInput);
+        if (origemBusca && destinoBusca && typeof gerarRotaComNominatim === 'function') {
+          rota = await gerarRotaComNominatim(origemBusca, destinoBusca, 2);
+        }
+      } catch(e) {
+        console.warn('V8: rota de continuação falhou, usando destino direto:', e);
+      }
+
+      const targets = limparTargets8(rota, ultimaCidade, destinoBonito);
+
+      let inicio = ultimaData8(status);
+      inicio.setHours(inicio.getHours()+2, 0, 0, 0);
+      if (inicio >= dataFinal) {
+        inicio = new Date(dataFinal);
+        inicio.setHours(8,0,0,0);
+      }
+
+      const totalEventos = targets.length * 2;
+      const intervalo = Math.max(30*60*1000, Math.floor((dataFinal - inicio) / Math.max(1, totalEventos + 1)));
+      let passo = 0;
+
+      for (const cidade of targets) {
+        passo++;
+        const dataRota = new Date(inicio.getTime() + intervalo * passo);
+        if (dataRota >= dataFinal) dataRota.setTime(dataFinal.getTime() - 2*60*60*1000);
+
+        status.push({
+          text: `Rota para - ${cidade}`,
+          time: fmt8(dataRota)
+        });
+
+        passo++;
+        const dataCidade = new Date(inicio.getTime() + intervalo * passo);
+        if (dataCidade >= dataFinal) dataCidade.setTime(dataFinal.getTime() - 60*60*1000);
+
+        status.push({
+          text: `Objeto está em - ${cidade}`,
+          time: fmt8(dataCidade)
+        });
+      }
+
+      status.push({
+        text: `Produto entregue - ${destinoBonito}`,
+        time: fmt8(dataFinal)
+      });
+
+      return status;
+    }
+
+    async function marcarEntregue8(codigo) {
+      const ok = await modalConfirm(
+        `Marcar o rastreio ${codigo} como PRODUTO ENTREGUE?\n\nO sistema vai manter o histórico, remover duplicidade do destino e usar a data da previsão de entrega.`,
+        { title:'Confirmar entrega', okText:'Marcar entregue', cancelText:'Cancelar' }
+      );
+
+      if (!ok) return;
+
+      try {
+        mostrarLoading();
+        const statusAtual = await buscarStatus8(codigo);
+        const destino = cidadeClienteBonita8();
+        const novoStatus = await continuarAteDestino8(statusAtual, destino);
+
+        await salvarStatus8(codigo, novoStatus);
+        await salvarCliente8(codigo, novoStatus, 'entregue');
+
+        ocultarLoading();
+        alert('Produto entregue salvo corretamente, sem duplicar a cidade destino.');
+        location.reload();
+      } catch(e) {
+        ocultarLoading();
+        console.error('V8 erro ao entregar:', e);
+        alert('Erro ao marcar entregue: ' + e.message);
+      }
+    }
+
+    window.rastreioV6MarcarEntregueGlobal = marcarEntregue8;
+    window.rastreioV7MarcarEntregueGlobal = marcarEntregue8;
+    window.rastreioV8MarcarEntregueGlobal = marcarEntregue8;
+
+    function adicionarBotaoDestinoCliente8() {
+      const input = document.getElementById('inputCidadeDestinoFinal');
+      if (!input || input.dataset.botaoClienteV8 === '1') return;
+
+      input.dataset.botaoClienteV8 = '1';
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = '📍 Usar cidade do cliente';
+      btn.className = 'btn';
+      btn.style.cssText = 'margin-top:8px; padding:8px 12px; font-size:12px; background:linear-gradient(145deg,rgba(31,163,122,.28),rgba(31,163,122,.12)); color:#7cf0c2; border:1px solid rgba(31,163,122,.35);';
+
+      btn.onclick = () => {
+        const valor = cidadeClienteInput8();
+        if (!valor) {
+          alert('Este cliente não tem Cidade/Estado cadastrados.');
+          return;
+        }
+        input.value = valor;
+        input.dispatchEvent(new Event('input', { bubbles:true }));
+        input.dispatchEvent(new Event('change', { bubbles:true }));
+      };
+
+      input.insertAdjacentElement('afterend', btn);
+    }
+
+    document.addEventListener('focusin', (ev) => {
+      if (ev.target && ev.target.id === 'inputCidadeDestinoFinal') {
+        adicionarBotaoDestinoCliente8();
+      }
+    });
+
+    document.addEventListener('click', () => adicionarBotaoDestinoCliente8());
+    window.addEventListener('load', () => setTimeout(adicionarBotaoDestinoCliente8, 1200));
+  })();
+  </script>
+
+
+  <script>
+  /* ============================================================
+     CLIENTE RASTREIO CONECTA TRANSPORTE V10
+     - se o transporte foi criado primeiro com código, Gerar Rastreio usa esse código
+     - depois que gera rastreio no cliente, atualiza transporte.json correspondente
+     ============================================================ */
+  (function(){
+    const salvarRastreioAnteriorClienteV10 = window.salvarRastreioNoCliente || (typeof salvarRastreioNoCliente !== 'undefined' ? salvarRastreioNoCliente : null);
+
+    function crV10Norm(valor) {
+      return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    }
+
+    function crV10CodigoValido(codigo) {
+      return /^BR\d{6,}$/i.test(String(codigo || '').trim());
+    }
+
+    function crV10Codigo(codigo) {
+      return String(codigo || '').trim().toUpperCase();
+    }
+
+    function crV10ExtrairNFsCliente() {
+      const nfs = [];
+      (clienteAtual?.Vendas || []).forEach(v => {
+        const nf = String(v.NumeroNF || v.NF || v.numeroNF || v.NotaFiscal || '').trim();
+        if (nf && !nfs.includes(nf)) nfs.push(nf);
+      });
+      return nfs;
+    }
+
+    async function crV10BuscarCodigoTransporteRelacionado() {
+      try {
+        const transportes = await buscarArquivo('transporte.json');
+        if (!Array.isArray(transportes)) return '';
+
+        const nomeCliente = crV10Norm(clienteAtual?.Nome || '');
+        const nfs = crV10ExtrairNFsCliente().map(crV10Norm);
+
+        let encontrado = '';
+
+        for (const t of transportes) {
+          const codigo = crV10Codigo(t.CodigoRastreio);
+          if (!crV10CodigoValido(codigo)) continue;
+
+          const nomeT = crV10Norm(t.NomeCliente || '');
+          const nfT = crV10Norm(t.NumeroNF || '');
+
+          const bateNome = nomeCliente && nomeT && (nomeCliente === nomeT || nomeT.includes(nomeCliente) || nomeCliente.includes(nomeT));
+          const bateNF = nfT && nfs.includes(nfT);
+
+          if (bateNF || bateNome) {
+            encontrado = codigo;
+            if (bateNF) return encontrado;
+          }
+        }
+
+        return encontrado;
+      } catch (erro) {
+        console.warn('V10 cliente: não consegui buscar código no transporte:', erro);
+        return '';
+      }
+    }
+
+    async function crV10AtualizarTransporteComCodigo(codigo) {
+      try {
+        codigo = crV10Codigo(codigo);
+        if (!crV10CodigoValido(codigo)) return false;
+
+        const transportes = await buscarArquivo('transporte.json');
+        if (!Array.isArray(transportes)) return false;
+
+        const nomeCliente = crV10Norm(clienteAtual?.Nome || '');
+        const nfs = crV10ExtrairNFsCliente().map(crV10Norm);
+        let alterou = false;
+
+        transportes.forEach(t => {
+          const nomeT = crV10Norm(t.NomeCliente || '');
+          const nfT = crV10Norm(t.NumeroNF || '');
+
+          const bateNome = nomeCliente && nomeT && (nomeCliente === nomeT || nomeT.includes(nomeCliente) || nomeCliente.includes(nomeT));
+          const bateNF = nfT && nfs.includes(nfT);
+
+          if (bateNF || bateNome) {
+            if (!crV10CodigoValido(t.CodigoRastreio) || crV10Codigo(t.CodigoRastreio) === codigo) {
+              t.CodigoRastreio = codigo;
+              alterou = true;
+            }
+          }
+        });
+
+        if (!alterou) return false;
+
+        const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+        const response = await fetch(CONFIG.API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            acao: 'salvar',
+            arquivo: 'transporte.json',
+            dados: JSON.stringify(transportes),
+            deviceId
+          })
+        });
+
+        if (response.ok) {
+          localStorage.removeItem('arquivo_transporte.json_cache');
+          return true;
+        }
+
+        return false;
+      } catch (erro) {
+        console.warn('V10 cliente: não consegui atualizar transporte.json:', erro);
+        return false;
+      }
+    }
+
+    if (salvarRastreioAnteriorClienteV10 && !salvarRastreioAnteriorClienteV10.__conectaTransporteV10) {
+      const wrapper = async function(codigo, historico, rota, modal) {
+        const codigoTransporte = await crV10BuscarCodigoTransporteRelacionado();
+
+        // Se o transporte foi criado primeiro com código real, usa esse código.
+        if (crV10CodigoValido(codigoTransporte)) {
+          codigo = codigoTransporte;
+        }
+
+        await salvarRastreioAnteriorClienteV10.call(this, codigo, historico, rota, modal);
+
+        // Se o cliente gerou código primeiro, tenta preencher o transporte relacionado.
+        await crV10AtualizarTransporteComCodigo(codigo);
+      };
+
+      wrapper.__conectaTransporteV10 = true;
+      window.salvarRastreioNoCliente = salvarRastreioNoCliente = wrapper;
+    }
+
+    window.crV10BuscarCodigoTransporteRelacionado = crV10BuscarCodigoTransporteRelacionado;
+  })();
+  </script>
+
+
+  <script>
+  /* ============================================================
+     CLIENTE RASTREIO TRANSPORTE PROVISORIO V11
+     - Se transporte foi criado primeiro com código "2", "4" etc.,
+       ao gerar rastreio no cliente, troca o provisório pelo BR gerado.
+     ============================================================ */
+  (function(){
+    const salvarOriginalV11 = window.salvarRastreioNoCliente || (typeof salvarRastreioNoCliente !== 'undefined' ? salvarRastreioNoCliente : null);
+
+    function crV11Norm(valor) {
+      return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    }
+
+    function crV11Codigo(codigo) {
+      return String(codigo || '').trim().toUpperCase();
+    }
+
+    function crV11CodigoValido(codigo) {
+      return /^BR\d{6,}$/i.test(crV11Codigo(codigo));
+    }
+
+    function crV11NFsCliente() {
+      const nfs = [];
+      (clienteAtual?.Vendas || []).forEach(v => {
+        const nf = String(v.NumeroNF || v.NF || v.numeroNF || v.NotaFiscal || '').trim();
+        if (nf && !nfs.includes(nf)) nfs.push(nf);
+      });
+      return nfs;
+    }
+
+    async function crV11BuscarArquivoTransporte() {
+      for (const nome of ['transporte.json', 'transportes.json']) {
+        try {
+          localStorage.removeItem(`arquivo_${nome}_cache`);
+          const dados = await buscarArquivo(nome);
+          if (Array.isArray(dados)) return { nome, dados };
+        } catch(e) {}
+      }
+      return { nome: 'transporte.json', dados: [] };
+    }
+
+    async function crV11AtualizarTransporteProvisorio(codigoGerado) {
+      codigoGerado = crV11Codigo(codigoGerado);
+      if (!crV11CodigoValido(codigoGerado)) return false;
+
+      const { nome, dados } = await crV11BuscarArquivoTransporte();
+      if (!Array.isArray(dados)) return false;
+
+      const nomeCliente = crV11Norm(clienteAtual?.Nome || '');
+      const nfs = crV11NFsCliente().map(crV11Norm);
+      let alterou = false;
+
+      dados.forEach(t => {
+        const nomeT = crV11Norm(t.NomeCliente || '');
+        const nfT = crV11Norm(t.NumeroNF || '');
+        const codAtual = crV11Codigo(t.CodigoRastreio);
+
+        const bateNome = nomeCliente && nomeT && (nomeCliente === nomeT || nomeT.includes(nomeCliente) || nomeCliente.includes(nomeT));
+        const bateNF = nfT && nfs.includes(nfT);
+
+        if (bateNF || bateNome) {
+          // troca "2", "4", vazio etc. pelo BR gerado.
+          if (!crV11CodigoValido(codAtual) || codAtual === codigoGerado) {
+            t.CodigoRastreio = codigoGerado;
+            alterou = true;
+          }
+        }
+      });
+
+      if (!alterou) return false;
+
+      const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
+      const response = await fetch(CONFIG.API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          acao: 'salvar',
+          arquivo: nome,
+          dados: JSON.stringify(dados),
+          deviceId
+        })
+      });
+
+      if (response.ok) {
+        localStorage.removeItem(`arquivo_${nome}_cache`);
+        return true;
+      }
+
+      return false;
+    }
+
+    if (salvarOriginalV11 && !salvarOriginalV11.__transporteProvisorioV11) {
+      const wrapper = async function(codigo, historico, rota, modal) {
+        await salvarOriginalV11.call(this, codigo, historico, rota, modal);
+        await crV11AtualizarTransporteProvisorio(codigo);
+      };
+
+      wrapper.__transporteProvisorioV11 = true;
+      window.salvarRastreioNoCliente = salvarRastreioNoCliente = wrapper;
+    }
+
+    window.crV11AtualizarTransporteProvisorio = crV11AtualizarTransporteProvisorio;
+  })();
+  </script>
+
+
+  <script>
+  /* ============================================================
+     CLIENTE DETALHES QUANTIDADE GADO V1
+     - mostra "Quantidade de Gado" junto ao nome do cliente
+     ============================================================ */
+  (function(){
+    function qgdObterCliente() {
+      if (typeof clienteAtual !== 'undefined' && clienteAtual) return clienteAtual;
+      if (window.clienteAtual) return window.clienteAtual;
+
+      const chaves = ['clienteSelecionado', 'clienteAtual', 'clienteDetalhes'];
+
+      for (const chave of chaves) {
+        try {
+          const raw = sessionStorage.getItem(chave) || localStorage.getItem(chave);
+          if (raw) {
+            const obj = JSON.parse(raw);
+            if (obj && typeof obj === 'object') return obj;
+          }
+        } catch(e) {}
+      }
+
+      return null;
+    }
+
+    function qgdQuantidade(cliente) {
+      return cliente?.QuantidadeGado ??
+             cliente?.quantidadeGado ??
+             cliente?.QtdGado ??
+             cliente?.qtdGado ??
+             cliente?.Gado ??
+             cliente?.gado ??
+             '';
+    }
+
+    function qgdFormatar(valor) {
+      if (valor === undefined || valor === null || valor === '') return 'Não informado';
+
+      const n = parseInt(String(valor).replace(/\D/g, ''), 10);
+      if (!Number.isFinite(n)) return String(valor);
+
+      return n.toLocaleString('pt-BR') + ' cabeça(s)';
+    }
+
+    function qgdAcharCabecalho(cliente) {
+      const nome = String(cliente?.Nome || cliente?.nome || '').trim();
+      const candidatos = Array.from(document.querySelectorAll('h1,h2,h3,.cliente-nome,#nomeCliente,#nome-cliente,.nome-cliente,.client-name,.titulo-cliente'));
+
+      if (nome) {
+        const achado = candidatos.find(el => String(el.textContent || '').toLowerCase().includes(nome.toLowerCase()));
+        if (achado) return achado;
+      }
+
+      return candidatos[0] || document.querySelector('.card, .container, main, body');
+    }
+
+    function qgdRenderizar() {
+      if (document.getElementById('badgeQuantidadeGadoCliente')) return;
+
+      const cliente = qgdObterCliente();
+      if (!cliente) return;
+
+      const qtd = qgdQuantidade(cliente);
+      const destino = qgdAcharCabecalho(cliente);
+
+      if (!destino) return;
+
+      const badge = document.createElement('span');
+      badge.id = 'badgeQuantidadeGadoCliente';
+      badge.innerHTML = `🐄 Quantidade de gado: <strong>${qgdFormatar(qtd)}</strong>`;
+      badge.style.cssText = `
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        margin-left:10px;
+        margin-top:6px;
+        padding:7px 12px;
+        border-radius:999px;
+        border:1px solid rgba(31,163,122,.35);
+        background:rgba(31,163,122,.10);
+        color:#7cf0c2;
+        font-size:13px;
+        font-weight:600;
+        vertical-align:middle;
+      `;
+
+      if (/H1|H2|H3/.test(destino.tagName)) destino.appendChild(badge);
+      else destino.insertAdjacentElement('afterbegin', badge);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => setTimeout(qgdRenderizar, 400));
+    window.addEventListener('load', () => setTimeout(qgdRenderizar, 800));
+    document.addEventListener('click', () => setTimeout(qgdRenderizar, 100));
+  })();
+  </script>
+
+
+  <script>
+  /* ============================================================
+     CLIENTE DETALHES QUANTIDADE GADO V2 DIRETO
+     - mostra Quantidade de Gado junto ao cabeçalho/nome do cliente
+     - lê QuantidadeGado, quantidadeGado, QtdGado ou gado
+     ============================================================ */
+  (function(){
+    function qgdV2ObterCliente() {
+      if (typeof clienteAtual !== 'undefined' && clienteAtual) return clienteAtual;
+      if (window.clienteAtual) return window.clienteAtual;
+
+      const chaves = ['clienteSelecionado', 'clienteAtual', 'clienteDetalhes'];
+      for (const chave of chaves) {
+        try {
+          const raw = sessionStorage.getItem(chave) || localStorage.getItem(chave);
+          if (raw) {
+            const obj = JSON.parse(raw);
+            if (obj && typeof obj === 'object') return obj;
+          }
+        } catch(e) {}
+      }
+      return null;
+    }
+
+    function qgdV2Quantidade(cliente) {
+      return cliente?.QuantidadeGado ??
+             cliente?.quantidadeGado ??
+             cliente?.QtdGado ??
+             cliente?.qtdGado ??
+             cliente?.Gado ??
+             cliente?.gado ??
+             '';
+    }
+
+    function qgdV2Formatar(valor) {
+      if (valor === undefined || valor === null || valor === '') return 'Não informado';
+
+      const n = parseInt(String(valor).replace(/\D/g, ''), 10);
+      if (!Number.isFinite(n)) return String(valor);
+
+      return n.toLocaleString('pt-BR') + ' cabeça(s)';
+    }
+
+    function qgdV2Destino(cliente) {
+      const nome = String(cliente?.Nome || cliente?.nome || '').trim();
+      const candidatos = Array.from(document.querySelectorAll(
+        '.header h1, h1, h2, h3, .cliente-nome, #nomeCliente, #nome-cliente, .nome-cliente, .client-name, .titulo-cliente'
+      ));
+
+      if (nome) {
+        const porNome = candidatos.find(el => String(el.textContent || '').toLowerCase().includes(nome.toLowerCase()));
+        if (porNome) return porNome;
+      }
+
+      return candidatos[0] || document.querySelector('.header, .container, main, body');
+    }
+
+    function qgdV2Renderizar() {
+      const antigo = document.getElementById('badgeQuantidadeGadoClienteV2');
+      if (antigo) antigo.remove();
+
+      const cliente = qgdV2ObterCliente();
+      if (!cliente) return;
+
+      const destino = qgdV2Destino(cliente);
+      if (!destino) return;
+
+      const badge = document.createElement('span');
+      badge.id = 'badgeQuantidadeGadoClienteV2';
+      badge.innerHTML = `🐄 Quantidade de gado: <strong>${qgdV2Formatar(qgdV2Quantidade(cliente))}</strong>`;
+      badge.style.cssText = `
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        margin-left:10px;
+        margin-top:6px;
+        padding:7px 12px;
+        border-radius:999px;
+        border:1px solid rgba(31,163,122,.35);
+        background:rgba(31,163,122,.10);
+        color:#7cf0c2;
+        font-size:13px;
+        font-weight:600;
+        vertical-align:middle;
+      `;
+
+      if (/H1|H2|H3/.test(destino.tagName)) {
+        destino.appendChild(badge);
+      } else {
+        destino.insertAdjacentElement('afterbegin', badge);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => setTimeout(qgdV2Renderizar, 400));
+    window.addEventListener('load', () => setTimeout(qgdV2Renderizar, 800));
+    document.addEventListener('click', () => setTimeout(qgdV2Renderizar, 120));
+  })();
+  </script>
+
 </body>
 </html>
