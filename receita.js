@@ -1056,3 +1056,934 @@ async function salvarDadosComAuditoria(
     }
 }
 
+// ============================================
+// RECEITA FAZER CLIENTES V9 PRODUTO + CLASSE
+// ============================================
+// Regra correta:
+// - O nome do produto NAO muda.
+// - O usuario escolhe SOMENTE a classe: 1, 2, 3...
+// - A receita usada e encontrada por PRODUTO + CLASSE.
+//   Ex.: Produto bovi-sal + Classe 1 => receita bovi-sal classe 1.
+// - Nao pode pegar a primeira receita da classe, como ADE+, para todos.
+// - Produtos iguais com a mesma classe sao somados.
+// - Produtos diferentes, mesmo na mesma classe, viram receitas separadas.
+// - Nao altera JSONs nem estrutura dos dados.
+
+let clientesReceitaPendentesV9 = [];
+let receitaClientesSelecionadosV9 = [];
+
+function receitaV9Norm(valor) {
+    return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/\+/g, ' plus ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function receitaV9NormForte(valor) {
+    return receitaV9Norm(valor).replace(/\s+/g, '');
+}
+
+function receitaV9Num(valor) {
+    if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
+    const txt = String(valor || '').trim();
+    if (!txt) return 0;
+    const limpo = txt
+        .replace(/[^\d,.-]/g, '')
+        .replace(/\.(?=\d{3}(?:\D|$))/g, '')
+        .replace(',', '.');
+    const n = parseFloat(limpo);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function receitaV9Kg(valor) {
+    const n = Number(valor) || 0;
+    return n >= 1 ? `${n.toFixed(3)} kg` : `${(n * 1000).toFixed(0)} g`;
+}
+
+function receitaV9Pad(valor, tamanho) {
+    valor = String(valor ?? '');
+    if (valor.length > tamanho) return valor.slice(0, Math.max(0, tamanho - 1)) + '…';
+    return valor.padEnd(tamanho);
+}
+
+function receitaV9PadLeft(valor, tamanho) {
+    valor = String(valor ?? '');
+    if (valor.length > tamanho) return valor.slice(0, tamanho);
+    return valor.padStart(tamanho);
+}
+
+function receitaV9Campo(obj, nomes, padrao = '') {
+    if (!obj) return padrao;
+    for (const nome of nomes) {
+        if (obj[nome] !== undefined && obj[nome] !== null && obj[nome] !== '') return obj[nome];
+    }
+    return padrao;
+}
+
+function receitaV9ProdutoProntoNao(valor) {
+    if (valor === false || valor === 0) return true;
+    if (valor === true || valor === 1) return false;
+    const n = receitaV9Norm(valor);
+    return ['nao', 'não', 'n', 'false', 'falso', '0', 'pendente', 'em aberto', 'aberto'].includes(n);
+}
+
+function receitaV9ProdutoProntoSim(valor) {
+    if (valor === true || valor === 1) return true;
+    const n = receitaV9Norm(valor);
+    return ['sim', 's', 'true', 'verdadeiro', '1', 'pronto', 'feito', 'ok'].includes(n);
+}
+
+function receitaV9ListaProdutosVenda(venda) {
+    const listas = [
+        venda?.Produtos,
+        venda?.produtos,
+        venda?.Itens,
+        venda?.itens,
+        venda?.ProdutosVendidos,
+        venda?.produtosVendidos,
+        venda?.ItensVenda,
+        venda?.itensVenda
+    ].filter(Array.isArray);
+
+    if (listas.length) return listas[0];
+
+    return [{
+        Nome: venda?.Produto || venda?.NomeProduto || venda?.produto || venda?.DescricaoProduto || venda?.Descricao || '',
+        Classe: venda?.Classe || venda?.classe || venda?.Tipo || venda?.tipo || venda?.ClasseReceita || venda?.ReceitaClasse || '',
+        Quantidade: venda?.Quantidade || venda?.quantidade || 0,
+        PesoUnidade: venda?.PesoUnidade || venda?.pesoUnidade || venda?.Peso || venda?.peso || 0,
+        ProdutoPronto: venda?.ProdutoPronto ?? venda?.produtoPronto ?? venda?.ProdutosProntos ?? venda?.produtosProntos
+    }];
+}
+
+function receitaV9VendaTemPendente(cliente, venda) {
+    const prontoVenda = venda?.ProdutoPronto ?? venda?.produtoPronto ?? venda?.ProdutosProntos ?? venda?.produtosProntos;
+    if (receitaV9ProdutoProntoNao(prontoVenda)) return true;
+
+    const produtos = receitaV9ListaProdutosVenda(venda);
+    if (produtos.some(p => receitaV9ProdutoProntoNao(p?.ProdutoPronto ?? p?.produtoPronto ?? p?.Pronto ?? p?.pronto))) return true;
+
+    const prontoCliente = cliente?.ProdutoPronto ?? cliente?.produtoPronto ?? cliente?.ProdutosProntos ?? cliente?.produtosProntos;
+    return receitaV9ProdutoProntoNao(prontoCliente);
+}
+
+function receitaV9ScoreVenda(venda, idx) {
+    const datas = [
+        venda?.DataVenda,
+        venda?.Data,
+        venda?.DataCadastro,
+        venda?.CriadoEm,
+        venda?.AtualizadoEm,
+        venda?.data,
+        venda?.createdAt,
+        venda?.updatedAt
+    ].filter(Boolean);
+
+    for (const raw of datas) {
+        const d = new Date(raw);
+        if (Number.isFinite(d.getTime())) return d.getTime();
+    }
+
+    const nf = String(venda?.NumeroNF || venda?.NF || venda?.numeroNF || venda?.NotaFiscal || '').replace(/\D/g, '');
+    if (nf) {
+        const n = parseInt(nf, 10);
+        if (Number.isFinite(n)) return n;
+    }
+
+    const id = String(venda?.Id || venda?.id || '').replace(/\D/g, '');
+    if (id) {
+        const n = parseInt(id, 10);
+        if (Number.isFinite(n)) return n;
+    }
+
+    return idx || 0;
+}
+
+function receitaV9UltimaVendaPendente(cliente) {
+    const vendas = Array.isArray(cliente?.Vendas) ? cliente.Vendas : [];
+    if (!vendas.length) return [];
+
+    const pendentes = vendas
+        .map((venda, idx) => ({ venda, idx, score: receitaV9ScoreVenda(venda, idx) }))
+        .filter(item => receitaV9VendaTemPendente(cliente, item.venda))
+        .sort((a, b) => b.score - a.score);
+
+    return pendentes.length ? [pendentes[0].venda] : [];
+}
+
+function receitaV9KgProduto(produto, venda) {
+    const kgDireto = receitaV9Num(receitaV9Campo(produto, [
+        'Kg', 'kg', 'PesoTotal', 'pesoTotal', 'QuantidadeKg', 'quantidadeKg'
+    ], 0));
+    if (kgDireto > 0) return kgDireto;
+
+    const qtd = receitaV9Num(receitaV9Campo(produto, ['Quantidade', 'quantidade', 'Qtd', 'qtd'], 0));
+    const pesoUnidade = receitaV9Num(receitaV9Campo(produto, [
+        'PesoUnidade', 'pesoUnidade', 'PesoUnitario', 'pesoUnitario', 'Peso', 'peso'
+    ], 0));
+
+    if (qtd > 0 && pesoUnidade > 0) return qtd * pesoUnidade;
+
+    const kgVenda = receitaV9Num(receitaV9Campo(venda, [
+        'Kg', 'kg', 'PesoTotal', 'pesoTotal', 'QuantidadeKg', 'quantidadeKg'
+    ], 0));
+    if (kgVenda > 0) return kgVenda;
+
+    return qtd;
+}
+
+function receitaV9ExtrairProdutosVenda(cliente, venda) {
+    const produtos = receitaV9ListaProdutosVenda(venda);
+
+    return produtos.map((item, idx) => {
+        const produto = String(
+            receitaV9Campo(item, ['NomeProduto', 'Produto', 'Nome', 'DescricaoProduto', 'Descricao'], '') ||
+            receitaV9Campo(venda, ['Produto', 'NomeProduto'], '')
+        ).trim();
+
+        const classeOriginal = String(
+            receitaV9Campo(item, ['Classe', 'classe', 'Tipo', 'tipo', 'ClasseReceita', 'ReceitaClasse'], '') ||
+            receitaV9Campo(venda, ['Classe', 'classe', 'Tipo', 'tipo'], '')
+        ).trim();
+
+        const quantidade = receitaV9Num(receitaV9Campo(item, ['Quantidade', 'quantidade', 'Qtd', 'qtd'], 0));
+        const pesoUnidade = receitaV9Num(receitaV9Campo(item, [
+            'PesoUnidade', 'pesoUnidade', 'PesoUnitario', 'pesoUnitario', 'Peso', 'peso'
+        ], 0));
+
+        const kg = receitaV9KgProduto(item, venda);
+
+        const prontoItem = item?.ProdutoPronto ?? item?.produtoPronto ?? item?.Pronto ?? item?.pronto;
+        const prontoVenda = venda?.ProdutoPronto ?? venda?.produtoPronto ?? venda?.ProdutosProntos ?? venda?.produtosProntos;
+        const prontoCliente = cliente?.ProdutoPronto ?? cliente?.produtoPronto ?? cliente?.ProdutosProntos ?? cliente?.produtosProntos;
+
+        const pendente =
+            receitaV9ProdutoProntoNao(prontoItem) ||
+            receitaV9ProdutoProntoNao(prontoVenda) ||
+            receitaV9ProdutoProntoNao(prontoCliente);
+
+        return {
+            uid: `${cliente.Id || cliente.CPF || cliente.Nome || 'cliente'}__${venda.Id || venda.NumeroNF || venda.NF || 'venda'}__${idx}`,
+            clienteKey: receitaV9Norm(cliente.Id || cliente.CPF || cliente.Nome || cliente.nome || 'cliente'),
+            clienteId: cliente.Id,
+            clienteNome: cliente.Nome || cliente.nome || 'Cliente',
+            clienteCpf: cliente.CPF || cliente.cpf || '',
+            vendaId: venda.Id || venda.id || '',
+            nf: venda.NumeroNF || venda.NF || venda.numeroNF || venda.NotaFiscal || '',
+            produto,
+            produtoNorm: receitaV9NormForte(produto),
+            classeOriginal,
+            quantidade,
+            pesoUnidade,
+            kg,
+            itemIndex: idx,
+            pendente
+        };
+    }).filter(p => p.pendente && (p.produto || p.classeOriginal || p.kg > 0));
+}
+
+function receitaV9ClasseLabel(receita) {
+    return String(receita?.Tipo || receita?.Classe || receita?.classe || '').trim();
+}
+
+function receitaV9ClassesDisponiveis() {
+    const lista = Array.isArray(receitas) ? receitas : [];
+    const mapa = new Map();
+
+    lista.forEach(r => {
+        const label = receitaV9ClasseLabel(r);
+        const key = receitaV9Norm(label);
+        if (!key) return;
+        if (!mapa.has(key)) mapa.set(key, { key, label });
+    });
+
+    return Array.from(mapa.values()).sort((a, b) => {
+        const na = Number(a.label);
+        const nb = Number(b.label);
+        if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+        return String(a.label).localeCompare(String(b.label), 'pt-BR');
+    });
+}
+
+function receitaV9OptionsClasses(valorSelecionado, incluirTodos = false) {
+    const opcoes = incluirTodos
+        ? ['<option value="">Aplicar classe para todos...</option>']
+        : ['<option value="">Selecione a classe...</option>'];
+
+    receitaV9ClassesDisponiveis().forEach(c => {
+        const selected = c.key === valorSelecionado ? 'selected' : '';
+        opcoes.push(`<option value="${c.key}" ${selected}>${c.label}</option>`);
+    });
+
+    return opcoes.join('');
+}
+
+function receitaV9ReceitasDaClasse(classeKey) {
+    return (Array.isArray(receitas) ? receitas : []).filter(r => receitaV9Norm(receitaV9ClasseLabel(r)) === classeKey);
+}
+
+function receitaV9ReceitaProdutoClasse(item, classeKey) {
+    const candidatas = receitaV9ReceitasDaClasse(classeKey);
+    const produtoNorm = receitaV9NormForte(item.produto);
+
+    if (!produtoNorm || !candidatas.length) return null;
+
+    let achada = candidatas.find(r => receitaV9NormForte(r.Nome || r.nome) === produtoNorm);
+    if (achada) return achada;
+
+    achada = candidatas.find(r => {
+        const nome = receitaV9NormForte(r.Nome || r.nome);
+        return nome && (nome.includes(produtoNorm) || produtoNorm.includes(nome));
+    });
+
+    return achada || null;
+}
+
+function receitaV9ClasseAuto(item) {
+    const original = receitaV9Norm(item.classeOriginal);
+    if (!original) return '';
+    return receitaV9ClassesDisponiveis().some(c => c.key === original) ? original : '';
+}
+
+function receitaV9AtualizarReceitaPreview(select) {
+    const idx = parseInt(select.dataset.idx, 10);
+    const item = clientesReceitaPendentesV9[idx];
+    const destino = document.querySelector(`.previewReceitaCliente[data-idx="${idx}"]`);
+    if (!item || !destino) return;
+
+    if (!select.value) {
+        destino.innerHTML = '<span style="color:#94a3b8;">Escolha a classe</span>';
+        return;
+    }
+
+    const receita = receitaV9ReceitaProdutoClasse(item, select.value);
+
+    if (receita) {
+        destino.innerHTML = `<span style="color:#6ee7b7;">${receita.Nome}</span>`;
+    } else {
+        destino.innerHTML = `<span style="color:#fca5a5;">Sem receita para ${item.produto} nessa classe</span>`;
+    }
+}
+
+function abrirModalFazerClientes() {
+    abrirModal('modalFazerClientes');
+    if (!clientesReceitaPendentesV9.length) carregarClientesParaFazerReceita();
+}
+
+async function carregarClientesParaFazerReceita() {
+    try {
+        const tbody = document.getElementById('tabelaFazerClientes');
+        const resumo = document.getElementById('resumoFazerClientes');
+
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">Carregando clientes...</td></tr>';
+        }
+
+        const clientes = await buscarArquivo('clientes.json');
+        const listaClientes = Array.isArray(clientes) ? clientes : [];
+        const pendentes = [];
+
+        listaClientes.forEach(cliente => {
+            const vendas = receitaV9UltimaVendaPendente(cliente);
+            vendas.forEach(venda => {
+                receitaV9ExtrairProdutosVenda(cliente, venda).forEach(item => pendentes.push(item));
+            });
+        });
+
+        clientesReceitaPendentesV9 = pendentes;
+        renderizarClientesParaFazerReceita();
+
+        if (resumo) {
+            const clientesQtd = new Set(pendentes.map(p => p.clienteKey)).size;
+            const kgTotal = pendentes.reduce((s, p) => s + (p.kg || 0), 0);
+            resumo.textContent = pendentes.length
+                ? `${pendentes.length} produto(s) pendente(s), ${clientesQtd} cliente(s), ${kgTotal.toFixed(3)} kg no total. Escolha só a classe; a receita será produto + classe.`
+                : 'Nenhum cliente/venda com Produto Pronto = Não foi encontrado.';
+        }
+
+        return pendentes;
+    } catch (erro) {
+        console.error('Erro ao carregar clientes para receita:', erro);
+        alert('Erro ao carregar clientes: ' + erro.message);
+        return [];
+    }
+}
+
+function aplicarClasseParaClienteFazerReceita(clienteKey, classeKey) {
+    if (!classeKey) return;
+
+    document.querySelectorAll(`.selectClasseReceitaCliente[data-cliente-key="${clienteKey}"]`).forEach(select => {
+        select.value = classeKey;
+        receitaV9AtualizarReceitaPreview(select);
+    });
+}
+
+function renderizarClientesParaFazerReceita() {
+    const tbody = document.getElementById('tabelaFazerClientes');
+    if (!tbody) return;
+
+    if (!clientesReceitaPendentesV9.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">Nenhum produto pendente encontrado.</td></tr>';
+        return;
+    }
+
+    let html = '';
+    let clienteAtualRender = '';
+
+    clientesReceitaPendentesV9.forEach((item, idx) => {
+        if (item.clienteKey !== clienteAtualRender) {
+            clienteAtualRender = item.clienteKey;
+
+            html += `
+                <tr style="background:rgba(31,163,122,.12);">
+                    <td colspan="6" style="padding:12px;">
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <strong style="color:#7cf0c2;font-size:15px;">👤 ${item.clienteNome}</strong>
+                            <select onchange="aplicarClasseParaClienteFazerReceita('${item.clienteKey}', this.value)"
+                                    style="min-width:190px;padding:8px;border-radius:8px;background:#0f172a;color:#e5e7eb;border:1px solid rgba(31,163,122,.45);">
+                                ${receitaV9OptionsClasses('', true)}
+                            </select>
+                            <small style="color:#8fb9ac;">aplica a classe nos produtos deste cliente</small>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        const autoKey = receitaV9ClasseAuto(item);
+        const receitaAuto = autoKey ? receitaV9ReceitaProdutoClasse(item, autoKey) : null;
+        const preview = receitaAuto
+            ? `<span style="color:#6ee7b7;">${receitaAuto.Nome}</span>`
+            : (autoKey ? `<span style="color:#fca5a5;">Sem receita para ${item.produto} nessa classe</span>` : `<span style="color:#94a3b8;">Escolha a classe</span>`);
+
+        html += `
+            <tr>
+                <td><input type="checkbox" class="chkFazerCliente" data-idx="${idx}" checked></td>
+                <td><strong>${item.produto || '-'}</strong></td>
+                <td>${item.nf || '-'}</td>
+                <td>${(item.kg || 0).toFixed(3)} kg</td>
+                <td>
+                    <select class="selectClasseReceitaCliente"
+                            data-idx="${idx}"
+                            data-cliente-key="${item.clienteKey}"
+                            onchange="receitaV9AtualizarReceitaPreview(this)"
+                            style="width:100%;padding:8px;border-radius:8px;background:#0f172a;color:#e5e7eb;border:1px solid rgba(148,163,184,.35);">
+                        ${receitaV9OptionsClasses(autoKey)}
+                    </select>
+                </td>
+                <td class="previewReceitaCliente" data-idx="${idx}" style="font-size:12px;">${preview}</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function selecionarTodosClientesReceita(marcar) {
+    document.querySelectorAll('.chkFazerCliente').forEach(chk => chk.checked = !!marcar);
+}
+
+function receitaV9Selecionados() {
+    const selecionados = [];
+
+    document.querySelectorAll('.chkFazerCliente').forEach(chk => {
+        if (!chk.checked) return;
+
+        const idx = parseInt(chk.dataset.idx, 10);
+        const item = clientesReceitaPendentesV9[idx];
+        if (!item) return;
+
+        const select = document.querySelector(`.selectClasseReceitaCliente[data-idx="${idx}"]`);
+        const classeKey = select ? select.value : '';
+        const receita = classeKey ? receitaV9ReceitaProdutoClasse(item, classeKey) : null;
+
+        selecionados.push({ ...item, classeKey, receita });
+    });
+
+    return selecionados;
+}
+
+function receitaV9MateriaCorrespondente(ing) {
+    const nomeIng = receitaV9Norm(ing?.Nome);
+    const catIng = receitaV9Norm(ing?.Categoria);
+
+    return (materiasPrimas || []).find(m =>
+        receitaV9Norm(m.Nome) === nomeIng &&
+        receitaV9Norm(m.Categoria) === catIng
+    ) || null;
+}
+
+function receitaV9CalcularIngredientes(receita, pesoTotal) {
+    const linhas = [];
+    const faltantes = [];
+    const requisitos = {};
+    let custoTotal = 0;
+
+    if (receita?.Ingredientes && receita.Ingredientes.length > 0) {
+        receita.Ingredientes.forEach(ing => {
+            const quantidadePadrao = Number(ing.Quantidade || 0);
+            const pesoPadrao = Number(receita.PesoPadrao || 0);
+            const proporcao = pesoPadrao > 0 ? quantidadePadrao / pesoPadrao : 0;
+            const qtdNecessaria = pesoTotal * proporcao;
+            const custoPorKg = Number(ing.CustoPorKg || 0);
+            const custoIng = qtdNecessaria * custoPorKg;
+            const percentual = proporcao * 100;
+
+            const chave = `${ing.Nome}__${ing.Categoria}`;
+            if (!requisitos[chave]) requisitos[chave] = { qtd: 0, ing };
+            requisitos[chave].qtd += qtdNecessaria;
+
+            linhas.push({
+                nome: ing.Nome || '',
+                categoria: ing.Categoria || '',
+                qtd: qtdNecessaria,
+                custoPorKg,
+                custoIng,
+                percentual
+            });
+
+            custoTotal += custoIng;
+
+            const materia = receitaV9MateriaCorrespondente(ing);
+            if (materia) {
+                const pesoTotalMateria = Number(materia.PesoUnitario || 0) * Number(materia.Quantidade || 0);
+                if (pesoTotalMateria < qtdNecessaria) {
+                    faltantes.push({ nome: ing.Nome, falta: qtdNecessaria - pesoTotalMateria, materia });
+                }
+            } else {
+                faltantes.push({ nome: ing.Nome, falta: qtdNecessaria, materia: null });
+            }
+        });
+    }
+
+    return { linhas, faltantes, requisitos, custoTotal };
+}
+
+function receitaV9MontarBlocoReceita(receita, pesoTotal, opcoes = {}) {
+    const titulo = opcoes.titulo || 'CÁLCULO DE RECEITA';
+    const itensOrigem = Array.isArray(opcoes.itens) ? opcoes.itens : [];
+    const calc = receitaV9CalcularIngredientes(receita, pesoTotal);
+    let resultado = '';
+
+    resultado += `${titulo}\n`;
+    resultado += '='.repeat(70) + '\n';
+    resultado += `Receita: ${receita.Nome}\n`;
+    resultado += `Classe: ${receita.Tipo || receita.Classe || receita.classe || 'N/A'}\n`;
+    resultado += `Peso total usado na receita: ${pesoTotal.toFixed(3)} kg\n\n`;
+
+    if (itensOrigem.length) {
+        resultado += 'PRODUTOS/CLIENTES INCLUÍDOS\n';
+        resultado += '─'.repeat(70) + '\n';
+        resultado += `${'Cliente'.padEnd(26)} ${'Produto'.padEnd(18)} ${'NF'.padEnd(8)} ${'Kg'.padStart(10)}\n`;
+        resultado += '─'.repeat(70) + '\n';
+        itensOrigem.forEach(item => {
+            resultado += `${receitaV9Pad(item.clienteNome || '-', 26)} ${receitaV9Pad(item.produto || '-', 18)} ${receitaV9Pad(String(item.nf || '-'), 8)} ${receitaV9PadLeft((Number(item.kg || 0)).toFixed(3), 8)} kg\n`;
+        });
+        resultado += '\n';
+    }
+
+    resultado += 'INGREDIENTES NECESSÁRIOS\n';
+    resultado += '─'.repeat(70) + '\n';
+    resultado += 'Nome                          Qtd(kg)    Val/kg      Total        %\n';
+    resultado += '─'.repeat(70) + '\n';
+
+    calc.linhas.forEach(linha => {
+        const nomeCompleto = `${linha.nome} (${linha.categoria})`;
+        resultado += `${receitaV9Pad(nomeCompleto, 28)} ${receitaV9PadLeft(linha.qtd.toFixed(3), 8)} kg  R$ ${receitaV9PadLeft(linha.custoPorKg.toFixed(2), 6)}  R$ ${receitaV9PadLeft(linha.custoIng.toFixed(2), 8)}    ${receitaV9PadLeft(linha.percentual.toFixed(1), 5)}%\n`;
+    });
+
+    resultado += '─'.repeat(70) + '\n';
+    resultado += `Custo total de produção: R$ ${calc.custoTotal.toFixed(2)}\n`;
+    resultado += `Custo por kg: R$ ${(pesoTotal > 0 ? calc.custoTotal / pesoTotal : 0).toFixed(2)}\n`;
+
+    return { texto: resultado, ...calc };
+}
+
+function receitaV9SomarRequisitos(destino, requisitos) {
+    Object.entries(requisitos || {}).forEach(([chave, data]) => {
+        if (!destino[chave]) destino[chave] = { qtd: 0, ing: data.ing };
+        destino[chave].qtd += data.qtd;
+    });
+}
+
+function receitaV9ResumoMateriaisAgrupados(requisitos) {
+    let resultado = '';
+    resultado += '\n\nRESUMO GERAL DE MATÉRIA-PRIMA\n';
+    resultado += '='.repeat(70) + '\n';
+    resultado += 'Material                          Qtd(kg)      Unidades\n';
+    resultado += '─'.repeat(70) + '\n';
+
+    Object.entries(requisitos).forEach(([chave, data]) => {
+        const [nomeMat, categMat] = chave.split('__');
+        const qtdTotal = data.qtd;
+        const materia = materiasPrimas.find(m =>
+            receitaV9Norm(m.Nome) === receitaV9Norm(nomeMat) &&
+            receitaV9Norm(m.Categoria) === receitaV9Norm(categMat)
+        );
+
+        let unidadesTexto = 'N/A';
+        if (materia && Number(materia.PesoUnitario || 0) > 0) {
+            const unidades = Math.ceil(qtdTotal / Number(materia.PesoUnitario || 0));
+            unidadesTexto = `${unidades}x${Number(materia.PesoUnitario || 0).toFixed(0)}kg`;
+        }
+
+        resultado += `${receitaV9Pad(nomeMat, 30)} ${receitaV9PadLeft(qtdTotal.toFixed(3), 8)} kg  ${unidadesTexto}\n`;
+    });
+
+    resultado += '─'.repeat(70) + '\n';
+    return resultado;
+}
+
+function receitaV9AtivarAbaCalculadora() {
+    try {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        const calc = document.getElementById('calculadora');
+        if (calc) calc.classList.add('active');
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', String(btn.textContent || '').includes('Calculadora'));
+        });
+    } catch (e) {}
+}
+
+function gerarReceitaDosClientes() {
+    const selecionados = receitaV9Selecionados();
+
+    if (!selecionados.length) {
+        alert('Selecione pelo menos um produto de cliente.');
+        return;
+    }
+
+    const semClasse = selecionados.filter(item => !item.classeKey);
+    if (semClasse.length) {
+        alert(`Existem ${semClasse.length} produto(s) sem classe selecionada. Escolha a classe ou aplique pela linha do cliente.`);
+        return;
+    }
+
+    const semReceita = selecionados.filter(item => !item.receita);
+    if (semReceita.length) {
+        const lista = semReceita.slice(0, 10).map(i => `• ${i.produto} | classe escolhida`).join('\n');
+        alert(`Existem ${semReceita.length} produto(s) sem receita para produto + classe.\n\n${lista}\n\nCadastre a receita correta ou escolha outra classe.`);
+        return;
+    }
+
+    const grupos = {};
+    selecionados.forEach(item => {
+        const receita = item.receita;
+        const receitaId = receita.Id ?? receita.id ?? `${receita.Nome}_${item.classeKey}`;
+        const chave = `${item.classeKey}__${receitaV9NormForte(receita.Nome)}__${receitaId}`;
+
+        if (!grupos[chave]) {
+            grupos[chave] = {
+                receita,
+                classeKey: item.classeKey,
+                classeLabel: receitaV9ClasseLabel(receita) || item.classeKey,
+                produtoNorm: receitaV9NormForte(receita.Nome),
+                kgTotal: 0,
+                itens: []
+            };
+        }
+
+        grupos[chave].kgTotal += Number(item.kg || 0);
+        grupos[chave].itens.push(item);
+    });
+
+    const gruposLista = Object.values(grupos);
+    loteCalculos = gruposLista.map((grupo, idx) => ({
+        id: Date.now() + idx,
+        receita: grupo.receita,
+        pesoBalde: grupo.kgTotal,
+        qtdBaldes: 1,
+        origemClientes: grupo
+    }));
+
+    receitaClientesSelecionadosV9 = selecionados;
+    window.receitaClientesSelecionadosV9 = selecionados;
+
+    renderizarLote();
+
+    const msgLote = document.getElementById('msgLote');
+    if (msgLote) {
+        msgLote.textContent = `✓ ${loteCalculos.length} receita(s) gerada(s) por produto + classe.`;
+    }
+
+    let resultado = '';
+    let custoTotalGeral = 0;
+    let kgTotalGeral = 0;
+    const requisitosGerais = {};
+    const faltantesGerais = {};
+
+    resultado += 'FAZER CLIENTES - RECEITA POR PRODUTO + CLASSE\n';
+    resultado += '='.repeat(70) + '\n';
+    resultado += `Data/Hora: ${new Date().toLocaleString('pt-BR')}\n`;
+    resultado += `Produtos selecionados: ${selecionados.length}\n`;
+    resultado += `Receitas geradas: ${gruposLista.length}\n`;
+    resultado += 'Regra: produto mantém o nome; classe define a versão da receita.\n';
+
+    gruposLista.forEach((grupo, idx) => {
+        const bloco = receitaV9MontarBlocoReceita(grupo.receita, grupo.kgTotal, {
+            titulo: `\n${idx + 1}. CÁLCULO DE RECEITA`,
+            itens: grupo.itens
+        });
+
+        resultado += '\n' + bloco.texto;
+        custoTotalGeral += bloco.custoTotal;
+        kgTotalGeral += grupo.kgTotal;
+        receitaV9SomarRequisitos(requisitosGerais, bloco.requisitos);
+        receitaV10SomarFaltantes(faltantesGerais, bloco.faltantes);
+    });
+
+    resultado += receitaV9ResumoMateriaisAgrupados(requisitosGerais);
+    resultado += receitaV10ResumoFaltantesAgrupados(faltantesGerais);
+    resultado += `PESO TOTAL GERAL: ${kgTotalGeral.toFixed(3)} kg\n`;
+    resultado += `CUSTO TOTAL GERAL: R$ ${custoTotalGeral.toFixed(2)}\n`;
+    resultado += `CUSTO MÉDIO POR KG: R$ ${(kgTotalGeral > 0 ? custoTotalGeral / kgTotalGeral : 0).toFixed(2)}\n`;
+    resultado += '\nDepois de conferir, use "Descontar Matéria-Prima".\n';
+
+    const box = document.getElementById('resultados');
+    if (box) box.textContent = resultado;
+
+    historico.unshift({
+        id: Date.now(),
+        data: new Date().toLocaleString('pt-BR'),
+        receita: 'Fazer Clientes',
+        peso: kgTotalGeral,
+        quantidade: loteCalculos.length,
+        custoTotal: custoTotalGeral,
+        detalhes: resultado
+    });
+
+    if (historico.length > 100) historico.pop();
+    salvarHistorico();
+    renderizarHistorico();
+
+    fecharModal('modalFazerClientes');
+    receitaV9AtivarAbaCalculadora();
+    mostrarAlerta('Receita dos clientes gerada por produto + classe!', 'success');
+}
+
+// Lote detalhado preservado, mas sem bagunçar Fazer Clientes.
+function calcularLote() {
+    if (loteCalculos.length === 0) {
+        alert('Adicione receitas ao lote antes de calcular');
+        return;
+    }
+
+    let resultado = '';
+    let custoTotalGeral = 0;
+    let pesoTotalGeral = 0;
+    const requisitosGerais = {};
+    const faltantesGerais = {};
+
+    resultado += 'CÁLCULO DE LOTE - DETALHADO\n';
+    resultado += '='.repeat(70) + '\n';
+    resultado += `Data/Hora: ${new Date().toLocaleString('pt-BR')}\n`;
+    resultado += `Total de receitas/lotes: ${loteCalculos.length}\n`;
+
+    loteCalculos.forEach((item, idx) => {
+        const receita = item.receita;
+        const pesoBalde = Number(item.pesoBalde || 0);
+        const qtdBaldes = Number(item.qtdBaldes || 0);
+        const pesoTotal = pesoBalde * qtdBaldes;
+        const itensOrigem = item.origemClientes && Array.isArray(item.origemClientes.itens)
+            ? item.origemClientes.itens
+            : [];
+
+        const bloco = receitaV9MontarBlocoReceita(receita, pesoTotal, {
+            titulo: `\n${idx + 1}. CÁLCULO DE RECEITA`,
+            itens: itensOrigem
+        });
+
+        resultado += '\n' + bloco.texto;
+        custoTotalGeral += bloco.custoTotal;
+        pesoTotalGeral += pesoTotal;
+        receitaV9SomarRequisitos(requisitosGerais, bloco.requisitos);
+        receitaV10SomarFaltantes(faltantesGerais, bloco.faltantes);
+    });
+
+    resultado += receitaV9ResumoMateriaisAgrupados(requisitosGerais);
+    resultado += receitaV10ResumoFaltantesAgrupados(faltantesGerais);
+    resultado += `PESO TOTAL DO LOTE: ${pesoTotalGeral.toFixed(3)} kg\n`;
+    resultado += `CUSTO TOTAL DO LOTE: R$ ${custoTotalGeral.toFixed(2)}\n`;
+    resultado += `CUSTO MÉDIO POR KG: R$ ${(pesoTotalGeral > 0 ? custoTotalGeral / pesoTotalGeral : 0).toFixed(2)}\n`;
+    resultado += '='.repeat(70) + '\n';
+
+    document.getElementById('resultados').textContent = resultado;
+
+    historico.unshift({
+        id: Date.now(),
+        data: new Date().toLocaleString('pt-BR'),
+        receita: 'Lote detalhado',
+        peso: pesoTotalGeral,
+        quantidade: loteCalculos.length,
+        custoTotal: custoTotalGeral,
+        detalhes: resultado
+    });
+
+    if (historico.length > 100) historico.pop();
+    salvarHistorico();
+    renderizarHistorico();
+}
+
+function receitaV9VendaSelecionada(venda, sel) {
+    if (String(venda.Id || '') === String(sel.vendaId || '')) return true;
+    const nfVenda = receitaV9Norm(venda.NumeroNF || venda.NF || venda.numeroNF || venda.NotaFiscal || '');
+    const nfSel = receitaV9Norm(sel.nf || '');
+    return !!nfSel && nfVenda === nfSel;
+}
+
+function receitaV9TodosProdutosProntos(venda) {
+    const produtos = receitaV9ListaProdutosVenda(venda);
+    if (!produtos.length) return receitaV9ProdutoProntoSim(venda.ProdutoPronto ?? venda.produtoPronto);
+    return produtos.every(p => receitaV9ProdutoProntoSim(p.ProdutoPronto ?? p.produtoPronto ?? p.Pronto ?? p.pronto));
+}
+
+async function receitaV9MarcarProdutosProntos() {
+    const selecionados = window.receitaClientesSelecionadosV9 || receitaClientesSelecionadosV9 || [];
+    if (!selecionados.length) return false;
+
+    const confirmar = await modalConfirm(
+        `Matéria-prima descontada.\n\nDeseja marcar ${selecionados.length} produto(s) selecionado(s) como Produto Pronto = Sim?`,
+        { title: 'Marcar produtos prontos', okText: 'Marcar como pronto', cancelText: 'Não marcar' }
+    );
+
+    if (!confirmar) return false;
+
+    const clientes = await buscarArquivo('clientes.json');
+    const lista = Array.isArray(clientes) ? clientes : [];
+    let alterou = false;
+
+    selecionados.forEach(sel => {
+        const cliente = lista.find(c =>
+            String(c.Id || '') === String(sel.clienteId || '') ||
+            receitaV9Norm(c.Nome || '') === receitaV9Norm(sel.clienteNome || '') ||
+            String(c.CPF || '') === String(sel.clienteCpf || '')
+        );
+
+        if (!cliente) return;
+
+        const vendas = Array.isArray(cliente.Vendas) ? cliente.Vendas : [];
+        const venda = vendas.find(v => receitaV9VendaSelecionada(v, sel));
+
+        if (!venda) {
+            cliente.ProdutoPronto = true;
+            cliente.DataProdutoPronto = new Date().toISOString();
+            alterou = true;
+            return;
+        }
+
+        if (Array.isArray(venda.Produtos) && venda.Produtos[sel.itemIndex]) {
+            venda.Produtos[sel.itemIndex].ProdutoPronto = true;
+            venda.Produtos[sel.itemIndex].DataProdutoPronto = new Date().toISOString();
+        } else {
+            venda.ProdutoPronto = true;
+            venda.DataProdutoPronto = new Date().toISOString();
+        }
+
+        if (receitaV9TodosProdutosProntos(venda)) {
+            venda.ProdutoPronto = true;
+            venda.DataProdutoPronto = new Date().toISOString();
+        }
+
+        const todasVendasProntas = vendas.length
+            ? vendas.every(v => receitaV9ProdutoProntoSim(v.ProdutoPronto ?? v.produtoPronto))
+            : true;
+
+        if (todasVendasProntas) {
+            cliente.ProdutoPronto = true;
+            cliente.DataProdutoPronto = new Date().toISOString();
+        }
+
+        alterou = true;
+    });
+
+    if (!alterou) return false;
+
+    await salvarDadosComAuditoria(
+        'clientes.json',
+        lista,
+        'auditoria',
+        'Atualizar',
+        'Cliente',
+        'FAZER_CLIENTES',
+        'Produtos Prontos',
+        `Produtos marcados como prontos após desconto de matéria-prima em ${selecionados.length} item(ns).`,
+        '',
+        JSON.stringify(selecionados)
+    );
+
+    localStorage.removeItem('arquivo_clientes.json_cache');
+    mostrarAlerta('Produtos selecionados marcados como prontos!', 'success');
+
+    receitaClientesSelecionadosV9 = [];
+    window.receitaClientesSelecionadosV9 = [];
+    return true;
+}
+
+if (typeof descontarMateriaPrima === 'function' && !descontarMateriaPrima.__fazerClientesV9) {
+    const descontarMateriaPrimaOriginalV9 = descontarMateriaPrima;
+
+    descontarMateriaPrima = async function() {
+        const antes = JSON.stringify(materiasPrimas || []);
+        await descontarMateriaPrimaOriginalV9.apply(this, arguments);
+        const depois = JSON.stringify(materiasPrimas || []);
+
+        if (antes !== depois && (window.receitaClientesSelecionadosV9 || []).length) {
+            await receitaV9MarcarProdutosProntos();
+        }
+    };
+
+    descontarMateriaPrima.__fazerClientesV9 = true;
+    window.descontarMateriaPrima = descontarMateriaPrima;
+}
+
+// ============================================
+// RECEITA V10 FALTANTES SOMENTE NO FINAL
+// ============================================
+// A falta de matéria-prima não aparece mais repetida em cada produto/classe.
+// Agora cada cálculo soma tudo e mostra uma lista única no final.
+function receitaV10SomarFaltantes(destino, faltantes) {
+    if (!destino || !Array.isArray(faltantes)) return;
+
+    faltantes.forEach(f => {
+        const nome = String(f?.nome || '').trim();
+        if (!nome) return;
+
+        const chave = receitaV9Norm(nome);
+        const falta = Number(f?.falta || 0);
+
+        if (!Number.isFinite(falta) || falta <= 0) return;
+
+        if (!destino[chave]) {
+            destino[chave] = {
+                nome,
+                falta: 0
+            };
+        }
+
+        destino[chave].falta += falta;
+    });
+}
+
+function receitaV10ResumoFaltantesAgrupados(faltantesGerais) {
+    const itens = Object.values(faltantesGerais || {})
+        .filter(item => Number(item.falta || 0) > 0.0001)
+        .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+
+    if (!itens.length) return '';
+
+    let resultado = '';
+    resultado += '\n\n⚠️  ATENÇÃO - FALTA DE MATÉRIA-PRIMA (GERAL)\n';
+    resultado += '='.repeat(70) + '\n';
+    resultado += 'Lista única somando a falta de todas as receitas/classes do lote.\n';
+    resultado += '─'.repeat(70) + '\n';
+
+    itens.forEach(item => {
+        resultado += `• ${item.nome}: Faltam ${receitaV9Kg(item.falta)}\n`;
+    });
+
+    resultado += '─'.repeat(70) + '\n';
+    return resultado;
+}
