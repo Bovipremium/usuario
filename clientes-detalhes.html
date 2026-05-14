@@ -1,6 +1,57 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+
+<script>
+/* ============================================================
+   CLIENTES DETALHES JSON REAL AO ABRIR V1
+
+   Correção correta:
+   - Ao ENTRAR no clientes-detalhes.html, o clientes.json real do Drive
+     deve ser a fonte da verdade.
+   - Não pode aparecer venda/cliente antigo vindo de cache.
+   - Não limpa tudo toda hora.
+   - Não recarrega a página sozinho.
+   - Não apaga clienteSelecionado/clienteAtual.
+   - Não mexe em produtos, cálculos, JSON ou Apps Script.
+
+   O que faz:
+   - Antes do restante do sistema carregar, remove APENAS cache local
+     do arquivo clientes.json.
+   - Assim o auth.js/buscarArquivo é obrigado a buscar o clientes.json real.
+   ============================================================ */
+(function(){
+  try {
+    var path = String(location.pathname || '').toLowerCase();
+    if (!path.includes('clientes-detalhes')) return;
+
+    function ehCacheClientesJson(k) {
+      var key = String(k || '').toLowerCase();
+      return (
+        key.includes('clientes.json') ||
+        key.includes('arquivo_clientes') ||
+        key.includes('clientesjson') ||
+        key.includes('cache_clientes') ||
+        key.includes('clientes_cache')
+      );
+    }
+
+    Object.keys(localStorage).forEach(function(k){
+      if (ehCacheClientesJson(k)) localStorage.removeItem(k);
+    });
+
+    Object.keys(sessionStorage).forEach(function(k){
+      if (ehCacheClientesJson(k)) sessionStorage.removeItem(k);
+    });
+
+    window.__clientesDetalhesJsonRealAoAbrirV1 = true;
+    console.log('[Cliente Detalhes] Cache apenas do clientes.json removido na abertura. Fonte: Drive.');
+  } catch(e) {
+    console.warn('[Cliente Detalhes] Falha ao limpar cache específico de clientes.json:', e);
+  }
+})();
+</script>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <link rel="icon" type="image/png" href="assets/img/logo.png">
