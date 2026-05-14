@@ -368,6 +368,7 @@ function montarObjCliente() {
     NumeroVendas: 0,
     ProdutoPronto: false,
     Satisfacao: parseInt(formData.get('satisfacao')) || 0,
+    QuantidadeGado: parseInt(formData.get('quantidadeGado')) || 0,
     NumeroEndereco: formData.get('numeroEndereco').trim(),
     ComplementoEndereco: formData.get('complementoEndereco').trim() || '',
     Tipo: parseInt(formData.get('tipo')) || 0
