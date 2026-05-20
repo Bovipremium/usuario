@@ -2497,3 +2497,653 @@ console.log('✅ revisao-contatos.js CARREGADO');
 
 })();
 
+/* ============================================================
+   REVISAO CONTATOS V5 - SELECAO MULTIPLA E LIGACAO SEM WHATSAPP
+
+   Correção cirúrgica:
+   - adiciona checkbox por contato nas abas Cola, Ligações, WhatsApp e JSON;
+   - adiciona botão "Apagar selecionados" no topo de cada aba;
+   - selecionados são removidos do revisao_contatos.json e enviados para blacklist;
+   - "Gerar JSON de Ligações" mostra somente contatos que NÃO são WhatsApp;
+   - "Gerar para Ligar" usa somente a lista visível da aba Ligações;
+   - número marcado como WhatsApp nunca aparece em Ligações nem no gerar para ligar;
+   - não muda estrutura dos JSONs;
+   - não cria JSON local.
+   ============================================================ */
+(function(){
+  if (window.__revisaoContatosV5BulkDeleteLigacao) return;
+  window.__revisaoContatosV5BulkDeleteLigacao = true;
+
+  const CHAVE_ULTIMO_LOTE_V5 = 'revisaoContatosUltimoLoteId';
+
+  function v5Num(numero) {
+    return String(numero || '').replace(/\D/g, '');
+  }
+
+  function v5MesmoNumero(a, b) {
+    return v5Num(a) === v5Num(b);
+  }
+
+  function v5EscapeHtml(valor) {
+    return String(valor ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function v5EscapeJs(valor) {
+    return String(valor ?? '')
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/\n/g, ' ')
+      .replace(/\r/g, ' ');
+  }
+
+  function v5ListaBase(contatos) {
+    return (Array.isArray(contatos) ? contatos : [])
+      .filter(c => c && c.numero && !estaNaBlacklist(c.numero));
+  }
+
+  function v5Unicos(contatos) {
+    const mapa = new Map();
+    v5ListaBase(contatos).forEach(c => {
+      mapa.set(v5Num(c.numero), c);
+    });
+    return Array.from(mapa.values());
+  }
+
+  function v5FoiEnviadoWhatsapp(contato) {
+    return contato && (
+      contato.enviadoWhatsapp === true ||
+      contato.enviadoWhatsapp === 'true' ||
+      contato.EnviadoWhatsapp === true ||
+      contato.EnviadoWhatsapp === 'true' ||
+      contato.statusWhatsapp === 'enviado' ||
+      contato.StatusWhatsapp === 'Enviado'
+    );
+  }
+
+  function v5SetNumerosWhatsapp() {
+    const set = new Set();
+
+    [...(Array.isArray(contatosGlobais) ? contatosGlobais : []), ...(Array.isArray(numerosTemporarios) ? numerosTemporarios : [])]
+      .filter(c => c && c.numero && !estaNaBlacklist(c.numero))
+      .forEach(c => {
+        if (c.tipo === 'whatsapp') {
+          set.add(v5Num(c.numero));
+        }
+      });
+
+    return set;
+  }
+
+  function v5ContatoEstaMarcadoWhatsapp(contato) {
+    if (!contato || !contato.numero) return false;
+    if (contato.tipo === 'whatsapp') return true;
+    return v5SetNumerosWhatsapp().has(v5Num(contato.numero));
+  }
+
+  function v5ContatosWhatsappTodos() {
+    return v5Unicos([...(contatosGlobais || []), ...(numerosTemporarios || [])])
+      .filter(c => c.tipo === 'whatsapp');
+  }
+
+  function v5ContatosWhatsappNaoEnviados() {
+    return v5ContatosWhatsappTodos().filter(c => !v5FoiEnviadoWhatsapp(c));
+  }
+
+  function v5ContatosWhatsappEnviados() {
+    return v5ContatosWhatsappTodos().filter(c => v5FoiEnviadoWhatsapp(c));
+  }
+
+  function v5ContatosLigacaoTodos() {
+    const whats = v5SetNumerosWhatsapp();
+
+    return v5Unicos([...(contatosGlobais || []), ...(numerosTemporarios || [])])
+      .filter(c => !whats.has(v5Num(c.numero)))
+      .filter(c => c.tipo !== 'whatsapp');
+  }
+
+  function v5ContatosUltimoLoteLigacao() {
+    const lote = localStorage.getItem(CHAVE_ULTIMO_LOTE_V5) || '';
+    if (!lote) return [];
+
+    return v5ContatosLigacaoTodos().filter(c => c.loteId === lote);
+  }
+
+  function v5FormatarNumeroParaCopia(numero) {
+    let num = v5Num(numero);
+
+    if (num.startsWith('55') && num.length >= 12) {
+      num = num.slice(2);
+    }
+
+    if (!num) return '';
+
+    if (!num.startsWith('0')) {
+      num = '0' + num;
+    }
+
+    return num;
+  }
+
+  function v5PreencherCampoCopia(aba, contatos) {
+    const ids = {
+      cola: 'campoCopiaNumerosLimpos',
+      ligacao: 'campoCopiaNumerosLigacao',
+      whatsapp: 'campoCopiaNumerosWhatsapp',
+      json: 'campoCopiaNumerosJson'
+    };
+
+    const campo = document.getElementById(ids[aba]);
+    if (!campo) return;
+
+    campo.value = v5Unicos(contatos)
+      .map(c => v5FormatarNumeroParaCopia(c.numero))
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  function v5ExibirMensagem(aba, texto, tipo) {
+    try {
+      exibirMensagem(aba, texto, tipo);
+    } catch (e) {
+      if (texto) alert(texto);
+    }
+  }
+
+  function v5PrepararHeader(aba) {
+    const configs = {
+      cola: {
+        tbodyId: 'tabelaNumerosProcessados',
+        html: `
+          <tr>
+            <th style="width:42px;text-align:center;">
+              <input type="checkbox" onchange="selecionarTodosRevisaoV5('cola', this.checked)" title="Selecionar todos">
+            </th>
+            <th>#</th>
+            <th>Número</th>
+            <th>Nome</th>
+            <th>Observação</th>
+            <th>Ações</th>
+          </tr>`
+      },
+      ligacao: {
+        tbodyId: 'tabelaLigacoes',
+        html: `
+          <tr>
+            <th style="width:42px;text-align:center;">
+              <input type="checkbox" onchange="selecionarTodosRevisaoV5('ligacao', this.checked)" title="Selecionar todos">
+            </th>
+            <th>#</th>
+            <th>Número</th>
+            <th>Nome</th>
+            <th>Observação</th>
+            <th style="text-align:center;min-width:110px;">
+              <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
+                <span>WhatsApp?</span>
+                <label title="Marcar todos para WhatsApp" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;color:#7cf0c2;font-size:11px;text-transform:none;letter-spacing:0;">
+                  <input id="checkTodosWhatsapp" type="checkbox" onchange="marcarTodosWhatsapp(this.checked)" style="width:16px;height:16px;cursor:pointer;">
+                  Tudo
+                </label>
+              </div>
+            </th>
+            <th>Ações</th>
+          </tr>`
+      },
+      whatsapp: {
+        tbodyId: 'tabelaWhatsapp',
+        html: `
+          <tr>
+            <th style="width:42px;text-align:center;">
+              <input type="checkbox" onchange="selecionarTodosRevisaoV5('whatsapp', this.checked)" title="Selecionar todos">
+            </th>
+            <th>#</th>
+            <th>Número</th>
+            <th>Nome</th>
+            <th>Observação</th>
+            <th>Ações</th>
+          </tr>`
+      },
+      json: {
+        tbodyId: 'tabelaJSON',
+        html: `
+          <tr>
+            <th style="width:42px;text-align:center;">
+              <input type="checkbox" onchange="selecionarTodosRevisaoV5('json', this.checked)" title="Selecionar todos">
+            </th>
+            <th>#</th>
+            <th>Número</th>
+            <th>Nome</th>
+            <th>Observação</th>
+            <th>Tipo</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>`
+      }
+    };
+
+    const cfg = configs[aba];
+    if (!cfg) return;
+
+    const tbody = document.getElementById(cfg.tbodyId);
+    if (!tbody) return;
+
+    const table = tbody.closest('table');
+    const thead = table ? table.querySelector('thead') : null;
+    if (thead && !thead.dataset.v5SelecaoMultipla) {
+      thead.innerHTML = cfg.html;
+      thead.dataset.v5SelecaoMultipla = '1';
+    }
+  }
+
+  function v5Checkbox(aba, numero) {
+    return `<input type="checkbox" class="chkContatoBulk" data-aba="${aba}" data-numero="${v5EscapeHtml(numero)}" style="width:18px;height:18px;cursor:pointer;">`;
+  }
+
+  function v5InserirBotaoBulk(aba) {
+    const container = document.getElementById(`aba-${aba}`);
+    if (!container) return;
+    if (container.querySelector(`#btnBulkDelete_${aba}`)) return;
+
+    let grupo = container.querySelector('.button-group');
+    if (!grupo) {
+      grupo = document.createElement('div');
+      grupo.className = 'button-group';
+      grupo.style.marginBottom = '20px';
+      container.insertBefore(grupo, container.firstChild);
+    }
+
+    const botao = document.createElement('button');
+    botao.id = `btnBulkDelete_${aba}`;
+    botao.className = 'btn btn-delete';
+    botao.type = 'button';
+    botao.textContent = '🗑️ Apagar selecionados';
+    botao.onclick = () => apagarSelecionadosRevisaoV5(aba);
+
+    grupo.insertBefore(botao, grupo.firstChild);
+  }
+
+  function v5InstalarUiBulk() {
+    ['cola', 'ligacao', 'whatsapp', 'json'].forEach(aba => {
+      v5PrepararHeader(aba);
+      v5InserirBotaoBulk(aba);
+    });
+  }
+
+  window.selecionarTodosRevisaoV5 = function(aba, marcado) {
+    document.querySelectorAll(`.chkContatoBulk[data-aba="${aba}"]`).forEach(chk => {
+      chk.checked = !!marcado;
+    });
+  };
+
+  window.apagarSelecionadosRevisaoV5 = async function(aba) {
+    const checks = Array.from(document.querySelectorAll(`.chkContatoBulk[data-aba="${aba}"]:checked`));
+    const numeros = Array.from(new Set(checks.map(chk => chk.dataset.numero).filter(Boolean)));
+
+    if (numeros.length === 0) {
+      v5ExibirMensagem(aba, '⚠️ Marque pelo menos um número para apagar', 'info');
+      return;
+    }
+
+    const texto = numeros.length === 1
+      ? `Apagar 1 contato selecionado e enviar para a blacklist?`
+      : `Apagar ${numeros.length} contatos selecionados e enviar todos para a blacklist?`;
+
+    if (typeof modalConfirm === 'function') {
+      const ok = await modalConfirm(texto, { title: 'Apagar selecionados', okText: 'Apagar', cancelText: 'Cancelar' });
+      if (!ok) return;
+    } else if (!confirm(texto)) {
+      return;
+    }
+
+    try {
+      mostrarLoadingTela();
+
+      await carregarDoGoogleDrive();
+      await carregarBlacklist();
+
+      const selecionados = new Set(numeros.map(v5Num));
+
+      const antesGlobais = contatosGlobais.length;
+      const antesTemporarios = numerosTemporarios.length;
+
+      contatosGlobais = contatosGlobais.filter(c => !selecionados.has(v5Num(c.numero)));
+      numerosTemporarios = numerosTemporarios.filter(c => !selecionados.has(v5Num(c.numero)));
+
+      numeros.forEach(numero => {
+        if (!estaNaBlacklist(numero)) {
+          adicionarNumeroNaBlacklist(numero);
+        }
+      });
+
+      const sucessoJSON = await salvarNoGoogleDrive(contatosGlobais);
+      const sucessoBlacklist = await salvarBlacklist();
+
+      esconderLoadingTela();
+
+      if (!sucessoJSON || !sucessoBlacklist) {
+        v5ExibirMensagem(aba, '❌ Erro ao apagar selecionados', 'error');
+        return;
+      }
+
+      atualizarTodasAsAbas();
+
+      v5ExibirMensagem(
+        aba,
+        `✅ ${numeros.length} número(s) apagado(s) e enviado(s) para a blacklist!`,
+        'success'
+      );
+
+      if (typeof registrarAuditoria === 'function') {
+        registrarAuditoria(
+          'Deletar',
+          'Contatos',
+          numeros.length.toString(),
+          'Apagar selecionados',
+          `${numeros.length} contatos apagados em lote e enviados para blacklist. Globais: ${antesGlobais}→${contatosGlobais.length}; Temporários: ${antesTemporarios}→${numerosTemporarios.length}`,
+          '',
+          JSON.stringify(numeros)
+        );
+      }
+
+    } catch (erro) {
+      console.error('❌ Erro ao apagar selecionados:', erro);
+      esconderLoadingTela();
+      v5ExibirMensagem(aba, '❌ Erro: ' + erro.message, 'error');
+    }
+  };
+
+  window.contatosParaAba = function(tipoAba) {
+    if (tipoAba === 'whatsapp') {
+      return v5ContatosWhatsappNaoEnviados();
+    }
+
+    if (tipoAba === 'ligacao') {
+      if (numerosTemporarios.length > 0) {
+        const whats = v5SetNumerosWhatsapp();
+        return v5Unicos(numerosTemporarios)
+          .filter(c => c.tipo !== 'whatsapp')
+          .filter(c => !whats.has(v5Num(c.numero)));
+      }
+
+      return v5ContatosUltimoLoteLigacao();
+    }
+
+    return v5Unicos([...(contatosGlobais || []), ...(numerosTemporarios || [])]);
+  };
+
+  window.renderizarTabelaNumerosProcessados = function() {
+    v5PrepararHeader('cola');
+
+    const tbody = document.getElementById('tabelaNumerosProcessados');
+    if (!tbody) return;
+
+    const lista = (numerosTemporarios || [])
+      .map((item, originalIdx) => ({ item, originalIdx }))
+      .filter(x => x.item && x.item.numero && !estaNaBlacklist(x.item.numero));
+
+    v5PreencherCampoCopia('cola', lista.map(x => x.item));
+
+    if (lista.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#8fb9ac;">Nenhum número</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = lista.map((x, idx) => {
+      const item = x.item;
+      const originalIdx = x.originalIdx;
+      return `
+        <tr>
+          <td style="text-align:center;">${v5Checkbox('cola', item.numero)}</td>
+          <td class="numeracao">${idx + 1}</td>
+          <td class="numero-celula"><strong>${v5EscapeHtml(item.numero)}</strong></td>
+          <td><input type="text" value="${v5EscapeHtml(item.nome || '')}" placeholder="Nome" onchange="numerosTemporarios[${originalIdx}].nome = this.value;" style="width:100%;padding:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#e5f3ee;font-size:12px;"></td>
+          <td><input type="text" value="${v5EscapeHtml(item.obs || '')}" placeholder="Obs" onchange="numerosTemporarios[${originalIdx}].obs = this.value;" style="width:100%;padding:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#e5f3ee;font-size:12px;"></td>
+          <td class="acoes-celula">
+            <button class="btn-delete" onclick="apagarSelecionadosDiretoV5('cola','${v5EscapeJs(item.numero)}')">🗑️ Apagar</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  };
+
+  window.renderizarTabelaLigacoes = function(contatos) {
+    v5PrepararHeader('ligacao');
+
+    const tbody = document.getElementById('tabelaLigacoes');
+    if (!tbody) return;
+
+    const whats = v5SetNumerosWhatsapp();
+    contatos = v5Unicos(contatos)
+      .filter(c => c.tipo !== 'whatsapp')
+      .filter(c => !whats.has(v5Num(c.numero)));
+
+    v5PreencherCampoCopia('ligacao', contatos);
+
+    if (contatos.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#8fb9ac;">Vazio</td></tr>`;
+      atualizarCheckboxTudoWhatsapp();
+      return;
+    }
+
+    tbody.innerHTML = contatos.map((item, idx) => `
+      <tr>
+        <td style="text-align:center;">${v5Checkbox('ligacao', item.numero)}</td>
+        <td class="numeracao">${idx + 1}</td>
+        <td class="numero-celula"><strong>${v5EscapeHtml(item.numero)}</strong></td>
+        <td><input type="text" value="${v5EscapeHtml(item.nome || '')}" placeholder="Nome" onchange="atualizarContato('${v5EscapeJs(item.numero)}', 'nome', this.value)" style="width:100%;padding:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#e5f3ee;font-size:12px;"></td>
+        <td><input type="text" value="${v5EscapeHtml(item.obs || '')}" placeholder="Obs" onchange="atualizarContato('${v5EscapeJs(item.numero)}', 'obs', this.value)" style="width:100%;padding:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#e5f3ee;font-size:12px;"></td>
+        <td style="text-align:center;">
+          <input type="checkbox" onchange="marcarWhatsapp('${v5EscapeJs(item.numero)}', this.checked)" style="width:18px;height:18px;cursor:pointer;">
+        </td>
+        <td class="acoes-celula" style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn-whatsapp" onclick="fazerChamada('${v5EscapeJs(item.numero)}')">📞 Ligar</button>
+          <button class="btn-agendar" onclick="abrirAgendamento('${v5EscapeJs(item.numero)}', '${v5EscapeJs(item.nome || '')}', '${v5EscapeJs(item.obs || '')}')">📅 Agendar</button>
+          <button class="btn-delete" onclick="apagarDoJSON('${v5EscapeJs(item.numero)}')">🗑️ Deletar</button>
+        </td>
+      </tr>
+    `).join('');
+
+    atualizarCheckboxTudoWhatsapp();
+  };
+
+  window.renderizarTabelaWhatsapp = function(contatos) {
+    v5PrepararHeader('whatsapp');
+
+    const tbody = document.getElementById('tabelaWhatsapp');
+    if (!tbody) return;
+
+    contatos = v5Unicos(contatos).filter(c => c.tipo === 'whatsapp');
+    v5PreencherCampoCopia('whatsapp', contatos);
+
+    if (contatos.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#8fb9ac;">Vazio</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = contatos.map((item, idx) => {
+      const enviado = v5FoiEnviadoWhatsapp(item);
+      return `
+        <tr>
+          <td style="text-align:center;">${v5Checkbox('whatsapp', item.numero)}</td>
+          <td class="numeracao">${idx + 1}</td>
+          <td class="numero-celula"><strong>${v5EscapeHtml(item.numero)}</strong></td>
+          <td><input type="text" value="${v5EscapeHtml(item.nome || '')}" placeholder="Nome" onchange="atualizarContato('${v5EscapeJs(item.numero)}', 'nome', this.value)" style="width:100%;padding:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#e5f3ee;font-size:12px;"></td>
+          <td><input type="text" value="${v5EscapeHtml(item.obs || '')}" placeholder="Obs" onchange="atualizarContato('${v5EscapeJs(item.numero)}', 'obs', this.value)" style="width:100%;padding:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#e5f3ee;font-size:12px;"></td>
+          <td class="acoes-celula" style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn-whatsapp" onclick="abrirWhatsapp('${v5EscapeJs(item.numero)}')">💬 Enviar</button>
+            <a href="https://wa.me/55${v5Num(item.numero)}" target="_blank" style="padding:6px 12px;border-radius:8px;text-decoration:none;background:linear-gradient(145deg, rgba(34,177,76,.3), rgba(34,177,76,.15));color:#22b14c;border:1px solid rgba(34,177,76,.3);font-size:12px;display:inline-block;">🔗 Link</a>
+            <button class="btn-agendar" onclick="abrirAgendamento('${v5EscapeJs(item.numero)}', '${v5EscapeJs(item.nome || '')}', '${v5EscapeJs(item.obs || '')}')">📅 Agendar</button>
+            <button class="btn btn-add" onclick="marcarWhatsappEnviado('${v5EscapeJs(item.numero)}')" ${enviado ? 'disabled style="opacity:.55;cursor:not-allowed;"' : ''}>${enviado ? '✅ Enviado' : '✅ Enviado Já'}</button>
+            <button class="btn-delete" onclick="apagarDoJSON('${v5EscapeJs(item.numero)}')">🗑️ Deletar</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  };
+
+  window.renderizarTabelaJSON = function(contatos) {
+    v5PrepararHeader('json');
+
+    const tbody = document.getElementById('tabelaJSON');
+    if (!tbody) return;
+
+    contatos = v5Unicos(contatos);
+    v5PreencherCampoCopia('json', contatos);
+
+    if (contatos.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#8fb9ac;">Vazio</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = contatos.map((item, idx) => `
+      <tr>
+        <td style="text-align:center;">${v5Checkbox('json', item.numero)}</td>
+        <td class="numeracao">${idx + 1}</td>
+        <td class="numero-celula"><strong>${v5EscapeHtml(item.numero)}</strong></td>
+        <td>${v5EscapeHtml(item.nome || '-')}</td>
+        <td>${v5EscapeHtml(item.obs || '-')}</td>
+        <td><span style="color:${item.tipo === 'whatsapp' ? '#22b14c' : '#4285f4'};font-weight:600;">${item.tipo === 'whatsapp' ? '💬 WA' : '📞 LG'}</span></td>
+        <td><span style="color:${v5FoiEnviadoWhatsapp(item) ? '#22b14c' : '#1fa37a'};">${item.tipo === 'whatsapp' && v5FoiEnviadoWhatsapp(item) ? '✅ Enviado' : '✓'}</span></td>
+        <td class="acoes-celula">
+          <button class="btn-agendar" onclick="abrirAgendamento('${v5EscapeJs(item.numero)}', '${v5EscapeJs(item.nome || '')}', '${v5EscapeJs(item.obs || '')}')">📅 Agendar</button>
+          <button class="btn-delete" onclick="apagarDoJSON('${v5EscapeJs(item.numero)}')">🗑️ Apagar</button>
+        </td>
+      </tr>
+    `).join('');
+  };
+
+  window.apagarSelecionadosDiretoV5 = async function(aba, numero) {
+    document.querySelectorAll(`.chkContatoBulk[data-aba="${aba}"]`).forEach(chk => {
+      chk.checked = v5MesmoNumero(chk.dataset.numero, numero);
+    });
+    await apagarSelecionadosRevisaoV5(aba);
+  };
+
+  window.gerarJSONLigacoes = async function(botao) {
+    try {
+      mostrarLoadingTela();
+      await carregarDoGoogleDrive();
+      await carregarBlacklist();
+      esconderLoadingTela();
+
+      const lista = v5ContatosLigacaoTodos();
+
+      if (lista.length === 0) {
+        renderizarTabelaLigacoes([]);
+        v5ExibirMensagem('ligacao', '⚠️ Nenhum contato de ligação pendente. Marcados como WhatsApp ficam somente na aba WhatsApp.', 'info');
+        return;
+      }
+
+      renderizarTabelaLigacoes(lista);
+      v5ExibirMensagem('ligacao', `✅ ${lista.length} contato(s) de ligação carregado(s), sem WhatsApp`, 'success');
+    } catch (erro) {
+      esconderLoadingTela();
+      console.error('❌ Erro ao gerar ligações:', erro);
+      v5ExibirMensagem('ligacao', '❌ Erro ao carregar ligações', 'error');
+    }
+  };
+
+  window.gerarLigacoesJSON = window.gerarJSONLigacoes;
+
+  window.gerarParaLigar = async function(botao) {
+    try {
+      mostrarLoadingTela();
+
+      let numerosVisiveis = [];
+      const campo = document.getElementById('campoCopiaNumerosLigacao');
+
+      if (campo && campo.value.trim()) {
+        numerosVisiveis = campo.value
+          .split(/\n+/)
+          .map(v => v.trim())
+          .filter(Boolean);
+      }
+
+      let contatosBase = [];
+      if (numerosVisiveis.length > 0) {
+        const setVisiveis = new Set(numerosVisiveis.map(v5Num));
+        contatosBase = v5ContatosLigacaoTodos().filter(c => setVisiveis.has(v5Num(c.numero)));
+      } else {
+        contatosBase = contatosParaAba('ligacao');
+      }
+
+      const contatosLigacao = v5Unicos(contatosBase)
+        .filter(c => !v5ContatoEstaMarcadoWhatsapp(c));
+
+      const numerosFormatados = contatosLigacao
+        .map(c => v5FormatarNumeroParaCopia(c.numero))
+        .filter(Boolean);
+
+      esconderLoadingTela();
+
+      if (numerosFormatados.length === 0) {
+        const secaoVazia = document.getElementById('secaoNumerosLigarLigacao');
+        const textareaVazia = document.getElementById('textareaNumerosLigarLigacao');
+        if (textareaVazia) textareaVazia.value = '';
+        if (secaoVazia) secaoVazia.style.display = 'none';
+        v5ExibirMensagem('ligacao', '⚠️ Nenhum número de ligação para gerar. WhatsApp não entra nessa lista.', 'info');
+        return;
+      }
+
+      const conteudoTexto = numerosFormatados.join('\n');
+
+      const secao = document.getElementById('secaoNumerosLigarLigacao');
+      const textarea = document.getElementById('textareaNumerosLigarLigacao');
+
+      if (textarea) textarea.value = conteudoTexto;
+      if (secao) secao.style.display = 'block';
+
+      try {
+        await navigator.clipboard.writeText(conteudoTexto);
+      } catch (e) {
+        console.warn('Clipboard ignorado:', e);
+      }
+
+      v5ExibirMensagem('ligacao', `✅ ${numerosFormatados.length} número(s) de ligação gerado(s), sem WhatsApp`, 'success');
+
+    } catch (erro) {
+      esconderLoadingTela();
+      console.error('❌ Erro ao gerar para ligar:', erro);
+      v5ExibirMensagem('ligacao', '❌ Erro ao gerar números para ligar', 'error');
+    }
+  };
+
+  if (typeof window.marcarWhatsapp === 'function' && !window.marcarWhatsapp.__v5SemWhatsappNaLigacao) {
+    const marcarWhatsappAnteriorV5 = window.marcarWhatsapp;
+    window.marcarWhatsapp = async function(numero, marcado) {
+      await marcarWhatsappAnteriorV5(numero, marcado);
+      setTimeout(() => {
+        try {
+          renderizarTabelaLigacoes(contatosParaAba('ligacao'));
+          renderizarTabelaWhatsapp(v5ContatosWhatsappNaoEnviados());
+          renderizarJSON();
+        } catch (e) {}
+      }, 150);
+    };
+    window.marcarWhatsapp.__v5SemWhatsappNaLigacao = true;
+  }
+
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      try {
+        v5InstalarUiBulk();
+        renderizarTabelaNumerosProcessados();
+        renderizarTabelaLigacoes(contatosParaAba('ligacao'));
+        renderizarTabelaWhatsapp(v5ContatosWhatsappNaoEnviados());
+        renderizarJSON();
+      } catch (e) {
+        console.warn('V5 Revisao Contatos inicialização ignorada:', e);
+      }
+    }, 1500);
+  });
+
+  document.addEventListener('click', () => {
+    setTimeout(v5InstalarUiBulk, 120);
+  }, true);
+
+  console.log('✅ Revisão de Contatos V5 carregada: seleção múltipla + ligações sem WhatsApp');
+})();
