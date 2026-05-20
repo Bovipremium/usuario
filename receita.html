@@ -356,6 +356,84 @@
         }
     </style>
   <script src="modais-globais.js"></script>
+
+<style id="receitaV18LayoutCss">
+#modalReceita .modal-content,
+#modalMateria .modal-content {
+    width: min(96vw, 980px) !important;
+    max-width: 96vw !important;
+    max-height: 92vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+    margin: 20px auto !important;
+}
+
+#modalReceita .form-grid,
+#modalMateria .form-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+    gap: 14px !important;
+}
+
+#receitaEditorIngredientesV18 {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: auto !important;
+    margin-top: 18px !important;
+    padding: 14px !important;
+    border: 1px solid rgba(148,163,184,.25) !important;
+    border-radius: 12px !important;
+    background: rgba(15,23,42,.45) !important;
+}
+
+#receitaEditorIngredientesV18 table {
+    min-width: 720px !important;
+}
+
+#modalReceita input,
+#modalReceita select,
+#modalReceita textarea,
+#modalMateria input,
+#modalMateria select,
+#modalMateria textarea {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+#modalReceita .btn-group,
+#modalMateria .btn-group {
+    flex-wrap: wrap !important;
+}
+
+@media (max-width: 720px) {
+    #modalReceita .modal-content,
+    #modalMateria .modal-content {
+        width: 98vw !important;
+        max-width: 98vw !important;
+        max-height: 94vh !important;
+        padding: 14px !important;
+        margin: 8px auto !important;
+    }
+
+    #modalReceita .form-grid,
+    #modalMateria .form-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    #receitaEditorIngredientesV18 table {
+        min-width: 680px !important;
+    }
+
+    #modalReceita .btn,
+    #modalMateria .btn {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+}
+</style>
+
 </head>
 <body>
     <div class="container">
@@ -609,14 +687,59 @@
             </div>
 
             <div class="form-group">
-                <label>Custo por kg (R$)</label>
-                <input type="number" id="custoPorKgReceita" value="0" step="0.01" min="0">
+                <label>Custo por kg (R$) - calculado pelos ingredientes</label>
+                <input type="text" id="custoPorKgReceita" value="0" inputmode="decimal" placeholder="Calculado pelos ingredientes">
             </div>
 
             <div class="form-group">
                 <label>Descrição</label>
                 <textarea id="descricaoReceita" rows="3" placeholder="Descrição da receita..."></textarea>
             </div>
+
+
+            <div id="receitaIngredientesEditorV13" style="margin-top:18px; padding:14px; border:1px solid rgba(148,163,184,.25); border-radius:12px; background:rgba(15,23,42,.45);">
+                <h3 style="margin-bottom:10px;color:#7cf0c2;">🧪 Ingredientes da Receita</h3>
+                <p style="font-size:12px;color:#94a3b8;line-height:1.45;margin-bottom:12px;">
+                    Aqui é a receita real da mistura. Informe quanto de cada matéria-prima entra no <strong>Peso Padrão</strong>.
+                    Exemplo: receita de 10 kg usa 6.827 kg de CALCARIO.
+                </p>
+
+                <div class="form-grid" style="grid-template-columns:2fr 1fr auto; align-items:end;">
+                    <div class="form-group">
+                        <label>Matéria-prima</label>
+                        <select id="selectMateriaIngredienteV13"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Quantidade na receita (kg)</label>
+                        <input type="number" id="qtdIngredienteV13" value="0" step="0.001" min="0">
+                    </div>
+
+                    <div class="form-group">
+                        <button type="button" class="btn btn-primary" onclick="adicionarIngredienteReceitaV13()">+ Adicionar</button>
+                    </div>
+                </div>
+
+                <div style="max-height:280px;overflow:auto;margin-top:10px;border:1px solid rgba(148,163,184,.18);border-radius:10px;">
+                    <table style="margin-top:0;">
+                        <thead>
+                            <tr>
+                                <th>Matéria-prima</th>
+                                <th>Categoria</th>
+                                <th>Qtd na receita (kg)</th>
+                                <th>Custo/kg</th>
+                                <th>Total</th>
+                                <th>%</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaIngredientesReceitaV13">
+                            <tr><td colspan="7" style="text-align:center;color:#94a3b8;">Nenhum ingrediente.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
 
             <div class="btn-group" style="justify-content: flex-end;">
                 <button class="btn btn-success" onclick="salvarReceita()">✓ Salvar</button>
@@ -649,18 +772,31 @@
             </div>
 
             <div class="form-group">
-                <label>Valor Unitário (R$)</label>
-                <input type="number" id="valorMateria" value="0" step="0.01" min="0">
+                <label>Valor da embalagem/saco (R$)</label>
+                <input type="text" id="valorMateria" value="0" inputmode="decimal" placeholder="Ex: 250,00">
             </div>
 
             <div class="form-group">
-                <label>Peso Unitário (kg)</label>
-                <input type="number" id="pesoMateria" value="25" step="0.001" min="0.001">
+                <label>Peso da embalagem/saco (kg ou g)</label>
+                <input type="text" id="pesoMateria" value="25" step="0.001" min="0.001">
             </div>
 
             <div class="form-group">
-                <label>Quantidade em Estoque</label>
+                <label>Quantidade de embalagens/sacos em estoque</label>
                 <input type="number" id="quantidadeMateria" value="0" step="0.001" min="0">
+            </div>
+
+
+            <div class="form-group">
+                <label>Estoque total em kg ou g</label>
+                <input type="text" id="estoqueKgMateriaV13" value="0" step="0.001" min="0" placeholder="Ex: 250">
+                <small style="color:#94a3b8;font-size:12px;">
+                    Pode preencher direto em kg. O sistema calcula quantas embalagens isso representa.
+                </small>
+            </div>
+
+            <div id="resumoMateriaV13" style="background:rgba(31,163,122,.08); border:1px solid rgba(31,163,122,.22); border-radius:10px; padding:10px; color:#cbd5e1; font-size:13px; margin-bottom:12px;">
+                Custo/kg: R$ 0,00 • Estoque: 0 kg
             </div>
 
             <div class="btn-group" style="justify-content: flex-end;">
