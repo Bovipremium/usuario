@@ -3,613 +3,659 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <link rel="icon" type="image/png" href="assets/img/logo.png">
+  <title>Cotação de Frete</title>
   <link rel="stylesheet" href="sidebar-dock.css">
-  <title>Cotações - Bovi Premium</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">  
+  <link rel="icon" type="image/png" href="assets/img/logo.png">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    :root {
+      --bg: #06110e;
+      --card: rgba(12, 30, 25, .94);
+      --line: rgba(124, 240, 194, .20);
+      --line-strong: rgba(124, 240, 194, .42);
+      --green2: #7cf0c2;
+      --gold: #d4af37;
+      --text: #e5f3ee;
+      --muted: #8fb9ac;
+      --shadow: 0 18px 48px rgba(0,0,0,.28);
     }
-
+    * { box-sizing: border-box; }
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: radial-gradient(circle at 20% 50%, #0e1f1a 0%, #050b09 100%);
+      margin: 0;
       min-height: 100vh;
-      color: #e5f3ee;
-      padding: 20px;
+      font-family: Inter, Arial, sans-serif;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(31, 163, 122, .22), transparent 36%),
+        radial-gradient(circle at 90% 10%, rgba(212, 175, 55, .12), transparent 34%),
+        var(--bg);
+      color: var(--text);
+      padding: 16px;
     }
-
-    .container {
-      max-width: 1000px;
-      margin: 0 auto;
-      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 16px;
-      padding: 30px;
-      backdrop-filter: blur(14px);
+    .page { max-width: 1320px; margin: 0 auto; }
+    .hero {
+      display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+      background: linear-gradient(135deg, rgba(12,30,25,.98), rgba(4,12,10,.96));
+      border: 1px solid var(--line); border-radius: 22px; padding: 18px; box-shadow: var(--shadow); margin-bottom: 16px;
     }
-
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 30px;
-      border-bottom: 2px solid rgba(31,163,122,.3);
-      padding-bottom: 20px;
+    .hero h1 { margin: 0; color: var(--green2); font-size: clamp(22px, 3vw, 34px); }
+    .hero p { margin: 6px 0 0; color: var(--muted); line-height: 1.45; font-size: 14px; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .btn, button {
+      border: 1px solid var(--line); background: rgba(31, 163, 122, .14); color: var(--green2);
+      padding: 10px 13px; border-radius: 13px; font-weight: 900; cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px;
     }
-
-    .header h1 {
-      color: #1fa37a;
-      font-size: 28px;
-      font-weight: 700;
+    .btn:hover, button:hover { background: rgba(31, 163, 122, .25); border-color: var(--line-strong); }
+    .btn-gold { background: rgba(212, 175, 55, .14); color: #ffe59a; border-color: rgba(212, 175, 55, .42); }
+    .btn-red { background: rgba(220,53,69,.14); color: #ffb7c1; border-color: rgba(220,53,69,.36); }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 16px; align-items: start; }
+    .stack { display: grid; gap: 16px; }
+    .card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.20);
     }
-
-    .header button {
-      background: linear-gradient(145deg, rgba(31,163,122,.3), rgba(31,163,122,.15));
-      color: #7cf0c2;
-      border: 1px solid rgba(31,163,122,.3);
-      padding: 8px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s;
+    .card-head { display: flex; align-items: start; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .title { color: var(--gold); font-size: 17px; font-weight: 950; margin: 0; }
+    .hint { color: var(--muted); font-size: 12px; line-height: 1.45; margin-top: 4px; }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+    .field { background: rgba(0,0,0,.16); border: 1px solid rgba(124,240,194,.12); border-radius: 14px; padding: 10px; min-height: 62px; }
+    .label { color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 900; margin-bottom: 5px; display: block; }
+    .value { color: var(--text); font-weight: 800; word-break: break-word; }
+    input, select, textarea {
+      width: 100%; background: rgba(0,0,0,.20); border: 1px solid rgba(124,240,194,.22);
+      border-radius: 13px; color: var(--green2); padding: 11px; outline: none; font: inherit;
     }
-
-    .header button:hover {
-      background: linear-gradient(145deg, rgba(31,163,122,.4), rgba(31,163,122,.25));
-      transform: translateY(-2px);
+    textarea { min-height: 150px; resize: vertical; line-height: 1.45; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+    .sales-list, .transport-list { display: grid; gap: 10px; }
+    .sale, .transp {
+      border: 1px solid rgba(124,240,194,.18); border-radius: 16px; padding: 12px;
+      background: rgba(255,255,255,.035); cursor: pointer;
     }
-
-    .client-info {
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-      border: 1px solid rgba(31,163,122,.25);
-      padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 20px;
-      backdrop-filter: blur(8px);
+    .sale:hover, .transp:hover { border-color: var(--line-strong); background: rgba(31,163,122,.07); }
+    .sale.selected, .transp.selected { border-color: rgba(212,175,55,.70); box-shadow: 0 0 0 2px rgba(212,175,55,.16); }
+    .sale-top, .transp-top { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; color: var(--green2); font-weight: 950; }
+    .small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .badge-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .badge { font-size: 11px; color: #06110e; background: var(--green2); padding: 4px 8px; border-radius: 999px; font-weight: 950; }
+    .badge.gold { background: var(--gold); }
+    .badge.dim { background: rgba(143,185,172,.8); }
+    .preview {
+      white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #dcfff2; background: rgba(0,0,0,.26); border: 1px solid rgba(124,240,194,.14);
+      border-radius: 16px; padding: 13px; font-size: 12.5px; line-height: 1.48; max-height: 470px; overflow: auto;
     }
-
-    .client-info h3 {
-      color: #1fa37a;
-      margin-bottom: 12px;
-      font-size: 16px;
-      font-weight: 700;
+    .empty { border: 1px dashed rgba(124,240,194,.24); border-radius: 16px; color: var(--muted); padding: 18px; text-align: center; background: rgba(0,0,0,.13); line-height: 1.45; }
+    .divider { height: 1px; background: rgba(124,240,194,.12); margin: 12px 0; }
+    .transport-section-title { margin: 14px 0 8px; color: var(--green2); font-weight: 950; font-size: 14px; }
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,.78); display: none; align-items: center; justify-content: center;
+      padding: 14px; z-index: 99999;
     }
-
-    .client-info p {
-      color: #b9d8ce;
-      font-size: 14px;
-      margin: 8px 0;
+    .modal.active { display: flex; }
+    .modal-box {
+      width: min(96vw, 900px); max-height: 92vh; overflow: auto;
+      background: linear-gradient(180deg, rgba(12,30,25,.99), rgba(4,10,9,.99));
+      border: 1px solid var(--line); border-radius: 22px; padding: 17px; box-shadow: var(--shadow);
     }
-
-    .info-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      margin-top: 12px;
+    .modal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .modal-head h2 { margin: 0; color: var(--green2); font-size: 22px; }
+    @media (max-width: 980px) {
+      body { padding: 10px; }
+      .layout { grid-template-columns: 1fr; }
+      .hero { border-radius: 18px; padding: 14px; }
+      .toolbar .btn, .toolbar button { width: 100%; }
+      .toolbar { width: 100%; }
+      .card { padding: 13px; border-radius: 17px; }
     }
-
-    .transportadoras {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 15px;
-      margin-bottom: 25px;
-    }
-
-    .transportadora-btn {
-      padding: 15px;
-      border: 1px solid rgba(31,163,122,.3);
-      border-radius: 12px;
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-      cursor: pointer;
-      transition: all 0.3s;
-      text-align: left;
-      font-size: 14px;
-      font-weight: 600;
-      color: #e5f3ee;
-      backdrop-filter: blur(8px);
-    }
-
-    .transportadora-btn:hover {
-      border-color: #1fa37a;
-      background: linear-gradient(180deg, rgba(31,163,122,.15), rgba(31,163,122,.05));
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(31,163,122,.2);
-    }
-
-    .transportadora-btn.tnt {
-      border-color: #d4af37;
-      background: linear-gradient(180deg, rgba(212,175,55,.15), rgba(212,175,55,.05));
-    }
-
-    .transportadora-btn.tnt:hover {
-      border-color: #d4af37;
-      background: linear-gradient(180deg, rgba(212,175,55,.25), rgba(212,175,55,.15));
-      box-shadow: 0 10px 20px rgba(212,175,55,.2);
-    }
-
-    .transportadora-badge {
-      display: inline-block;
-      background: rgba(31,163,122,.3);
-      color: #7cf0c2;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      margin-left: 8px;
-      font-weight: 700;
-    }
-
-    .transportadora-badge.tnt {
-      background: rgba(212,175,55,.3);
-      color: #d4af37;
-    }
-
-    .manual-input {
-      margin-top: 20px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(31,163,122,.2);
-    }
-
-    .manual-input label {
-      display: block;
-      color: #7cf0c2;
-      font-weight: 600;
-      margin-bottom: 10px;
-      font-size: 12px;
-      text-transform: uppercase;
-    }
-
-    .manual-input input {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid rgba(31,163,122,.3);
-      background: rgba(255,255,255,.08);
-      border-radius: 8px;
-      font-size: 14px;
-      color: #e5f3ee;
-      transition: all 0.3s;
-      backdrop-filter: blur(8px);
-    }
-
-    .manual-input input:focus {
-      outline: none;
-      border-color: #1fa37a;
-      background: rgba(31,163,122,.15);
-      box-shadow: 0 0 0 3px rgba(31,163,122,.1);
-    }
-
-    .manual-input input::placeholder {
-      color: #5fa39c;
-    }
-
-    .manual-input button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 12px;
-      background: linear-gradient(145deg, rgba(212,175,55,.3), rgba(212,175,55,.15));
-      color: #d4af37;
-      border: 1px solid rgba(212,175,55,.3);
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .manual-input button:hover {
-      background: linear-gradient(145deg, rgba(212,175,55,.4), rgba(212,175,55,.25));
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(212,175,55,.2);
-    }
-
-    .detalhes-venda {
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-      border: 1px solid rgba(31,163,122,.25);
-      padding: 20px;
-      border-radius: 12px;
-      margin-top: 20px;
-      backdrop-filter: blur(8px);
-    }
-
-    .detalhes-venda h4 {
-      color: #1fa37a;
-      margin-bottom: 15px;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .detalhes-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 12px;
-      font-size: 13px;
-    }
-
-    .detalhe-item {
-      background: rgba(31,163,122,.1);
-      padding: 12px;
-      border-radius: 8px;
-      border-left: 3px solid #1fa37a;
-    }
-
-    .detalhe-label {
-      color: #7cf0c2;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    .detalhe-valor {
-      color: #d4af37;
-      font-size: 14px;
-      font-weight: 700;
-      margin-top: 6px;
-    }
-
-    .info-destaque {
-      background: rgba(212,175,55,.15);
-      border: 1px solid rgba(212,175,55,.3);
-      border-radius: 8px;
-      padding: 12px;
-      margin-top: 15px;
-      font-size: 13px;
-      color: #d4af37;
-    }
-
-    .error {
-      background: rgba(220,53,69,.15);
-      border: 1px solid rgba(220,53,69,.3);
-      color: #ff6b6b;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 15px;
-      font-size: 13px;
-    }
-
-    .success {
-      background: rgba(31,163,122,.15);
-      border: 1px solid rgba(31,163,122,.3);
-      color: #7cf0c2;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 15px;
-      font-size: 13px;
-    }
-
-    @media (max-width: 768px) {
-      .container {
-        padding: 20px;
-      }
-
-      .header h1 {
-        font-size: 22px;
-      }
-
-      .transportadoras {
-        grid-template-columns: 1fr;
-      }
-
-      .detalhes-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .info-row {
-        grid-template-columns: 1fr;
-      }
+    @media (max-width: 560px) {
+      .info-grid, .form-grid { grid-template-columns: 1fr; }
+      .sale-top, .transp-top { display: block; }
+      .btn, button { width: 100%; }
+      .modal-box { padding: 13px; border-radius: 18px; }
     }
   </style>
-  <script src="modais-globais.js"></script>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>💼 Cotação de Frete</h1>
-            <button onclick="fecharCotacao()" title="Fechar">✕</button>
-        </div>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <h1>🚚 Cotação de Frete</h1>
+        <p>Selecione uma venda, escolha uma transportadora e gere a mensagem profissional para WhatsApp ou e-mail.</p>
+      </div>
+      <div class="toolbar">
+        <a class="btn" href="clientes.html">⬅ Clientes</a>
+        <button class="btn-gold" onclick="abrirModalTransportadora()">➕ Criar transportadora</button>
+        <button onclick="abrirModalRemetente()">🏢 Dados do remetente</button>
+        <button onclick="recarregarTudo()">🔄 Recarregar</button>
+      </div>
+    </section>
 
-        <div id="mensagemErro" class="error" style="display: none;"></div>
-        <div id="mensagemSucesso" class="success" style="display: none;"></div>
-
-        <div class="client-info">
-            <h3>📋 Informações do Cliente</h3>
-            <p><strong id="nomeCliente">-</strong></p>
-            <p id="cpfCliente">CPF: -</p>
-            <p id="cidadeCliente">Cidade: -</p>
-            <div class="info-row">
-                <div>
-                    <p style="font-size: 12px; color: #999; text-transform: uppercase;">Telefone 1</p>
-                    <p id="telefone1Cliente" style="font-weight: 600;">-</p>
-                </div>
-                <div>
-                    <p style="font-size: 12px; color: #999; text-transform: uppercase;">Telefone 2</p>
-                    <p id="telefone2Cliente" style="font-weight: 600;">-</p>
-                </div>
+    <section class="layout">
+      <div class="stack">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2 class="title">👤 Cliente</h2>
+              <div class="hint">Dados do destinatário usados na cotação.</div>
             </div>
+          </div>
+          <div id="clienteBox" class="info-grid"></div>
         </div>
 
-        <div class="detalhes-venda">
-            <h4>📦 Última Venda do Cliente</h4>
-            <div class="detalhes-grid">
-                <div class="detalhe-item">
-                    <span class="detalhe-label">Total em Peso</span>
-                    <span class="detalhe-valor" id="pesoTotal">0 kg</span>
-                </div>
-                <div class="detalhe-item">
-                    <span class="detalhe-label">Valor Total</span>
-                    <span class="detalhe-valor" id="valorTotal">R$ 0,00</span>
-                </div>
-                <div class="detalhe-item">
-                    <span class="detalhe-label">Total de Unidades</span>
-                    <span class="detalhe-valor" id="unidadesTotal">0</span>
-                </div>
-                <div class="detalhe-item">
-                    <span class="detalhe-label">Total de Volumes</span>
-                    <span class="detalhe-valor">1</span>
-                </div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2 class="title">🧾 Vendas</h2>
+              <div class="hint">Escolha a venda que será cotada. O sistema calcula volumes, peso e dimensão.</div>
             </div>
+          </div>
+          <div id="vendasBox" class="sales-list"></div>
         </div>
 
-        <div class="info-destaque">
-            ℹ️ As cotações serão enviadas via WhatsApp ou abrir o site da transportadora. Verifique se o site está aberto em nova aba.
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2 class="title">🚛 Transportadoras</h2>
+              <div class="hint">Primeiro aparecem as que atendem o estado do cliente. As demais ficam abaixo.</div>
+            </div>
+            <button class="btn-gold" onclick="abrirModalTransportadora()">➕ Criar</button>
+          </div>
+          <div class="form-grid">
+            <div>
+              <span class="label">Pesquisar</span>
+              <input id="buscaTransportadora" placeholder="Nome, UF, cidade, telefone..." oninput="renderizarTransportadoras()">
+            </div>
+            <div>
+              <span class="label">Visualização</span>
+              <select id="filtroTransportadora" onchange="renderizarTransportadoras()">
+                <option value="sugeridas">Sugeridas primeiro</option>
+                <option value="todas">Todas</option>
+              </select>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div id="transportadorasBox" class="transport-list"></div>
+        </div>
+      </div>
+
+      <aside class="stack">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2 class="title">🏢 Remetente</h2>
+              <div class="hint">Salvo no Drive em <strong>remetente_cotacao.json</strong>.</div>
+            </div>
+            <button onclick="abrirModalRemetente()">Editar</button>
+          </div>
+          <div id="remetenteBox" class="info-grid"></div>
         </div>
 
-        <h3 style="margin-top: 25px; margin-bottom: 15px; color: #333; font-size: 16px;">🚚 Selecione a Transportadora</h3>
-
-        <div class="transportadoras">
-            <button class="transportadora-btn tnt" onclick="abrirTNT()">
-                🔗 TNT
-                <span class="transportadora-badge tnt">Automático</span>
-            </button>
-            <button class="transportadora-btn" onclick="abrirWhatsAppTransportadora('TNORTE')">
-                💬 T-Norte
-                <span class="transportadora-badge">WhatsApp</span>
-            </button>
-            <button class="transportadora-btn" onclick="abrirWhatsAppTransportadora('CAIRU')">
-                💬 Cairu
-                <span class="transportadora-badge">WhatsApp</span>
-            </button>
-            <button class="transportadora-btn" onclick="abrirWhatsAppTransportadora('DOVALLE')">
-                💬 Dovalle
-                <span class="transportadora-badge">WhatsApp</span>
-            </button>
-            <button class="transportadora-btn" onclick="abrirWhatsAppTransportadora('BRASPRESS')">
-                💬 Braspress
-                <span class="transportadora-badge">WhatsApp</span>
-            </button>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2 class="title">📦 Carga</h2>
+              <div class="hint">Resumo técnico da venda selecionada.</div>
+            </div>
+          </div>
+          <div id="cargaBox" class="info-grid"></div>
         </div>
 
-        <div class="manual-input">
-            <label>📱 Outra Transportadora (Digite o número do WhatsApp)</label>
-            <input type="tel" id="telefonOutro" placeholder="Ex: 85987654321 (com DDD)" maxlength="15">
-            <button onclick="abrirWhatsAppOutro()">Enviar Cotação por WhatsApp</button>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2 class="title">✉️ Mensagem</h2>
+              <div class="hint">A mensagem fica pronta depois de escolher venda e transportadora.</div>
+            </div>
+          </div>
+          <div id="mensagemPreview" class="preview">Selecione uma venda e uma transportadora.</div>
+          <div class="toolbar" style="margin-top:10px;">
+            <button onclick="enviarWhatsAppSelecionada()">💬 WhatsApp</button>
+            <button onclick="abrirEmailSelecionada()">📧 E-mail</button>
+            <button onclick="copiarMensagemSelecionada()">📋 Copiar</button>
+          </div>
         </div>
+      </aside>
+    </section>
+  </main>
+
+  <div id="modalTransportadora" class="modal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="tituloModalTransportadora">➕ Criar Transportadora</h2>
+        <button class="btn-red" onclick="fecharModal('modalTransportadora')">✕</button>
+      </div>
+      <input type="hidden" id="transpId">
+      <div class="form-grid">
+        <div><span class="label">Nome</span><input id="transpNome" placeholder="Ex: Braspress, TNT, Cairu"></div>
+        <div><span class="label">CNPJ</span><input id="transpCnpj" placeholder="00.000.000/0001-00"></div>
+        <div><span class="label">WhatsApp / telefone</span><input id="transpWhatsapp" placeholder="Ex: 62999999999"></div>
+        <div><span class="label">E-mail</span><input id="transpEmail" placeholder="cotacao@transportadora.com.br"></div>
+        <div><span class="label">Cidade/base</span><input id="transpCidade" placeholder="Ex: Goiânia"></div>
+        <div><span class="label">UF/base</span><input id="transpEstado" placeholder="GO" maxlength="2"></div>
+        <div><span class="label">Estados atendidos</span><input id="transpEstados" placeholder="Ex: GO, DF, MG, SP ou TODOS"></div>
+        <div><span class="label">Status</span><select id="transpAtiva"><option value="true">Ativa</option><option value="false">Inativa</option></select></div>
+      </div>
+      <div style="margin-top:10px;"><span class="label">Observações</span><textarea id="transpObs" placeholder="Ex: atende interior, prazo médio, restrições, contato preferencial..."></textarea></div>
+      <div class="toolbar" style="margin-top:12px;">
+        <button class="btn-gold" onclick="salvarTransportadora()">💾 Salvar no JSON</button>
+        <button onclick="limparTransportadora()">Limpar</button>
+      </div>
     </div>
+  </div>
 
-    <script src="config.js"></script>
-<script src="auth-utils.js"></script>
-    <script src="auth.js"></script>
-    <script src="seguranca.js"></script>
-    <script>
-        // Dicionário com números das transportadoras (mesmo do C#)
-        const telefonesTransportadora = {
-            'TNT': '81991234567',
-            'TNORTE': '81999999999',
-            'CAIRU': '81988888888',
-            'DOVALLE': '81987777777',
-            'BRASPRESS': '81986666666'
-        };
+  <div id="modalRemetente" class="modal">
+    <div class="modal-box">
+      <div class="modal-head"><h2>🏢 Dados do Remetente</h2><button class="btn-red" onclick="fecharModal('modalRemetente')">✕</button></div>
+      <div class="form-grid">
+        <div><span class="label">Nome / empresa</span><input id="remNome" placeholder="Nome da empresa"></div>
+        <div><span class="label">CNPJ</span><input id="remCnpj" placeholder="00.000.000/0001-00"></div>
+        <div><span class="label">CEP origem</span><input id="remCep" placeholder="00000-000"></div>
+        <div><span class="label">Cidade</span><input id="remCidade" placeholder="Cidade origem"></div>
+        <div><span class="label">UF</span><input id="remEstado" placeholder="GO" maxlength="2"></div>
+        <div><span class="label">Telefone</span><input id="remTelefone" placeholder="Telefone opcional"></div>
+      </div>
+      <div class="toolbar" style="margin-top:12px;"><button class="btn-gold" onclick="salvarRemetente()">💾 Salvar no JSON</button></div>
+    </div>
+  </div>
 
-        let clienteAtual = null;
-        let vendaAtual = null;
+  <div id="modalEmail" class="modal">
+    <div class="modal-box">
+      <div class="modal-head"><h2>📧 Cotação por e-mail</h2><button class="btn-red" onclick="fecharModal('modalEmail')">✕</button></div>
+      <div class="form-grid">
+        <div><span class="label">E-mail</span><input id="emailDestino" readonly></div>
+        <div><span class="label">Assunto</span><input id="emailAssunto" readonly></div>
+      </div>
+      <div style="margin-top:10px;"><span class="label">Mensagem</span><textarea id="emailMensagem" readonly></textarea></div>
+      <div class="toolbar" style="margin-top:12px;">
+        <button onclick="copiarCampo('emailDestino')">📋 Copiar e-mail</button>
+        <button onclick="copiarCampo('emailAssunto')">📋 Copiar assunto</button>
+        <button onclick="copiarCampo('emailMensagem')">📋 Copiar mensagem</button>
+        <button class="btn-gold" onclick="abrirMailto()">✉️ Abrir e-mail</button>
+      </div>
+    </div>
+  </div>
 
-        // Executar ao carregar a página
-        document.addEventListener('DOMContentLoaded', function() {
-            carregarDadosCotacao();
-        });
+  <script src="config.js"></script>
+  <script src="auth-utils.js"></script>
+  <script src="auth.js"></script>
+  <script src="auditoria.js"></script>
 
-        function carregarDadosCotacao() {
-            try {
-                // Obter cliente do sessionStorage
-                const clienteJson = sessionStorage.getItem('clienteSelecionado');
-                if (!clienteJson) {
-                    mostrarErro('Nenhum cliente selecionado. Por favor, volte e selecione um cliente.');
-                    return;
-                }
+  <script>
+    let clienteAtual = null;
+    let transportadoras = [];
+    let remetente = {};
+    let vendaSelecionadaIdx = null;
+    let transportadoraSelecionadaId = null;
+    let emailAtual = null;
 
-                clienteAtual = JSON.parse(clienteJson);
-                
-                // Preencher informações do cliente
-                document.getElementById('nomeCliente').textContent = clienteAtual.Nome || '-';
-                document.getElementById('cpfCliente').textContent = 'CPF: ' + (clienteAtual.CPF || '-');
-                document.getElementById('cidadeCliente').textContent = 'Cidade: ' + (clienteAtual.Cidade || '-') + '-' + (clienteAtual.Estado || '-');
-                document.getElementById('telefone1Cliente').textContent = clienteAtual.Telefone1 || '-';
-                document.getElementById('telefone2Cliente').textContent = clienteAtual.Telefone2 || '-';
+    function dinheiro(v) { return (Number(v || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+    function digitos(v) { return String(v || '').replace(/\D/g, ''); }
+    function normalizarWhatsapp(v) { let d = digitos(v); if (!d) return ''; if (!d.startsWith('55')) d = '55' + d; return d; }
+    function arrEstados(v) { if (Array.isArray(v)) return v.map(x => String(x).trim().toUpperCase()).filter(Boolean); return String(v || '').split(/[,\s;/]+/).map(x => x.trim().toUpperCase()).filter(Boolean); }
+    function ufCliente() { return String(clienteAtual?.Estado || clienteAtual?.UF || '').trim().toUpperCase(); }
+    function cepCliente() { return clienteAtual?.CEP || clienteAtual?.Cep || clienteAtual?.cep || ''; }
+    function docCliente() { return clienteAtual?.CPF || clienteAtual?.CNPJ || clienteAtual?.CpfCnpj || clienteAtual?.Documento || ''; }
+    function produtoQtd(p) { return Number(p?.Quantidade || p?.Qtd || p?.quantidade || 0) || 0; }
+    function produtoPeso(p) { return Number(p?.PesoUnidade || p?.Peso || p?.peso || 0) || 0; }
+    function produtoValor(p) { return Number(p?.Valor || p?.ValorTotal || p?.valor || 0) || 0; }
+    function vendaValor(v) { const direto = Number(v?.ValorTotal || v?.valorTotal || 0); if (direto > 0) return direto; return (v?.Produtos || []).reduce((s, p) => s + produtoValor(p), 0); }
 
-                // Obter última venda
-                if (clienteAtual.Vendas && clienteAtual.Vendas.length > 0) {
-                    vendaAtual = clienteAtual.Vendas.sort((a, b) => {
-                        return new Date(b.DataVenda) - new Date(a.DataVenda);
-                    })[0];
+    function calcularCarga(venda) {
+      const produtos = Array.isArray(venda?.Produtos) ? venda.Produtos : [];
+      let volumes = 0, pesoTotal = 0, maiorPeso = 0;
+      produtos.forEach(p => {
+        const qtd = produtoQtd(p), peso = produtoPeso(p);
+        volumes += qtd;
+        pesoTotal += qtd * peso;
+        if (peso > maiorPeso) maiorPeso = peso;
+      });
+      let dimensao = 'Não calculável';
+      if (maiorPeso > 0 && maiorPeso <= 5) dimensao = '15 x 15 x 15 cm';
+      else if (maiorPeso > 5 && maiorPeso <= 35) dimensao = '30 x 30 x 30 cm';
+      else if (maiorPeso > 35) dimensao = 'Acima de 35 kg — confirmar dimensão manualmente';
+      return { volumes, pesoTotal, maiorPeso, dimensao };
+    }
 
-                    // Calcular totais
-                    let totalPeso = 0;
-                    let totalValor = 0;
-                    let totalUnidades = 0;
+    function vendaAtual() { if (vendaSelecionadaIdx === null) return null; return clienteAtual?.Vendas?.[vendaSelecionadaIdx] || null; }
+    function transpSelecionada() { if (!transportadoraSelecionadaId) return null; return transportadoras.find(t => String(t.Id || t.id) === String(transportadoraSelecionadaId)) || null; }
+    function abrirModal(id) { document.getElementById(id).classList.add('active'); }
+    function fecharModal(id) { document.getElementById(id).classList.remove('active'); }
 
-                    if (vendaAtual.Produtos && vendaAtual.Produtos.length > 0) {
-                        vendaAtual.Produtos.forEach(p => {
-                            totalPeso += (p.PesoUnidade || 0) * (p.Quantidade || 0);
-                            totalValor += (p.Valor || 0) * (p.Quantidade || 0);
-                            totalUnidades += p.Quantidade || 0;
-                        });
-                    }
+    function carregarClienteSession() {
+      const raw = sessionStorage.getItem('clienteCotacaoSelecionado') || sessionStorage.getItem('clienteSelecionado');
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch(e) { return null; }
+    }
 
-                    // Exibir totais
-                    document.getElementById('pesoTotal').textContent = totalPeso.toFixed(2).replace('.', ',') + ' kg';
-                    document.getElementById('valorTotal').textContent = 'R$ ' + totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    document.getElementById('unidadesTotal').textContent = totalUnidades;
-                } else {
-                    mostrarErro('Este cliente não possui vendas registradas. Não é possível fazer cotação.');
-                }
-            } catch (erro) {
-                mostrarErro(traduzirErro(erro));
-            }
-        }
+    async function carregarTransportadoras() {
+      try {
+        const dados = await buscarArquivo('transportadoras.json');
+        transportadoras = Array.isArray(dados) ? dados : [];
+      } catch(e) { transportadoras = []; }
+    }
 
-        function abrirTNT() {
-            try {
-                if (!clienteAtual) {
-                    mostrarErro('Dados do cliente não foram carregados.');
-                    return;
-                }
+    async function carregarRemetente() {
+      try {
+        const dados = await buscarArquivo('remetente_cotacao.json');
+        remetente = Array.isArray(dados) ? (dados[0] || {}) : (dados || {});
+      } catch(e) { remetente = {}; }
+      if (!remetente.CNPJ && localStorage.getItem('cotacao_remetente_cnpj')) remetente.CNPJ = localStorage.getItem('cotacao_remetente_cnpj');
+      if (!remetente.CEP && localStorage.getItem('cotacao_remetente_cep')) remetente.CEP = localStorage.getItem('cotacao_remetente_cep');
+    }
 
-                // Abrir site da TNT em nova aba
-                window.open('https://radar.tntbrasil.com.br/radar/public/login.do', '_blank');
-                
-                // Mostrar instrução para o usuário
-                mostrarSucesso('Site da TNT aberto em nova aba. Complete a cotação manualmente e retorne aqui.');
-            } catch (erro) {
-                mostrarErro('Erro ao abrir TNT: ' + erro.message);
-            }
-        }
+    function renderCliente() {
+      const box = document.getElementById('clienteBox');
+      if (!clienteAtual) {
+        box.innerHTML = '<div class="empty">Cliente não recebido. Volte em Cliente Detalhes e clique em Cotação.</div>';
+        return;
+      }
+      box.innerHTML = `
+        <div class="field"><span class="label">Nome</span><div class="value">${clienteAtual.Nome || '-'}</div></div>
+        <div class="field"><span class="label">CPF/CNPJ</span><div class="value">${docCliente() || '-'}</div></div>
+        <div class="field"><span class="label">CEP</span><div class="value">${cepCliente() || '-'}</div></div>
+        <div class="field"><span class="label">Cidade/UF</span><div class="value">${clienteAtual.Cidade || '-'} / ${ufCliente() || '-'}</div></div>`;
+    }
 
-        function abrirWhatsAppTransportadora(transportadora) {
-            try {
-                if (!clienteAtual || !vendaAtual) {
-                    mostrarErro('Dados do cliente ou venda não foram carregados.');
-                    return;
-                }
+    function renderRemetente() {
+      const box = document.getElementById('remetenteBox');
+      if (!remetente || Object.keys(remetente).length === 0) {
+        box.innerHTML = '<div class="empty">Cadastre os dados do remetente uma vez. Eles ficarão salvos no JSON.</div>';
+        return;
+      }
+      box.innerHTML = `
+        <div class="field"><span class="label">Empresa</span><div class="value">${remetente.Nome || '-'}</div></div>
+        <div class="field"><span class="label">CNPJ</span><div class="value">${remetente.CNPJ || '-'}</div></div>
+        <div class="field"><span class="label">CEP</span><div class="value">${remetente.CEP || '-'}</div></div>
+        <div class="field"><span class="label">Cidade/UF</span><div class="value">${remetente.Cidade || '-'} / ${remetente.Estado || '-'}</div></div>`;
+    }
 
-                // Obter número da transportadora
-                const numero = telefonesTransportadora[transportadora];
-                if (!numero) {
-                    mostrarErro('Número da transportadora não configurado.');
-                    return;
-                }
+    function renderVendas() {
+      const box = document.getElementById('vendasBox');
+      const vendas = Array.isArray(clienteAtual?.Vendas) ? clienteAtual.Vendas : [];
+      if (!vendas.length) {
+        box.innerHTML = '<div class="empty">Nenhuma venda encontrada para este cliente.</div>';
+        return;
+      }
+      box.innerHTML = vendas.map((v, idx) => {
+        const carga = calcularCarga(v);
+        const nf = v.NumeroNF || v.NF || '-';
+        const data = v.DataVenda ? new Date(v.DataVenda).toLocaleDateString('pt-BR') : '-';
+        const produtos = (v.Produtos || []).map(p => `${p.Nome || '-'}: ${produtoQtd(p)} un × ${produtoPeso(p)} kg`).join(' · ');
+        return `
+          <div class="sale ${vendaSelecionadaIdx === idx ? 'selected' : ''}" onclick="selecionarVenda(${idx})">
+            <div class="sale-top"><div>NF ${nf} · ${data}</div><div>${dinheiro(vendaValor(v))}</div></div>
+            <div class="small" style="margin-top:8px;">
+              ${produtos || 'Sem produtos'}<br>
+              <strong>Volumes:</strong> ${carga.volumes} · <strong>Peso:</strong> ${carga.pesoTotal.toFixed(3)} kg · <strong>Dimensão:</strong> ${carga.dimensao}
+            </div>
+          </div>`;
+      }).join('');
+    }
 
-                enviarWhatsApp(numero, transportadora);
-            } catch (erro) {
-                mostrarErro('Erro ao processar: ' + erro.message);
-            }
-        }
+    function renderCarga() {
+      const box = document.getElementById('cargaBox');
+      const v = vendaAtual();
+      if (!v) {
+        box.innerHTML = '<div class="empty">Selecione uma venda para calcular a carga.</div>';
+        return;
+      }
+      const carga = calcularCarga(v);
+      box.innerHTML = `
+        <div class="field"><span class="label">Valor</span><div class="value">${dinheiro(vendaValor(v))}</div></div>
+        <div class="field"><span class="label">Volumes</span><div class="value">${carga.volumes}</div></div>
+        <div class="field"><span class="label">Peso total</span><div class="value">${carga.pesoTotal.toFixed(3)} kg</div></div>
+        <div class="field"><span class="label">Dimensão</span><div class="value">${carga.dimensao}</div></div>`;
+    }
 
-        function abrirWhatsAppOutro() {
-            try {
-                const numero = document.getElementById('telefonOutro').value.trim();
-                if (!numero) {
-                    mostrarErro('Digite um número de WhatsApp válido.');
-                    return;
-                }
+    function estadosTransportadora(t) { return arrEstados(t.Estados || t.estados || t.UFs || t.ufs || t.EstadosAtendidos || t.estadosAtendidos); }
+    function atendeUF(t, uf) { const estados = estadosTransportadora(t); return estados.includes('TODOS') || estados.includes('BR') || estados.includes(uf); }
 
-                enviarWhatsApp(numero, 'Outro');
-            } catch (erro) {
-                mostrarErro('Erro ao processar: ' + erro.message);
-            }
-        }
+    function renderTransportadoras() {
+      const box = document.getElementById('transportadorasBox');
+      const busca = (document.getElementById('buscaTransportadora').value || '').toLowerCase();
+      const uf = ufCliente();
+      const filtro = document.getElementById('filtroTransportadora').value;
+      let lista = Array.isArray(transportadoras) ? transportadoras.filter(t => t.Ativa !== false && t.ativo !== false) : [];
+      if (busca) lista = lista.filter(t => JSON.stringify(t).toLowerCase().includes(busca));
+      const sugeridas = lista.filter(t => atendeUF(t, uf));
+      const outras = lista.filter(t => !atendeUF(t, uf));
+      let html = '';
+      if (filtro === 'todas') html += renderListaTransportadoras(lista, 'Todas as transportadoras');
+      else {
+        html += renderListaTransportadoras(sugeridas, `Sugeridas para ${uf || 'UF do cliente'}`);
+        html += renderListaTransportadoras(outras, 'Outras transportadoras');
+      }
+      box.innerHTML = html || '<div class="empty">Nenhuma transportadora cadastrada. Clique em “Criar transportadora”.</div>';
+    }
 
-        function enviarWhatsApp(numero, transportadora) {
-            try {
-                if (!clienteAtual || !vendaAtual) {
-                    mostrarErro('Dados não foram carregados corretamente.');
-                    return;
-                }
+    function renderListaTransportadoras(lista, titulo) {
+      if (!lista.length) return '';
+      return `
+        <div class="transport-section-title">${titulo}</div>
+        ${lista.map(t => {
+          const id = String(t.Id || t.id || '');
+          const selected = String(transportadoraSelecionadaId) === id;
+          const estados = estadosTransportadora(t);
+          const wpp = t.WhatsApp || t.whatsapp || t.Telefone || t.telefone || '';
+          const email = t.Email || t.email || '';
+          return `
+            <div class="transp ${selected ? 'selected' : ''}" onclick="selecionarTransportadora('${id.replace(/'/g, "\\'")}')">
+              <div class="transp-top">
+                <div>${t.Nome || t.nome || 'Transportadora'}</div>
+                <div>${atendeUF(t, ufCliente()) ? '<span class="badge gold">Atende UF</span>' : '<span class="badge dim">Outra UF</span>'}</div>
+              </div>
+              <div class="small" style="margin-top:6px;">
+                WhatsApp: ${wpp || '-'} · E-mail: ${email || '-'}<br>
+                Base: ${t.Cidade || t.cidade || '-'} / ${t.Estado || t.estado || '-'}
+              </div>
+              <div class="badge-row">${estados.slice(0, 10).map(e => `<span class="badge">${e}</span>`).join('')}</div>
+              ${selected ? `
+                <div class="toolbar" style="margin-top:10px;">
+                  ${wpp ? '<button onclick="event.stopPropagation(); enviarWhatsAppSelecionada();">💬 Enviar WhatsApp</button>' : ''}
+                  ${email ? '<button onclick="event.stopPropagation(); abrirEmailSelecionada();">📧 Gerar e-mail</button>' : ''}
+                  <button onclick="event.stopPropagation(); copiarMensagemSelecionada();">📋 Copiar mensagem</button>
+                  <button onclick="event.stopPropagation(); editarTransportadoraSelecionada();">Editar</button>
+                </div>` : ''}
+            </div>`;
+        }).join('')}`;
+    }
 
-                // Calcular totais
-                let totalPeso = 0;
-                let totalValor = 0;
-                let totalUnidades = 0;
+    function selecionarVenda(idx) { vendaSelecionadaIdx = idx; renderVendas(); renderCarga(); atualizarMensagem(); }
+    function selecionarTransportadora(id) { transportadoraSelecionadaId = id; renderTransportadoras(); atualizarMensagem(); }
 
-                if (vendaAtual.Produtos && vendaAtual.Produtos.length > 0) {
-                    vendaAtual.Produtos.forEach(p => {
-                        totalPeso += (p.PesoUnidade || 0) * (p.Quantidade || 0);
-                        totalValor += (p.Valor || 0) * (p.Quantidade || 0);
-                        totalUnidades += p.Quantidade || 0;
-                    });
-                }
+    function resumoObj() {
+      const venda = vendaAtual();
+      if (!clienteAtual || !venda) return null;
+      const carga = calcularCarga(venda);
+      return {
+        remetente,
+        cliente: { nome: clienteAtual.Nome || '', doc: docCliente(), cep: cepCliente(), cidade: clienteAtual.Cidade || '', estado: ufCliente() },
+        venda: { nf: venda.NumeroNF || venda.NF || '', valor: vendaValor(venda), produtos: Array.isArray(venda.Produtos) ? venda.Produtos : [] },
+        carga
+      };
+    }
 
-                // Formatar mensagem (similar ao C#)
-                const cidadeEstado = `${clienteAtual.Cidade || '-'}-${clienteAtual.Estado || '-'}`;
-                const cnpjPagador = '55.951.841/0001-76';
-                const cpfDestinatario = clienteAtual.CPF || '-';
-                const valorMercadoria = 'R$ ' + totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    function montarMensagem(t = null) {
+      const r = resumoObj();
+      if (!r) return 'Selecione uma venda.';
+      const transp = t || transpSelecionada();
+      const nomeTransp = transp?.Nome || transp?.nome || '';
+      return `Olá${nomeTransp ? ', ' + nomeTransp : ''}. Tudo bem?
 
-                const mensagem = `Olá, tudo bem? Gostaria de fazer uma cotação para esses dados:
+Solicito cotação de frete para a carga abaixo:
 
-# CNPJ/CPF pagador do frete: ${cnpjPagador}
-# Cidade destino: ${cidadeEstado}
-# CNPJ/CPF destinatário: ${cpfDestinatario}
-# Valor mercadoria: ${valorMercadoria}
-# Quantidade de volumes: ${totalUnidades}
-# Peso real: ${totalPeso.toFixed(0)} kg
-# Medida dos volumes: 30x30x30
-# Qual é a mercadoria?: Nutrição animal em balde!`;
+REMETENTE
+Empresa: ${r.remetente.Nome || 'não informado'}
+CNPJ: ${r.remetente.CNPJ || 'não informado'}
+CEP origem: ${r.remetente.CEP || 'não informado'}
+Cidade/UF origem: ${r.remetente.Cidade || 'não informado'} / ${r.remetente.Estado || 'não informado'}
 
-                // Validar e limpar número
-                let numeroLimpo = numero.replace(/\D/g, '');
-                if (numeroLimpo.length < 10) {
-                    mostrarErro('Número de WhatsApp inválido. Mínimo 10 dígitos.');
-                    return;
-                }
+DESTINATÁRIO
+Nome: ${r.cliente.nome || 'não informado'}
+CPF/CNPJ: ${r.cliente.doc || 'não informado'}
+CEP destino: ${r.cliente.cep || 'não informado'}
+Cidade/UF destino: ${r.cliente.cidade || 'não informado'} / ${r.cliente.estado || 'não informado'}
 
-                // Adicionar código do Brasil se não tiver
-                if (!numeroLimpo.startsWith('55')) {
-                    numeroLimpo = '55' + numeroLimpo;
-                }
+CARGA
+NF: ${r.venda.nf || 'a informar'}
+Valor da mercadoria: ${dinheiro(r.venda.valor)}
+Volumes: ${r.carga.volumes}
+Peso total: ${r.carga.pesoTotal.toFixed(3)} kg
+Dimensão para cotação: ${r.carga.dimensao}
 
-                // Criar URL do WhatsApp
-                const urlMsg = encodeURIComponent(mensagem);
-                const urlWhatsApp = `https://web.whatsapp.com/send?phone=${numeroLimpo}&text=${urlMsg}`;
+Por favor, me informe valor do frete, prazo estimado e condições de coleta/entrega.
+OBRIGADO!`;
+    }
 
-                // Abrir WhatsApp
-                window.open(urlWhatsApp, '_blank');
-                mostrarSucesso(`Cotação enviada para ${transportadora} via WhatsApp!`);
-            } catch (erro) {
-                mostrarErro(traduzirErro(erro));
-            }
-        }
+    function atualizarMensagem() { document.getElementById('mensagemPreview').textContent = montarMensagem(); }
 
-        function traduzirErro(erro) {
-            if (!erro.message) return 'Erro desconhecido';
-            const msg = erro.message.toLowerCase();
-            if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('timeout')) {
-              return 'Falta de conexão com a internet. Verifique sua conexão.';
-            }
-            return `Erro: ${erro.message}`;
-        }
+    function exigirVendaETransportadora() {
+      if (!vendaAtual()) { alert('Selecione uma venda primeiro.'); return false; }
+      if (!transpSelecionada()) { alert('Selecione uma transportadora primeiro.'); return false; }
+      return true;
+    }
 
-        function fecharCotacao() {
-            // Voltar para página anterior ou para clientes-detalhes
-            if (sessionStorage.getItem('clienteSelecionado')) {
-                window.location.href = 'clientes-detalhes.html';
-            } else {
-                window.history.back();
-            }
-        }
+    function enviarWhatsAppSelecionada() {
+      if (!exigirVendaETransportadora()) return;
+      const t = transpSelecionada();
+      const numero = normalizarWhatsapp(t.WhatsApp || t.whatsapp || t.Telefone || t.telefone);
+      if (!numero) { alert('Essa transportadora não tem WhatsApp cadastrado. Use a opção de e-mail ou copie a mensagem.'); return; }
+      window.open(`https://wa.me/${numero}?text=${encodeURIComponent(montarMensagem(t))}`, '_blank');
+    }
 
-        function mostrarErro(mensagem) {
-            const div = document.getElementById('mensagemErro');
-            div.textContent = '❌ ' + mensagem;
-            div.style.display = 'block';
-            document.getElementById('mensagemSucesso').style.display = 'none';
-            setTimeout(() => {
-                div.style.display = 'none';
-            }, 5000);
-        }
+    function abrirEmailSelecionada() {
+      if (!exigirVendaETransportadora()) return;
+      const t = transpSelecionada();
+      const email = t.Email || t.email || '';
+      if (!email) { alert('Essa transportadora não tem e-mail cadastrado. Copie a mensagem manualmente.'); return; }
+      const assunto = `Cotação de frete - ${clienteAtual?.Cidade || ''}/${ufCliente()} - ${clienteAtual?.Nome || ''}`;
+      const mensagem = montarMensagem(t);
+      emailAtual = { email, assunto, mensagem };
+      document.getElementById('emailDestino').value = email;
+      document.getElementById('emailAssunto').value = assunto;
+      document.getElementById('emailMensagem').value = mensagem;
+      abrirModal('modalEmail');
+    }
 
-        function mostrarSucesso(mensagem) {
-            const div = document.getElementById('mensagemSucesso');
-            div.textContent = '✅ ' + mensagem;
-            div.style.display = 'block';
-            document.getElementById('mensagemErro').style.display = 'none';
-            setTimeout(() => {
-                div.style.display = 'none';
-            }, 5000);
-        }
-    </script>
-<script src="sidebar-dock.js"></script>
-<script src="mascaras-globais.js"></script>
-<script src="alertas-ligacoes.js"></script>
+    async function copiarMensagemSelecionada() {
+      if (!vendaAtual()) { alert('Selecione uma venda primeiro.'); return; }
+      await navigator.clipboard.writeText(montarMensagem());
+      alert('Mensagem copiada.');
+    }
+
+    async function copiarCampo(id) {
+      const el = document.getElementById(id);
+      await navigator.clipboard.writeText(el.value || el.textContent || '');
+      alert('Copiado.');
+    }
+
+    function abrirMailto() {
+      if (!emailAtual) return;
+      window.location.href = `mailto:${encodeURIComponent(emailAtual.email)}?subject=${encodeURIComponent(emailAtual.assunto)}&body=${encodeURIComponent(emailAtual.mensagem)}`;
+    }
+
+    function abrirModalRemetente() {
+      document.getElementById('remNome').value = remetente.Nome || '';
+      document.getElementById('remCnpj').value = remetente.CNPJ || '';
+      document.getElementById('remCep').value = remetente.CEP || '';
+      document.getElementById('remCidade').value = remetente.Cidade || '';
+      document.getElementById('remEstado').value = remetente.Estado || '';
+      document.getElementById('remTelefone').value = remetente.Telefone || '';
+      abrirModal('modalRemetente');
+    }
+
+    async function salvarRemetente() {
+      remetente = {
+        Nome: document.getElementById('remNome').value.trim(),
+        CNPJ: document.getElementById('remCnpj').value.trim(),
+        CEP: document.getElementById('remCep').value.trim(),
+        Cidade: document.getElementById('remCidade').value.trim(),
+        Estado: document.getElementById('remEstado').value.trim().toUpperCase(),
+        Telefone: document.getElementById('remTelefone').value.trim(),
+        DataAtualizacao: new Date().toISOString()
+      };
+      const ok = await salvarDadosComAuditoria('remetente_cotacao.json', remetente, 'auditoria', 'Atualizar', 'RemetenteCotacao', 'remetente_cotacao', remetente.Nome || 'Remetente', 'Dados do remetente atualizados via Cotação', '', JSON.stringify(remetente));
+      if (!ok) { alert('Erro ao salvar remetente_cotacao.json.'); return; }
+      localStorage.setItem('cotacao_remetente_cnpj', remetente.CNPJ || '');
+      localStorage.setItem('cotacao_remetente_cep', remetente.CEP || '');
+      fecharModal('modalRemetente');
+      renderRemetente();
+      atualizarMensagem();
+      alert('Dados do remetente salvos no JSON.');
+    }
+
+    function limparTransportadora() {
+      document.getElementById('tituloModalTransportadora').textContent = '➕ Criar Transportadora';
+      ['transpId','transpNome','transpCnpj','transpWhatsapp','transpEmail','transpCidade','transpEstado','transpEstados','transpObs'].forEach(id => { document.getElementById(id).value = ''; });
+      document.getElementById('transpAtiva').value = 'true';
+    }
+
+    function abrirModalTransportadora() { limparTransportadora(); abrirModal('modalTransportadora'); }
+
+    function editarTransportadoraSelecionada() {
+      const t = transpSelecionada();
+      if (!t) return;
+      document.getElementById('tituloModalTransportadora').textContent = '✏️ Editar Transportadora';
+      document.getElementById('transpId').value = t.Id || t.id || '';
+      document.getElementById('transpNome').value = t.Nome || t.nome || '';
+      document.getElementById('transpCnpj').value = t.CNPJ || t.cnpj || '';
+      document.getElementById('transpWhatsapp').value = t.WhatsApp || t.whatsapp || t.Telefone || t.telefone || '';
+      document.getElementById('transpEmail').value = t.Email || t.email || '';
+      document.getElementById('transpCidade').value = t.Cidade || t.cidade || '';
+      document.getElementById('transpEstado').value = t.Estado || t.estado || '';
+      document.getElementById('transpEstados').value = estadosTransportadora(t).join(', ');
+      document.getElementById('transpObs').value = t.Observacao || t.observacao || '';
+      document.getElementById('transpAtiva').value = (t.Ativa === false || t.ativo === false) ? 'false' : 'true';
+      abrirModal('modalTransportadora');
+    }
+
+    async function salvarTransportadora() {
+      const id = document.getElementById('transpId').value || String(Date.now());
+      const antiga = transportadoras.find(t => String(t.Id || t.id) === String(id));
+      const item = {
+        ...(antiga || {}),
+        Id: id,
+        Nome: document.getElementById('transpNome').value.trim(),
+        CNPJ: document.getElementById('transpCnpj').value.trim(),
+        WhatsApp: document.getElementById('transpWhatsapp').value.trim(),
+        Email: document.getElementById('transpEmail').value.trim(),
+        Cidade: document.getElementById('transpCidade').value.trim(),
+        Estado: document.getElementById('transpEstado').value.trim().toUpperCase(),
+        Estados: arrEstados(document.getElementById('transpEstados').value),
+        Observacao: document.getElementById('transpObs').value.trim(),
+        Ativa: document.getElementById('transpAtiva').value === 'true',
+        DataAtualizacao: new Date().toISOString()
+      };
+      if (!item.Nome) { alert('Informe o nome da transportadora.'); return; }
+      if (!item.Estados.length) { alert('Informe os estados atendidos. Ex: SP, GO, DF ou TODOS.'); return; }
+      const idx = transportadoras.findIndex(t => String(t.Id || t.id) === String(id));
+      if (idx >= 0) transportadoras[idx] = item;
+      else { item.DataCriacao = new Date().toISOString(); transportadoras.push(item); }
+      const ok = await salvarDadosComAuditoria('transportadoras.json', transportadoras, 'auditoria', idx >= 0 ? 'Atualizar' : 'Criar', 'Transportadora', item.Id, item.Nome, `Transportadora '${item.Nome}' salva via Cotação`, antiga ? JSON.stringify(antiga) : '', JSON.stringify(item));
+      if (!ok) { alert('Erro ao salvar transportadoras.json.'); return; }
+      fecharModal('modalTransportadora');
+      renderTransportadoras();
+      alert('Transportadora salva no JSON.');
+    }
+
+    async function recarregarTudo() {
+      await init();
+      alert('Cotação recarregada.');
+    }
+
+    async function init() {
+      if (typeof verificarLogin === 'function') verificarLogin();
+      clienteAtual = carregarClienteSession();
+      await carregarRemetente();
+      await carregarTransportadoras();
+      renderCliente();
+      renderRemetente();
+      renderVendas();
+      renderCarga();
+      renderTransportadoras();
+      atualizarMensagem();
+    }
+    init();
+  </script>
 </body>
 </html>
