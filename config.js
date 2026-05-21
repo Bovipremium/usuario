@@ -5,7 +5,7 @@
 // ============================================
 
 var CONFIG = {
-  API_URL: "https://script.google.com/macros/s/AKfycbwbHwNBCK0fOLymmypKB_K8i1_vvZlysepTu6O7om_j_abSJ9dl0EqFefhboztszTHNkQ/exec",
+  API_URL: "https://script.google.com/macros/s/AKfycbx5BAxj45AEzcL6Sl4x7mgv5WUwAChTaPmF0d56pnmb8T8Umn9TY6cGPwt-RkudZa7b/exec",
 
   ARQUIVOS: {
     CLIENTES: "clientes.json",
