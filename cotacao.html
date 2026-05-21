@@ -113,6 +113,17 @@
       .btn, button { width: 100%; }
       .modal-box { padding: 13px; border-radius: 18px; }
     }
+
+    /* COTACAO ONLINE ROTA V4 */
+    .online-route-box{background:rgba(0,0,0,.18);border:1px solid rgba(124,240,194,.14);border-radius:16px;padding:12px;margin-bottom:12px}
+    .online-result{border:1px solid rgba(124,240,194,.18);border-radius:16px;background:rgba(255,255,255,.035);padding:12px;margin-bottom:10px}
+    .online-result.recommended{border-color:rgba(212,175,55,.68);box-shadow:0 0 0 2px rgba(212,175,55,.12)}
+    .online-result-top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--green2);font-weight:950;margin-bottom:6px}
+    .online-score{color:#06110e;background:var(--gold);padding:4px 8px;border-radius:999px;font-size:11px;font-weight:950}
+    .online-warning{color:#ffe59a;background:rgba(212,175,55,.10);border:1px solid rgba(212,175,55,.28);border-radius:14px;padding:10px;font-size:12px;line-height:1.45;margin-bottom:12px}
+    .online-results{max-height:52vh;overflow:auto;padding-right:4px}
+    /* FIM COTACAO ONLINE ROTA V4 */
+
   </style>
 </head>
 <body>
@@ -125,6 +136,7 @@
       <div class="toolbar">
         <a class="btn" href="clientes.html">⬅ Clientes</a>
         <button class="btn-gold" onclick="abrirModalTransportadora()">➕ Criar transportadora</button>
+        <button class="btn-gold" onclick="abrirModalOnlineTransportadoras()">🌐 Localizar online</button>
         <button onclick="abrirModalRemetente()">🏢 Dados do remetente</button>
         <button onclick="recarregarTudo()">🔄 Recarregar</button>
       </div>
@@ -217,6 +229,44 @@
       </aside>
     </section>
   </main>
+
+  <!-- COTACAO ONLINE ROTA V4 -->
+  <div id="modalOnlineTransportadoras" class="modal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2>🌐 Localizar transportadoras online</h2>
+        <button class="btn-red" onclick="fecharModal('modalOnlineTransportadoras')">✕</button>
+      </div>
+      <div class="online-warning">
+        Busca empresas candidatas para a rota origem → destino. A API não garante contratação nem evita golpe sozinha; a cotação sempre pede confirmação de coleta, entrega, prazo e condições.
+      </div>
+      <div class="online-route-box">
+        <div class="form-grid">
+          <div><span class="label">Origem / remetente</span><div id="onlineOrigemResumo" class="value">-</div></div>
+          <div><span class="label">Destino / cliente</span><div id="onlineDestinoResumo" class="value">-</div></div>
+          <div><span class="label">Carga</span><div id="onlineCargaResumo" class="value">-</div></div>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div>
+          <span class="label">Filtro</span>
+          <select id="onlineFiltroMinimo"><option value="profissional">Profissional</option><option value="amplo">Amplo</option></select>
+        </div>
+        <div>
+          <span class="label">Integração</span>
+          <div class="value">URL carregada automaticamente do config.js</div>
+        </div>
+      </div>
+      <div class="toolbar" style="margin-top:12px;">
+        <button class="btn-gold" onclick="buscarTransportadorasOnline()">🔎 Buscar para esta rota</button>
+      </div>
+      <div class="divider"></div>
+      <div id="onlineStatus" class="hint">Pronto para buscar.</div>
+      <div id="onlineResultados" class="online-results"></div>
+    </div>
+  </div>
+  <!-- FIM COTACAO ONLINE ROTA V4 -->
+
 
   <div id="modalTransportadora" class="modal">
     <div class="modal-box">
@@ -637,11 +687,242 @@ OBRIGADO!`;
       renderTransportadoras();
       alert('Transportadora salva no JSON.');
     }
-
-    async function recarregarTudo() {
+async function recarregarTudo() {
       await init();
       alert('Cotação recarregada.');
     }
+
+
+    // COTACAO ONLINE ROTA V4
+    let resultadosOnlineTransportadoras = [];
+
+    function obterUrlAppsScriptOnline() {
+      return (window.CONFIG && window.CONFIG.API_URL) || (typeof CONFIG !== 'undefined' && CONFIG.API_URL) || window.APPS_SCRIPT_URL || '';
+    }
+
+    function resumoRotaOnline() {
+      const v = vendaAtual();
+      const carga = v ? calcularCarga(v) : null;
+      return {
+        origem: { nome: remetente.Nome || '', cnpj: remetente.CNPJ || '', cep: remetente.CEP || '', cidade: remetente.Cidade || '', estado: String(remetente.Estado || '').toUpperCase() },
+        destino: { nome: clienteAtual?.Nome || '', documento: docCliente(), cep: cepCliente(), cidade: clienteAtual?.Cidade || '', estado: ufCliente() },
+        carga: { valor: v ? vendaValor(v) : 0, volumes: carga ? carga.volumes : 0, pesoTotal: carga ? carga.pesoTotal : 0, maiorPeso: carga ? carga.maiorPeso : 0, dimensao: carga ? carga.dimensao : '' }
+      };
+    }
+
+    function abrirModalOnlineTransportadoras() {
+      if (!clienteAtual) return alert('Cliente não carregado.');
+      if (!vendaAtual()) return alert('Selecione uma venda primeiro. A busca online usa origem, destino e carga.');
+      const r = resumoRotaOnline();
+      document.getElementById('onlineOrigemResumo').textContent = `${r.origem.cidade || '-'} / ${r.origem.estado || '-'} · CEP ${r.origem.cep || '-'}`;
+      document.getElementById('onlineDestinoResumo').textContent = `${r.destino.cidade || '-'} / ${r.destino.estado || '-'} · CEP ${r.destino.cep || '-'}`;
+      document.getElementById('onlineCargaResumo').textContent = `${r.carga.volumes} volumes · ${Number(r.carga.pesoTotal || 0).toFixed(3)} kg · ${r.carga.dimensao || '-'}`;
+      document.getElementById('onlineStatus').textContent = 'Pronto para buscar.';
+      document.getElementById('onlineResultados').innerHTML = '';
+      abrirModal('modalOnlineTransportadoras');
+    }
+
+    
+    // COTACAO ONLINE JSONP V12
+    function cotacaoOnlineGerarCallbackV12() {
+      return '__cotacaoOnlineV12_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
+    }
+
+    function cotacaoOnlineObterDeviceIdV12() {
+      return localStorage.getItem('deviceId')
+        || localStorage.getItem('device_id')
+        || sessionStorage.getItem('deviceId')
+        || sessionStorage.getItem('device_id')
+        || '';
+    }
+
+    function cotacaoOnlineJsonpV12(url, params, timeoutMs = 45000) {
+      return new Promise((resolve, reject) => {
+        const callbackName = cotacaoOnlineGerarCallbackV12();
+        const script = document.createElement('script');
+        let finalizado = false;
+
+        function limpar() {
+          finalizado = true;
+          try { delete window[callbackName]; } catch (e) { window[callbackName] = undefined; }
+          if (script && script.parentNode) script.parentNode.removeChild(script);
+        }
+
+        const timer = setTimeout(() => {
+          if (finalizado) return;
+          limpar();
+          reject(new Error('Tempo esgotado na busca online. Verifique se o Apps Script foi publicado novamente.'));
+        }, timeoutMs);
+
+        window[callbackName] = (dados) => {
+          if (finalizado) return;
+          clearTimeout(timer);
+          limpar();
+          resolve(dados);
+        };
+
+        params.set('callback', callbackName);
+        params.set('_jsonp', '1');
+
+        const separador = url.includes('?') ? '&' : '?';
+        script.src = `${url}${separador}${params.toString()}`;
+        script.async = true;
+
+        script.onerror = () => {
+          if (finalizado) return;
+          clearTimeout(timer);
+          limpar();
+          reject(new Error('Falha ao carregar resposta do Apps Script. Confirme se a rota JSONP V12 foi instalada no doGet.'));
+        };
+
+        document.head.appendChild(script);
+      });
+    }
+    // FIM COTACAO ONLINE JSONP V12
+
+async function buscarTransportadorasOnline() {
+      if (!vendaAtual()) {
+        alert('Selecione uma venda primeiro.');
+        return;
+      }
+
+      const url = obterUrlAppsScriptOnline();
+      if (!url || !url.includes('script.google.com')) {
+        alert('URL da API principal não encontrada. Confira CONFIG.API_URL no config.js.');
+        return;
+      }
+
+      const deviceId = cotacaoOnlineObterDeviceIdV12();
+      if (!deviceId) {
+        alert('Dispositivo não autenticado. Faça login/autenticação no sistema antes da busca online.');
+        return;
+      }
+
+      const rota = resumoRotaOnline();
+
+      if (!rota.origem.cidade || !rota.origem.estado) {
+        alert('Cadastre remetente com cidade e UF.');
+        return;
+      }
+
+      if (!rota.destino.cidade || !rota.destino.estado) {
+        alert('Cliente precisa ter cidade e UF.');
+        return;
+      }
+
+      const params = new URLSearchParams({
+        acao: 'buscarTransportadorasOnline',
+        deviceId: deviceId,
+        payload: JSON.stringify({
+          rota,
+          filtro: document.getElementById('onlineFiltroMinimo').value
+        }),
+        t: Date.now().toString()
+      });
+
+      const status = document.getElementById('onlineStatus');
+      const box = document.getElementById('onlineResultados');
+
+      status.textContent = 'Buscando transportadoras para a rota...';
+      box.innerHTML = '<div class="empty">Consultando origem, destino e rota...</div>';
+
+      try {
+        const json = await cotacaoOnlineJsonpV12(url, params);
+
+        if (!json || (!json.ok && !json.sucesso)) {
+          throw new Error((json && (json.erro || json.message)) || 'Erro na busca online.');
+        }
+
+        resultadosOnlineTransportadoras = json.resultados || json.transportadoras || [];
+        status.textContent = `Resultado: ${resultadosOnlineTransportadoras.length} candidata(s). Confirme coleta/entrega antes de contratar.`;
+        renderizarResultadosOnline();
+
+      } catch (e) {
+        console.error(e);
+        status.textContent = 'Erro na busca online.';
+        box.innerHTML = `<div class="empty">Erro: ${e.message}<br><br>Instale o bloco JSONP V12 no Apps Script principal e publique uma nova versão.</div>`;
+      }
+    }
+
+    function renderizarResultadosOnline() {
+      const box = document.getElementById('onlineResultados');
+      if (!resultadosOnlineTransportadoras.length) return box.innerHTML = '<div class="empty">Nenhuma transportadora online encontrada.</div>';
+      const rec = resultadosOnlineTransportadoras.filter(x => Number(x.score || 0) >= 60);
+      const out = resultadosOnlineTransportadoras.filter(x => Number(x.score || 0) < 60);
+      box.innerHTML = renderListaOnline(rec, 'Recomendadas para confirmar rota', true) + renderListaOnline(out, 'Possíveis, mas verificar com cuidado', false);
+    }
+
+    function renderListaOnline(lista, titulo, recomendada) {
+      if (!lista.length) return '';
+      return `<div class="transport-section-title">${titulo}</div>` + lista.map((t) => {
+        const idx = resultadosOnlineTransportadoras.indexOf(t);
+        const tel = t.telefone || t.whatsapp || t.internationalPhoneNumber || t.nationalPhoneNumber || '';
+        const site = t.site || t.websiteUri || '';
+        const maps = t.googleMapsUri || t.maps || '';
+        return `
+          <div class="online-result ${recomendada ? 'recommended' : ''}">
+            <div class="online-result-top"><div>${t.nome || t.name || 'Transportadora'}</div><div class="online-score">Score ${Number(t.score || 0)}</div></div>
+            <div class="small">${t.endereco || t.formattedAddress || '-'}<br>Telefone: ${tel || '-'} · Avaliação: ${t.rating || '-'} (${t.userRatingCount || 0})<br>${t.observacao || 'Confirme se coleta na origem e entrega no destino.'}</div>
+            <div class="badge-row">${(t.motivos || []).slice(0,8).map(m => `<span class="badge">${m}</span>`).join('')}</div>
+            <div class="toolbar" style="margin-top:10px;">
+              ${tel ? `<button onclick="usarOnlineWhatsApp(${idx})">💬 WhatsApp</button>` : ''}
+              ${site ? `<a class="btn" target="_blank" href="${site}">🌐 Site</a>` : ''}
+              ${maps ? `<a class="btn" target="_blank" href="${maps}">🗺️ Maps</a>` : ''}
+              <button onclick="salvarOnlineNoCadastro(${idx})">💾 Salvar no cadastro</button>
+              <button onclick="copiarMensagemOnline(${idx})">📋 Copiar cotação</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function transportarOnlineParaCadastro(item) {
+      return {
+        Id: item.id || item.placeId || String(Date.now()),
+        Nome: item.nome || item.name || 'Transportadora',
+        CNPJ: '',
+        WhatsApp: item.telefone || item.whatsapp || item.internationalPhoneNumber || item.nationalPhoneNumber || '',
+        Email: item.email || '',
+        Site: item.site || item.websiteUri || '',
+        GoogleMaps: item.googleMapsUri || item.maps || '',
+        Cidade: item.cidade || '',
+        Estado: item.estado || '',
+        Estados: item.estados || [ufCliente()],
+        Observacao: `Encontrada online. Score: ${item.score || 0}. Confirmar coleta em ${remetente.Cidade || '-'}-${remetente.Estado || '-'} e entrega em ${clienteAtual?.Cidade || '-'}-${ufCliente()}.`,
+        Ativa: true, OrigemOnline: true, DataAtualizacao: new Date().toISOString()
+      };
+    }
+
+    async function salvarOnlineNoCadastro(idx) {
+      const item = resultadosOnlineTransportadoras[idx];
+      if (!item) return;
+      const novo = transportarOnlineParaCadastro(item);
+      const existente = transportadoras.find(t => String(t.Id || t.id) === String(novo.Id) || String(t.Nome || t.nome || '').toLowerCase() === String(novo.Nome || '').toLowerCase());
+      if (existente) Object.assign(existente, { ...existente, ...novo, Id: existente.Id || existente.id || novo.Id });
+      else { novo.DataCriacao = new Date().toISOString(); transportadoras.push(novo); }
+      const ok = await salvarDadosComAuditoria('transportadoras.json', transportadoras, 'auditoria', existente ? 'Atualizar' : 'Criar', 'Transportadora', novo.Id, novo.Nome, `Transportadora '${novo.Nome}' salva a partir da busca online`, existente ? JSON.stringify(existente) : '', JSON.stringify(novo));
+      if (!ok) return alert('Erro ao salvar no JSON.');
+      transportadoraSelecionadaId = novo.Id;
+      renderTransportadoras(); atualizarMensagem();
+      alert('Transportadora salva no cadastro.');
+    }
+
+    function mensagemCotacaoOnline(item) { return montarMensagem(transportarOnlineParaCadastro(item)); }
+
+    function usarOnlineWhatsApp(idx) {
+      const item = resultadosOnlineTransportadoras[idx];
+      const tel = normalizarWhatsapp(item?.telefone || item?.whatsapp || item?.internationalPhoneNumber || item?.nationalPhoneNumber || '');
+      if (!tel) return alert('Resultado online sem telefone.');
+      window.open(`https://wa.me/${tel}?text=${encodeURIComponent(mensagemCotacaoOnline(item))}`, '_blank');
+    }
+
+    async function copiarMensagemOnline(idx) {
+      const item = resultadosOnlineTransportadoras[idx];
+      if (!item) return;
+      await navigator.clipboard.writeText(mensagemCotacaoOnline(item));
+      alert('Mensagem copiada.');
+    }
+    // FIM COTACAO ONLINE ROTA V4
+
 
     async function init() {
       if (typeof verificarLogin === 'function') verificarLogin();
