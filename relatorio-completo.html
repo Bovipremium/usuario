@@ -87,6 +87,7 @@
     .metric.info .value { color: #9fd8ff; }
     .two-cols { grid-template-columns: minmax(360px, 1fr) minmax(360px, 1fr); margin-bottom: 22px; }
     .three-cols { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-bottom: 22px; }
+    .rentabilidade-grid { grid-template-columns: 1fr; margin-bottom: 22px; }
     .section-title { font-size: 20px; font-weight: 800; margin-bottom: 14px; color: #7cf0c2; }
     .section-subtitle { color: #8fb9ac; font-size: 13px; margin-top: -8px; margin-bottom: 14px; line-height: 1.45; }
     .diagnostico-item {
@@ -101,10 +102,81 @@
     .diagnostico-item.aviso { border-left-color: #ffd166; }
     .diagnostico-item.ok { border-left-color: #7cf0c2; }
     .diagnostico-item.info { border-left-color: #9fd8ff; }
-    .table-wrap { overflow-x: auto; }
+    .table-wrap { overflow-x: auto; max-width: 100%; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,.08); text-align: left; vertical-align: top; }
     th { color: #8fb9ac; text-transform: uppercase; font-size: 11px; letter-spacing: .06em; }
+    .tabela-rentabilidade { min-width: 1040px; table-layout: fixed; }
+    .tabela-rentabilidade th,
+    .tabela-rentabilidade td { padding: 10px 8px; font-size: 12px; line-height: 1.35; }
+    .tabela-rentabilidade th { white-space: normal; }
+    .tabela-rentabilidade .th-main {
+      display: block;
+      font-size: 12px;
+      line-height: 1.15;
+    }
+    .tabela-rentabilidade .th-desc {
+      display: block;
+      margin-top: 2px;
+      color: #719386;
+      font-size: 9px;
+      font-weight: 600;
+      line-height: 1.1;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .tabela-rentabilidade th:first-child,
+    .tabela-rentabilidade td:first-child {
+      width: 22%;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .tabela-rentabilidade th:not(:first-child) { text-align: right; }
+    .tabela-rentabilidade td:not(:first-child) {
+      text-align: right;
+      white-space: nowrap;
+    }
+    .tabela-rentabilidade-vendas { min-width: 1160px; }
+    .indicador-nome { min-width: 180px; }
+    .indicador-main {
+      display: block;
+      color: #cfe7df;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.15;
+    }
+    .indicador-desc {
+      display: block;
+      margin-top: 3px;
+      color: #719386;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+    .rentabilidade-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 2px 0 14px;
+      padding: 12px;
+      border: 1px solid rgba(124,240,194,.14);
+      border-radius: 12px;
+      background: rgba(255,255,255,.035);
+    }
+    .rentabilidade-toolbar label {
+      color: #cfe7df;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .rentabilidade-toolbar input {
+      width: min(420px, 100%);
+      background: rgba(5,11,9,.72);
+      border-color: rgba(124,240,194,.28);
+    }
+    .rentabilidade-toolbar input::placeholder { color: #719386; }
+    .rentabilidade-grid .card { overflow: hidden; }
     .status-insuficiente { color: #ffd166; font-weight: 700; }
     .definitions { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-top: 22px; }
     .definition h3 { color: #d4af37; margin-bottom: 8px; font-size: 16px; }
@@ -199,4 +271,3 @@
   <script src="alertas-ligacoes.js"></script>
 </body>
 </html>
-
