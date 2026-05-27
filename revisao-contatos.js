@@ -3328,3 +3328,69 @@ console.log('✅ revisao-contatos.js CARREGADO');
 
   console.log('✅ Revisão de Contatos V9 carregada: WhatsApp Enviado Já em lote');
 })();
+(function () {
+  if (window.__btnMoverWhatsappLote) return;
+  window.__btnMoverWhatsappLote = true;
+
+  window.moverSelecionadosParaWhatsapp = async function () {
+    const checks = Array.from(document.querySelectorAll('.chkContatoBulkV8[data-aba="ligacao"]:checked'));
+    const chaves = new Set(checks.map(c => chaveNumero(c.dataset.numero)).filter(Boolean));
+
+    if (!chaves.size) {
+      exibirMensagem('ligacao', '⚠️ Marque pelo menos um número', 'info');
+      return;
+    }
+
+    const ok = typeof modalConfirm === 'function'
+      ? await modalConfirm(`Mover ${chaves.size} número(s) para WhatsApp?`, { title: 'Mover para WhatsApp', okText: 'Mover', cancelText: 'Cancelar' })
+      : confirm(`Mover ${chaves.size} número(s) para WhatsApp?`);
+
+    if (!ok) return;
+
+    try {
+      mostrarLoadingTela();
+
+      // Altera só na memória, igual marcarTodosWhatsapp
+      numerosTemporarios.forEach(c => {
+        if (chaves.has(chaveNumero(c.numero))) { c.tipo = 'whatsapp'; c.enviadoWhatsapp = c.enviadoWhatsapp ?? false; }
+      });
+      contatosGlobais.forEach(c => {
+        if (chaves.has(chaveNumero(c.numero))) { c.tipo = 'whatsapp'; c.enviadoWhatsapp = c.enviadoWhatsapp ?? false; }
+      });
+
+      // Um único save
+      const paraSalvar = contatosCombinadosUnicos();
+      const sucesso = await salvarNoGoogleDrive(paraSalvar);
+
+      esconderLoadingTela();
+
+      if (!sucesso) { exibirMensagem('ligacao', '❌ Erro ao salvar', 'error'); return; }
+
+      contatosGlobais = paraSalvar;
+      numerosTemporarios = [];
+      atualizarTodasAsAbas();
+
+      exibirMensagem('ligacao', `✅ ${chaves.size} número(s) movido(s) para WhatsApp!`, 'success');
+    } catch (e) {
+      esconderLoadingTela();
+      exibirMensagem('ligacao', '❌ Erro: ' + e.message, 'error');
+    }
+  };
+
+  function inserirBotao() {
+    if (document.getElementById('btnMoverWhatsappLote')) return;
+    const grupo = document.getElementById('controlesBulkV8_ligacao');
+    if (!grupo) return;
+    const btn = document.createElement('button');
+    btn.id = 'btnMoverWhatsappLote';
+    btn.type = 'button';
+    btn.className = 'btn';
+    btn.style.cssText = 'background:linear-gradient(145deg,rgba(34,177,76,.3),rgba(34,177,76,.15));color:#22b14c;border:1px solid rgba(34,177,76,.3);';
+    btn.textContent = '💬 Mover para WhatsApp';
+    btn.onclick = moverSelecionadosParaWhatsapp;
+    grupo.appendChild(btn);
+  }
+
+  window.addEventListener('load', () => { setTimeout(inserirBotao, 800); setTimeout(inserirBotao, 2000); });
+  setInterval(inserirBotao, 1500);
+})();
