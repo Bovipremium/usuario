@@ -973,9 +973,14 @@
   // ✅ CORRIGIDO: peso UNITÁRIO (por embalagem), exibe sem multiplicar
   const pesoUnidade = parseFloat(prod.PesoUnidade || 0);
   
-  // ✅ prod.Valor é UNITÁRIO — total da linha = valor × qtd
-  const valorUnitario = parseFloat(prod.Valor || 0);
-  const valorLinha = valorUnitario * qtd;
+ // ✅ prod.Valor vindo do JSON é o TOTAL da linha
+const valorLinha = parseFloat(prod.Valor || 0);
+
+// ✅ Se existir valor unitário no JSON usa ele
+// ✅ Senão calcula dividindo o total pela quantidade
+const valorUnitario =
+  parseFloat(prod.ValorUnitario || prod.ValorUN || 0) ||
+  (qtd > 0 ? valorLinha / qtd : 0);
   
   // ✅ Acumuladores corretos
   totalQtd += qtd;
