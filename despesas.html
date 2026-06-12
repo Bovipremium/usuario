@@ -1164,9 +1164,7 @@
         }
 
         // ✅ Usar categoria extraída do parênteses se existir (parseCSV coloca em _categoria_extraida)
-        let categoriaFinal = row._categoria_extraida || categoria;
-        // AUTO-CATEGORIZAR se não tem categoria ou está vazio
-        categoriaFinal = String(categoriaFinal).trim() || autoCategorizar(descricao);
+        let categoriaFinal = categoriaFinalUpload(descricao, row._categoria_extraida || categoria);
 
         return {
           Data: String(data).trim(),
@@ -1320,7 +1318,144 @@
     return dados;
   }
 
+  
+  function categoriaValidaUpload(categoria) {
+    const c = String(categoria || '').trim();
+    if (!c) return '';
+    if (/^R\$\s*[\d.,]+$/i.test(c)) return '';
+    if (/^[\d.,]+$/.test(c)) return '';
+    if (/^\d+[,.]\d{2}$/.test(c)) return '';
+    return c.toUpperCase();
+  }
+
+  function categoriaPorHistorico(descricao) {
+    const desc = String(descricao || '').trim().toUpperCase();
+    if (!desc) return '';
+
+    const votos = {};
+    todasDespesas.forEach(d => {
+      const dDesc = String(d.Descricao || '').trim().toUpperCase();
+      const cat = categoriaValidaUpload(d.Categoria);
+      if (!cat) return;
+
+      if (dDesc === desc || dDesc.includes(desc) || desc.includes(dDesc)) {
+        votos[cat] = (votos[cat] || 0) + 1;
+      }
+    });
+
+    const vencedor = Object.entries(votos).sort((a,b) => b[1] - a[1])[0];
+
+    // IA simples: só vira padrão depois de aparecer 2 vezes
+    if (vencedor && vencedor[1] >= 2) return vencedor[0];
+
+    return '';
+  }
+
+  function categoriaFinalUpload(descricao, categoriaOriginal) {
+    let catArquivo = categoriaValidaUpload(categoriaOriginal);
+
+    // OUTRO não pode travar a inteligência.
+    // Se veio OUTRO, vazio, R$54,00, 59 etc, tenta aprender pelo histórico/regra.
+    if (catArquivo === 'OUTRO') catArquivo = '';
+
+    if (catArquivo) return catArquivo;
+
+    const catHistorico = categoriaPorHistorico(descricao);
+    if (catHistorico) return catHistorico;
+
+    const catAuto = autoCategorizar(descricao);
+    if (catAuto && catAuto !== 'SEM CATEGORIA' && catAuto !== 'OUTRO') return catAuto;
+
+    return regraCategoriaPorDescricaoUpload(descricao);
+  }
+
+  function regraCategoriaPorDescricaoUpload(descricao) {
+    const d = String(descricao || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+
+    if (!d.trim()) return 'OUTRO';
+
+    if (d.includes('POSTO') || d.includes('COMBUSTIVEL')) return 'POSTO';
+    if (d.includes('SUPERMERCADO') || d.includes('MERCADO') || d.includes('DICASA') || d.includes('SANTOS E PEIXOTO')) return 'MERCADO';
+    if (d.includes('EMBALAGEM') || d.includes('EMBALAGENS') || d.includes('LP EMBALAGENS') || d.includes('EASYPACK')) return 'EMBALAGEM';
+    if (d.includes('JONATHAN')) return 'JONATHAN';
+    if (d.includes('WALLYSON')) return 'WALLYSON';
+    if (d.includes('TARIFA') || d.includes('TITULOS') || d.includes('PIXCOB') || d.includes('CESTA DE RELACIONAMENTO')) return 'BANCO';
+    if (d.includes('SANEAGO')) return 'AGUA';
+    if (d.includes('EQUATORIAL')) return 'ENERGIA';
+    if (d.includes('RECEITA FEDERAL')) return 'IMPOSTO';
+    if (d.includes('TRANSPORTADORA') || d.includes('TNT') || d.includes('BRASPRESS') || d.includes('CAIRU')) return 'TRANSPORTADORA';
+    if (d.includes('FACEBOOK')) return 'FACEBOOK';
+    if (d.includes('SETTE TELECOM') || d.includes('INTERNET')) return 'INTERNET';
+    if (d.includes('99 TECNOLOGIA') || d.includes('UBER')) return 'APLICATIVO';
+    if (d.includes('VIP SALGADOS') || d.includes('MARMITA')) return 'ALIMENTACAO';
+    if (d.includes('DROGARIA') || d.includes('FARMACIA')) return 'FARMACIA';
+    if (d.includes('FERRO E ACO') || d.includes('FERRAGISTA') || d.includes('MATERIAIS') || d.includes('UNITINTAS')) return 'FABRICA';
+
+    return 'OUTRO';
+  }
+
+  
+  function categoriaPorDescricaoUpload(descricao, categoriaOriginal) {
+    const cat = String(categoriaOriginal || '').trim().toUpperCase();
+
+    if (
+      cat &&
+      cat !== 'OUTRO' &&
+      !/^R\$\s*[\d.,]+$/i.test(cat) &&
+      !/^[\d.,]+$/.test(cat)
+    ) return cat;
+
+    const d = String(descricao || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+
+    if (!d.trim()) return 'OUTRO';
+
+    // Regras fixas principais
+    if (d.includes('TARIFA') || d.includes('TITULOS') || d.includes('PIXCOB') || d.includes('CESTA DE RELACIONAMENTO')) return 'BANCO';
+    if (d.includes('POSTO') || d.includes('COMBUSTIVEL')) return 'POSTO';
+    if (d.includes('SUPERMERCADO') || d.includes('MERCADO') || d.includes('DICASA') || d.includes('PEIXOT')) return 'MERCADO';
+    if (d.includes('EMBALAGEM') || d.includes('EMBALAGENS') || d.includes('LP EMBALAGENS') || d.includes('EASYPACK')) return 'EMBALAGEM';
+    if (d.includes('JONATHAN')) return 'JONATHAN';
+    if (d.includes('WALLYSON')) return 'WALLYSON';
+    if (d.includes('SANEAGO')) return 'AGUA';
+    if (d.includes('EQUATORIAL')) return 'ENERGIA';
+    if (d.includes('RECEITA FEDERAL')) return 'IMPOSTO';
+    if (d.includes('TNT') || d.includes('BRASPRESS') || d.includes('CAIRU') || d.includes('TRANSPORTADORA')) return 'TRANSPORTADORA';
+    if (d.includes('FACEBOOK')) return 'FACEBOOK';
+    if (d.includes('SETTE TELECOM') || d.includes('INTERNET')) return 'INTERNET';
+    if (d.includes('99 TECNOLOGIA') || d.includes('UBER')) return 'APLICATIVO';
+    if (d.includes('VIP SALGADOS') || d.includes('MARMITA')) return 'ALIMENTACAO';
+    if (d.includes('DROGARIA') || d.includes('FARMACIA')) return 'FARMACIA';
+    if (d.includes('FERRO E ACO') || d.includes('FERRAGISTA') || d.includes('MATERIAIS') || d.includes('UNITINTAS')) return 'FABRICA';
+
+    // Busca no JSON: se a mesma descrição já teve categoria válida 2 vezes, usa ela
+    const votos = {};
+    todasDespesas.forEach(x => {
+      const descJson = String(x.Descricao || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+      const catJson = String(x.Categoria || '').trim().toUpperCase();
+
+      if (!catJson || catJson === 'OUTRO') return;
+      if (/^R\$\s*[\d.,]+$/i.test(catJson) || /^[\d.,]+$/.test(catJson)) return;
+
+      if (descJson === d || descJson.includes(d) || d.includes(descJson)) {
+        votos[catJson] = (votos[catJson] || 0) + 1;
+      }
+    });
+
+    const vencedor = Object.entries(votos).sort((a,b) => b[1] - a[1])[0];
+    if (vencedor && vencedor[1] >= 2) return vencedor[0];
+
+    return 'OUTRO';
+  }
+
   function renderizarPreview() {
+    arquivoProcessado = arquivoProcessado.map(item => ({
+      ...item,
+      Categoria: categoriaPorDescricaoUpload(item.Descricao, item.Categoria)
+    }));
     const tbody = document.getElementById('previewBody');
     tbody.innerHTML = arquivoProcessado.map((item, idx) => `
       <tr>
@@ -1353,6 +1488,59 @@
     });
   }
 
+
+  // ✅ DATA DO DOCUMENTO: nunca usar data de upload como data da despesa
+  function parseDataDocumento(dataBruta) {
+    if (dataBruta === null || dataBruta === undefined || String(dataBruta).trim() === '') {
+      return null;
+    }
+
+    // Excel pode mandar data como número serial. Ex: 45322
+    if (typeof dataBruta === 'number' && isFinite(dataBruta)) {
+      const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+      const data = new Date(excelEpoch.getTime() + dataBruta * 86400000);
+      return new Date(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate());
+    }
+
+    let texto = String(dataBruta).trim();
+
+    // Remove horário se vier junto
+    texto = texto.replace(/\s+\d{1,2}:\d{2}(:\d{2})?.*$/, '');
+
+    // Formato brasileiro: 10/03/2026 ou 10-03-2026
+    let m = texto.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+    if (m) {
+      let dia = parseInt(m[1], 10);
+      let mes = parseInt(m[2], 10);
+      let ano = parseInt(m[3], 10);
+      if (ano < 100) ano += 2000;
+      const data = new Date(ano, mes - 1, dia);
+      if (data.getFullYear() === ano && data.getMonth() === mes - 1 && data.getDate() === dia) {
+        return data;
+      }
+      return null;
+    }
+
+    // Formato ISO: 2026-03-10
+    m = texto.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (m) {
+      const ano = parseInt(m[1], 10);
+      const mes = parseInt(m[2], 10);
+      const dia = parseInt(m[3], 10);
+      const data = new Date(ano, mes - 1, dia);
+      if (data.getFullYear() === ano && data.getMonth() === mes - 1 && data.getDate() === dia) {
+        return data;
+      }
+      return null;
+    }
+
+    return null;
+  }
+
+  function formatarDataDocumentoBR(data) {
+    return `${String(data.getDate()).padStart(2, '0')}/${String(data.getMonth() + 1).padStart(2, '0')}/${data.getFullYear()}`;
+  }
+
   async function salvarDespesas() {
     try {
       console.log('💾 Salvando despesas do arquivo...');
@@ -1377,7 +1565,7 @@
           data = new Date(ano, mes - 1, dia);
         }
 
-        const categoria = item.Categoria.trim() || 'OUTRO';
+        const categoria = categoriaFinalUpload(item.Descricao, item.Categoria);
 
         const despesa = {
           Id: Date.now() + Math.random(),
