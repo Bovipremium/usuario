@@ -527,6 +527,25 @@
     atualizarVisualizacao();
   }
 
+
+  // ✅ Usa a data original do documento. DataCadastro fica só para auditoria/upload.
+  function dataOriginalDespesa(d) {
+    return d.Data || d.DataCadastro;
+  }
+
+  function dataParaOrdenacao(d) {
+    const valor = dataOriginalDespesa(d);
+    if (!valor) return new Date(0);
+
+    const texto = String(valor).trim();
+    const m = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) {
+      return new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10));
+    }
+
+    return new Date(texto);
+  }
+
   function atualizarVisualizacao() {
     // Filtrar dados conforme categoria e nome selecionados
     let despesasFiltradas = despesasDoMes;
@@ -583,18 +602,18 @@
 
     // Ordenar por data decrescente
     const despesasOrdenadas = [...despesasFiltradas].sort((a, b) => 
-      new Date(b.DataCadastro) - new Date(a.DataCadastro)
+      dataParaOrdenacao(b) - dataParaOrdenacao(a)
     );
 
     // Renderizar tabela
     const corpoDespesas = document.getElementById('corpoDespesas');
     corpoDespesas.innerHTML = despesasOrdenadas.map((d, idx) => `
       <tr>
-        <td class="data">${formatarData(d.DataCadastro)}</td>
+        <td class="data">${formatarData(dataOriginalDespesa(d))}</td>
         <td class="descricao">${d.Descricao}</td>
         <td class="valor">${formatarMoeda(d.Valor)}</td>
         <td style="text-align: center;">
-          <button class="btn" style="padding: 6px 12px; font-size: 12px;" onclick="mostrarDetalheDespesa('${d.Id}', '${d.Descricao.replace(/'/g, "\\'")}', ${d.Valor}, '${d.DataCadastro}', '${d.Categoria}')">👁️</button>
+          <button class="btn" style="padding: 6px 12px; font-size: 12px;" onclick="mostrarDetalheDespesa('${d.Id}', '${d.Descricao.replace(/'/g, "\\'")}', ${d.Valor}, '${dataOriginalDespesa(d)}', '${d.Categoria}')">👁️</button>
         </td>
       </tr>
     `).join('');
@@ -618,7 +637,7 @@
     // Agrupar por dia
     const dias = {};
     despesas.forEach(d => {
-      const data = formatarData(d.DataCadastro);
+      const data = formatarData(dataOriginalDespesa(d));
       dias[data] = (dias[data] || 0) + (d.Valor || 0);
     });
 
@@ -756,13 +775,36 @@
     `);
   }
 
-  function formatarData(dataString) {
-    try {
-      const data = new Date(dataString);
-      return data.toLocaleDateString('pt-BR');
-    } catch {
-      return dataString;
+  
+  
+  function compararDatas(dataB, dataA) {
+    function parse(v) {
+      if (!v) return new Date(0);
+      const texto = String(v).trim();
+      const m = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+      const d = new Date(texto);
+      return isNaN(d.getTime()) ? new Date(0) : d;
     }
+    return parse(dataB) - parse(dataA);
+  }
+
+  function formatarData(dataString) {
+    if (!dataString) return "";
+
+    const texto = String(dataString).trim();
+
+    // Já está no formato correto do documento: 10/03/2026
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(texto)) {
+      return texto;
+    }
+
+    const data = new Date(texto);
+    if (isNaN(data.getTime())) {
+      return texto || "";
+    }
+
+    return data.toLocaleDateString('pt-BR');
   }
 
   function formatarMoeda(valor) {
