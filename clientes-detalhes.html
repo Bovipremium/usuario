@@ -3821,7 +3821,7 @@ if (!Array.isArray(dados) || dados.length === 0) {
       dados.forEach(d => {
         const valorUnitario = d.valorTotalAtual;
         const totalLinha = d.qtd * valorUnitario;
-        const pesoLinha = d.qtd * d.pesoUnidade;
+        const pesoLinha = d.pesoUnidade;
 
         if (d.tds[idx.valorUn]) d.tds[idx.valorUn].textContent = v4Moeda(valorUnitario);
         if (d.tds[idx.valorTotal]) d.tds[idx.valorTotal].textContent = v4Moeda(totalLinha);
@@ -3830,10 +3830,10 @@ if (!Array.isArray(dados) || dados.length === 0) {
           No Cliente Detalhes, a coluna "Peso (KG)" deve representar o peso total
           daquela linha, porque é leitura da venda, não formulário.
         */
-        if (d.tds[idx.peso]) d.tds[idx.peso].textContent = v4Numero(pesoLinha);
+        if (d.tds[idx.peso]) d.tds[idx.peso].textContent = v4Numero(d.pesoUnidade);
 
         qtdTotal += d.qtd;
-        pesoTotal += pesoLinha;
+        pesoTotal += d.qtd * d.pesoUnidade;
       });
 
       const total = v4LinhaTotal(tabela);
