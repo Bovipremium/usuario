@@ -1161,26 +1161,38 @@ async function carregarClientesDrive() {
     let dados = await response.json();
     console.log("📥 Clientes carregados:", dados);
 
+    if (dados && typeof dados === 'object' && !Array.isArray(dados) && (dados.sucesso === false || dados.success === false || dados.status === 'error')) {
+      throw new Error(dados.mensagem || dados.message || dados.erro || 'API retornou erro ao carregar clientes');
+    }
+
     // Se for string, tenta parsear
     if (typeof dados === 'string') {
       try {
         dados = JSON.parse(dados);
       } catch (e) {
-        dados = [];
+        throw new Error('Resposta invalida ao carregar clientes.json');
       }
     }
 
-    return Array.isArray(dados) ? dados : [];
+    if (!Array.isArray(dados) || dados.length === 0) {
+      throw new Error('clientes.json veio vazio ou em formato invalido');
+    }
+
+    return dados;
 
   } catch (erro) {
     console.error("❌ Erro ao carregar clientes:", erro);
-    return [];
+    throw erro;
   }
 }
 
 // ===== SALVAR CLIENTES NO DRIVE (MESMA FORMA DO ADMIN) =====
 async function salvarClientesDrive(clientes) {
   try {
+    if (!Array.isArray(clientes) || clientes.length < 2) {
+      throw new Error('Salvamento bloqueado: lista de clientes vazia ou pequena demais.');
+    }
+
     const deviceId = localStorage.getItem('deviceId') || 'device-' + Date.now();
     const dadosJson = JSON.stringify(clientes);
 
